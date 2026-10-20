@@ -1,0 +1,43 @@
+{
+  "format_version": 1,
+  "sanitized": true,
+  "source": "AWS PostgreSQL backup",
+  "source_backup_at": "2026-10-20T15:01:25+00:00",
+  "source_backup_sha256": "1c462cb3e8548fdbbf0b6617036396bd118273529fb99f4e7693cbbe32a49813",
+  "generated_at": "2026-10-20T15:56:47.299085+00:00",
+  "source_table_counts": {
+    "marketplace.producers": 61,
+    "onboarding.accounts": 107,
+    "onboarding.agencies": 5,
+    "onboarding.license_confirmations": 359,
+    "onboarding.licenses": 405,
+    "onboarding.producer_licenses": 12,
+    "onboarding.producer_seeds": 65,
+    "onboarding.profiles": 105,
+    "public.pbg_state_documents": 28879
+  },
+  "counts": {
+    "agencies": 5,
+    "agents": 107,
+    "clients": 18476,
+    "licenses": 405,
+    "quotes": 1035,
+    "appointments": 518,
+    "notes": 33736,
+    "source_records": 25530
+  },
+  "password_policy": "All local demo accounts use 123456, stored with scrypt at import",
+  "excluded": [
+    "production credentials and password hashes",
+    "sessions and tokens",
+    "billing and bank details",
+    "SSN and tax identifiers",
+    "original names and contact details",
+    "free text and transcripts",
+    "private media and document URLs",
+    "historical state backups"
+  ],
+  "note": "Business relationships derive from the backup. Identity, medical, financial and free-text values are fictional.",
+  "seed_sha256": "50a4a35054abc8239e11fcf151405bcc70a89a90846dcf2fce4fbb1caf8c8448",
+  "compressed_bytes": 3720533
+}

@@ -1,0 +1,13 @@
+{
+  "name": "pbg-reto",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "test": "node --test --test-concurrency=1 tests/*.test.mjs",
+    "test:ui": "playwright test",
+    "check:data": "node --test tests/data.test.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.0"
+  }
+}
