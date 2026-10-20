@@ -53,13 +53,11 @@ app.get("/health", async (_req, reply) => {
     await pool.query("SELECT 1");
     return { status: "ok", service: "reto-api", database: "ok" };
   } catch {
-    return reply
-      .code(503)
-      .send({
-        status: "unavailable",
-        service: "reto-api",
-        database: "unavailable",
-      });
+    return reply.code(503).send({
+      status: "unavailable",
+      service: "reto-api",
+      database: "unavailable",
+    });
   }
 });
 const dummyHash = await hashPassword(randomBytes(24).toString("hex"));
@@ -93,19 +91,18 @@ app.post<{ Body: { usuario: string; contrasena: string } }>(
       )) ||
       !account
     )
-      return reply
-        .code(401)
-        .send({
-          error: "invalid_credentials",
-          message: "Usuario o contraseña incorrectos.",
-        });
+      return reply.code(401).send({
+        error: "invalid_credentials",
+        message: "Usuario o contraseña incorrectos.",
+      });
     const token = randomBytes(32).toString("base64url");
     const conn = await pool.connect();
     try {
       await conn.query("BEGIN");
-      await conn.query("SELECT id FROM reto.agents WHERE id=$1 FOR UPDATE", [
-        account.id,
-      ]);
+      await conn.query(
+        "SELECT id FROM onboarding.accounts WHERE id=$1 FOR UPDATE",
+        [account.id],
+      );
       await conn.query("DELETE FROM reto.sessions WHERE agent_id=$1", [
         account.id,
       ]);
@@ -141,12 +138,10 @@ app.post<{ Body: { usuario: string; contrasena: string } }>(
 app.get("/auth/me", async (req, reply) => {
   const agent = await currentAgent(req);
   if (!agent)
-    return reply
-      .code(401)
-      .send({
-        error: "unauthorized",
-        message: "Inicia sesión para continuar.",
-      });
+    return reply.code(401).send({
+      error: "unauthorized",
+      message: "Inicia sesión para continuar.",
+    });
   return { agent };
 });
 app.post("/auth/logout", async (req, reply) => {
@@ -165,26 +160,20 @@ app.setErrorHandler((error, req, reply) => {
     code?: string;
   };
   if (problem.validation)
-    return reply
-      .code(400)
-      .send({
-        error: "invalid_request",
-        message: "Revisa los datos enviados.",
-      });
-  if (problem.statusCode === 429)
-    return reply
-      .code(429)
-      .send({
-        error: "too_many_requests",
-        message: "Demasiados intentos. Espera un minuto.",
-      });
-  req.log.error({ code: (error as any).code }, "Request failed");
-  return reply
-    .code(500)
-    .send({
-      error: "internal_error",
-      message: "No fue posible completar la solicitud.",
+    return reply.code(400).send({
+      error: "invalid_request",
+      message: "Revisa los datos enviados.",
     });
+  if (problem.statusCode === 429)
+    return reply.code(429).send({
+      error: "too_many_requests",
+      message: "Demasiados intentos. Espera un minuto.",
+    });
+  req.log.error({ code: (error as any).code }, "Request failed");
+  return reply.code(500).send({
+    error: "internal_error",
+    message: "No fue posible completar la solicitud.",
+  });
 });
 await initializeDatabase();
 const stop = async () => {

@@ -9,12 +9,18 @@ services:
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-5439}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_replica_v2:/var/lib/postgresql/data
+      - ./data/postgres:/seed:ro
+      - ./database/init/10-restore.sh:/docker-entrypoint-initdb.d/10-restore.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -h 127.0.0.1 -U $$POSTGRES_USER -d $$POSTGRES_DB && PGPASSWORD=$$POSTGRES_PASSWORD psql -h 127.0.0.1 -U $$POSTGRES_USER -d $$POSTGRES_DB -Atc 'SELECT 1 FROM onboarding.accounts LIMIT 1' >/dev/null",
+        ]
       interval: 3s
       timeout: 3s
-      retries: 30
+      retries: 120
     restart: unless-stopped
   backend:
     build:
@@ -25,7 +31,6 @@ services:
       APP_ORIGIN: ${APP_ORIGIN:-http://localhost:8088}
       DEMO_PASSWORD: ${DEMO_PASSWORD:-123456}
       SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-8}
-      SEED_FILE: /app/data/seed.json.gz
       PORT: 8000
     ports:
       - "127.0.0.1:${BACKEND_PORT:-8008}:8000"
@@ -62,4 +67,4 @@ services:
       retries: 5
     restart: unless-stopped
 volumes:
-  postgres_data:
+  postgres_replica_v2:

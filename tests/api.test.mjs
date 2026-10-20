@@ -7,6 +7,23 @@ const login = (usuario = "agente001", contrasena = "123456") =>
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ usuario, contrasena }),
   });
+test("recommended agent, administrator and agency owner keep their original roles", async () => {
+  for (const [email, role] of [
+    ["agente099@reto.example", "agent"],
+    ["agente009@reto.example", "admin"],
+    ["agente016@reto.example", "agency_owner"],
+  ]) {
+    const response = await login(email);
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.agent.role, role);
+    if (role === "agency_owner") assert.ok(body.agent.agency_id);
+    await fetch(base + "/auth/logout", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + body.token },
+    });
+  }
+});
 test("health checks the live PostgreSQL connection", async () => {
   const r = await fetch(base + "/health");
   assert.equal(r.status, 200);

@@ -1,0 +1,54 @@
+{
+  "onboarding.accounts": {
+    "fields": [
+      "id",
+      "agency_id",
+      "setter_for_account_id"
+    ],
+    "rows": 107,
+    "sha256": "8a3d0cf8e6c7a26572778b5608c7f19e66da1e3a94a36c5e2eb03f4ae1a6c0b6"
+  },
+  "onboarding.agencies": {
+    "fields": [
+      "id",
+      "owner_account_id"
+    ],
+    "rows": 5,
+    "sha256": "d54df5fa0cdcfccd471fa1568d6246a42b8ecdc0d307691df514d4a8ef37db74"
+  },
+  "onboarding.agency_team_leads": {
+    "fields": [
+      "agency_id",
+      "leader_account_id",
+      "member_account_id"
+    ],
+    "rows": 12,
+    "sha256": "d62c708e1a1639da478aeb3373eaa40665e5eabd47358c08865b61c01b2df4ab"
+  },
+  "analytics.agents": {
+    "fields": [
+      "account_id",
+      "agency_key"
+    ],
+    "rows": 110,
+    "sha256": "1e85a93db361b7ee5925bd67882d52a000fc00a8c8ce2838322999e4b8b4b612"
+  },
+  "analytics.calls": {
+    "fields": [
+      "account_id",
+      "agency_key",
+      "attempt_id"
+    ],
+    "rows": 11910,
+    "sha256": "3078733ee816cd46804e27cad63b4508ec1e37200b5d5cc760952bd22d106eb8"
+  },
+  "analytics.day_rollup": {
+    "fields": [
+      "day_et",
+      "scope",
+      "scope_key"
+    ],
+    "rows": 908,
+    "sha256": "da0d7e6c37bd1fdd6aa0f35298032706ff04976ee9922f0d0681bcf28f2c5374"
+  }
+}

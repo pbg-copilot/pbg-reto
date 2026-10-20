@@ -1,0 +1,644 @@
+[
+  {
+    "id": "6c59549a-179f-4454-ac7b-e1f27fd7803b",
+    "username": "agente001",
+    "email": "agente001@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "cca2d367-ab29-441e-b8fe-9686fd83d978",
+    "username": "agente002",
+    "email": "agente002@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "f112c59a-df4e-4342-ad87-be100ab139e4",
+    "username": "agente003",
+    "email": "agente003@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "e4423cf7-d26f-427a-ba6e-5f03bf904a88",
+    "username": "agente004",
+    "email": "agente004@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "48da74af-89e8-4e08-8940-f0adc49c2409",
+    "username": "agente005",
+    "email": "agente005@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "86065343-f91f-45d0-ad7b-7fd1b532bef5",
+    "username": "agente006",
+    "email": "agente006@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "da8e75cb-3ebb-4e0a-9345-b968afd7a5eb",
+    "username": "agente007",
+    "email": "agente007@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "390985a7-b811-4e68-ac2e-d5dd6e5247ce",
+    "username": "agente008",
+    "email": "agente008@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "bf72e15f-7887-4478-aebc-b5a4a7808118",
+    "username": "agente009",
+    "email": "agente009@reto.example",
+    "role": "admin"
+  },
+  {
+    "id": "460ba6be-ccd5-49dd-ac19-55917154abcd",
+    "username": "agente010",
+    "email": "agente010@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "acdcd574-56d0-4003-acfc-b40f684da107",
+    "username": "agente011",
+    "email": "agente011@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "0dc65dcb-f4aa-4b4d-8fe6-850aa5339341",
+    "username": "agente012",
+    "email": "agente012@reto.example",
+    "role": "appeal_officer"
+  },
+  {
+    "id": "1a5e96b6-ed79-4e7d-be30-19eeb30b01d1",
+    "username": "agente013",
+    "email": "agente013@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "f2028034-0cbc-4eed-9a5d-02df30b756d6",
+    "username": "agente014",
+    "email": "agente014@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "f1a90469-3771-412c-885a-f1e521a04c00",
+    "username": "agente015",
+    "email": "agente015@reto.example",
+    "role": "admin"
+  },
+  {
+    "id": "e8ec1501-fae6-4a90-86ed-dd58d709c633",
+    "username": "agente016",
+    "email": "agente016@reto.example",
+    "role": "agency_owner"
+  },
+  {
+    "id": "5cd427ab-c320-45cf-baf8-9466990fa306",
+    "username": "agente017",
+    "email": "agente017@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "b235d51e-6067-4281-b345-9a0e1e200d16",
+    "username": "agente018",
+    "email": "agente018@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "fff73669-4d4f-4400-b1f0-0c8cfdb6dbc0",
+    "username": "agente019",
+    "email": "agente019@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "8e143086-ea11-42bf-99f5-a7823b49e319",
+    "username": "agente020",
+    "email": "agente020@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "675646a9-2ca3-4e21-9b57-fa0c77adfdf2",
+    "username": "agente021",
+    "email": "agente021@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "b3f3d136-6a01-4f82-9d9c-ae36b22c6dc6",
+    "username": "agente022",
+    "email": "agente022@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "873e6579-c2b0-482b-a3aa-fbf2063022aa",
+    "username": "agente023",
+    "email": "agente023@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "7e7d1325-34fd-4972-9901-6b8dfe8bb039",
+    "username": "agente024",
+    "email": "agente024@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "5d29ee7b-514a-4864-9c11-0ffe2f87a9c9",
+    "username": "agente025",
+    "email": "agente025@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "a5bcbac4-d2d0-46c6-b29b-775d493df7ba",
+    "username": "agente026",
+    "email": "agente026@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "f2522243-2267-454d-8719-de26a3348b3a",
+    "username": "agente027",
+    "email": "agente027@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "782ba435-5228-4905-bff9-3188811858e2",
+    "username": "agente028",
+    "email": "agente028@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "63c74b90-abf0-4b5b-be30-a96cebb2b45a",
+    "username": "agente029",
+    "email": "agente029@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "0007bfec-83fb-4d17-bb3b-23a078fd4d1a",
+    "username": "agente030",
+    "email": "agente030@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "6c43c2e0-ded4-4161-bd21-dedd0c3c259f",
+    "username": "agente031",
+    "email": "agente031@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "489afa60-353a-41ff-9d2a-dae46cc19fa9",
+    "username": "agente032",
+    "email": "agente032@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "d610496a-46fb-4bcb-a406-0a322488a14c",
+    "username": "agente033",
+    "email": "agente033@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "48724b14-c18d-4024-9b7b-4105375a8059",
+    "username": "agente034",
+    "email": "agente034@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "ff636d4c-cded-4cd5-a794-20ac4e40bc64",
+    "username": "agente035",
+    "email": "agente035@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "31ff361d-be44-42ef-98d4-3d413ccfe00e",
+    "username": "agente036",
+    "email": "agente036@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "dec06d30-0158-4ee1-bcad-82605710fe1e",
+    "username": "agente037",
+    "email": "agente037@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "eec2fc28-3d3e-4231-b640-2ce1bbb47153",
+    "username": "agente038",
+    "email": "agente038@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "0335b7d5-2c69-4eab-8a04-d92610069c6f",
+    "username": "agente039",
+    "email": "agente039@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "b24dab06-6cb3-4a39-a8c0-7e9d83996965",
+    "username": "agente040",
+    "email": "agente040@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "ad9a26b7-4b40-4ff5-9547-37fadbd1c9c2",
+    "username": "agente041",
+    "email": "agente041@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "cd6fa506-9be0-4d26-8c3e-8b9ffab2e507",
+    "username": "agente042",
+    "email": "agente042@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "14b2f54b-d8a0-4bf7-a88f-73f5c2224dfc",
+    "username": "agente043",
+    "email": "agente043@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "21c8fdcf-307f-4354-bc01-9dbf142b0421",
+    "username": "agente044",
+    "email": "agente044@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "0cee1d45-a505-496e-a6de-f40aa3848aea",
+    "username": "agente045",
+    "email": "agente045@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "9a58ca0d-8259-49de-9560-181656f464a4",
+    "username": "agente046",
+    "email": "agente046@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "0a28d9a4-f6e1-4082-b027-079a6d0b83e8",
+    "username": "agente047",
+    "email": "agente047@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "8734e236-89b2-471d-9a65-0e179c944ff8",
+    "username": "agente048",
+    "email": "agente048@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "fc8e2198-adf5-4abb-b2f0-b774d012c563",
+    "username": "agente049",
+    "email": "agente049@reto.example",
+    "role": "agency_owner"
+  },
+  {
+    "id": "b0a9248b-6b09-4321-a22a-e0ddf23e3ba3",
+    "username": "agente050",
+    "email": "agente050@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "ba9052d6-c746-4d59-85b8-6960fc9d3560",
+    "username": "agente051",
+    "email": "agente051@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "59b72dff-d41f-49b8-b79f-b547b95402e7",
+    "username": "agente052",
+    "email": "agente052@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "33c52e41-62fc-415a-9238-5e253da93e58",
+    "username": "agente053",
+    "email": "agente053@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "b6198ced-ecb9-4132-bcc0-7716e591b3b2",
+    "username": "agente054",
+    "email": "agente054@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "f3988961-33ec-4d31-9757-0bf5add2ceb4",
+    "username": "agente055",
+    "email": "agente055@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "cd62c510-38cf-4791-8925-4ce8ec9043db",
+    "username": "agente056",
+    "email": "agente056@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "9c04af32-3549-40fe-b59b-efa979259857",
+    "username": "agente057",
+    "email": "agente057@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "e20af678-e1a5-4591-9a3e-bed543edca67",
+    "username": "agente058",
+    "email": "agente058@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "d6bb2ec0-957a-4b80-93a0-db9d5121de0f",
+    "username": "agente059",
+    "email": "agente059@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "f6ca6aba-5652-49c6-b6aa-1c1ce14429fe",
+    "username": "agente060",
+    "email": "agente060@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "46ed5b2f-8ff2-4bb0-ba2d-1b58cc99bbeb",
+    "username": "agente061",
+    "email": "agente061@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "6dd4cf83-4751-449c-be47-4b5d56985b09",
+    "username": "agente062",
+    "email": "agente062@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "c62e50b5-71c8-498b-b3d2-66468f6c1e13",
+    "username": "agente063",
+    "email": "agente063@reto.example",
+    "role": "agency_owner"
+  },
+  {
+    "id": "75171279-8ab7-4a3b-958e-e2d538f4d99e",
+    "username": "agente064",
+    "email": "agente064@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "601d75b5-10ac-4e84-bb93-31ba98377aa1",
+    "username": "agente065",
+    "email": "agente065@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "17ecfbcd-b484-404b-829c-1eece0e91201",
+    "username": "agente066",
+    "email": "agente066@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "7a949480-0633-4e7c-92ed-e6e81aed1b40",
+    "username": "agente067",
+    "email": "agente067@reto.example",
+    "role": "agency_owner"
+  },
+  {
+    "id": "a83a90e1-25ac-4a1d-b6fb-250e82fd4d06",
+    "username": "agente068",
+    "email": "agente068@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "f9074c5e-0dbd-47bb-b3f3-85a957b70a3e",
+    "username": "agente069",
+    "email": "agente069@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "d5f71e93-9940-49cd-ae2d-76541c53f5fa",
+    "username": "agente070",
+    "email": "agente070@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "21696e86-1f7b-4333-8e54-1f43e560a817",
+    "username": "agente071",
+    "email": "agente071@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "6a339b63-72e1-4a4c-b115-33e47e33f151",
+    "username": "agente072",
+    "email": "agente072@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "4e9b6252-fcdf-4cc9-9863-7f86c7c390dc",
+    "username": "agente073",
+    "email": "agente073@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "5a0265e7-4270-417f-b24c-ee7b2721bcbb",
+    "username": "agente074",
+    "email": "agente074@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "56553b00-d3f7-4b27-9870-4082df7a8307",
+    "username": "agente075",
+    "email": "agente075@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "c97f1f50-414c-4829-9619-bb0dc1255193",
+    "username": "agente076",
+    "email": "agente076@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "8dfea97c-a5e3-47d1-8e1a-4d9b0b406a2b",
+    "username": "agente077",
+    "email": "agente077@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "b3462b38-d994-408f-8e1a-81d17be69fd3",
+    "username": "agente078",
+    "email": "agente078@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "ea578e9e-ef15-4592-be2a-07cb17464eae",
+    "username": "agente079",
+    "email": "agente079@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "37ef538b-082f-4620-a9e1-a0460dec6093",
+    "username": "agente080",
+    "email": "agente080@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "df71f782-27ae-443e-acc3-41a43128cb4d",
+    "username": "agente081",
+    "email": "agente081@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "94bb1ccc-72a5-46d1-b600-91eab2c0819f",
+    "username": "agente082",
+    "email": "agente082@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "a2291af2-d3ed-479a-b61a-e172c4e65909",
+    "username": "agente083",
+    "email": "agente083@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "8d3f4465-6eab-4418-95f6-49b666f644cb",
+    "username": "agente084",
+    "email": "agente084@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "4d6fc970-29cf-4e6d-bf01-90c447d1f7b8",
+    "username": "agente085",
+    "email": "agente085@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "daaccbad-a50b-4ef1-8238-d740ae479229",
+    "username": "agente086",
+    "email": "agente086@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "6ced4dc0-edd6-41ea-84af-c4120e4f9ed1",
+    "username": "agente087",
+    "email": "agente087@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "37474c54-b53c-49fe-944a-514ffbd26b50",
+    "username": "agente088",
+    "email": "agente088@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "282a0a28-488e-4c04-9aa2-382e3b5eada8",
+    "username": "agente089",
+    "email": "agente089@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "759eb3d9-533c-4620-9dbb-1311d90c6d6e",
+    "username": "agente090",
+    "email": "agente090@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "a27bb6cd-38af-4a5a-ba47-815d771b4449",
+    "username": "agente091",
+    "email": "agente091@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "f82de3b9-4e60-4f82-afc0-d71c5175e677",
+    "username": "agente092",
+    "email": "agente092@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "084ce990-820e-4218-a1bb-b9bd52846522",
+    "username": "agente093",
+    "email": "agente093@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "f5913f8f-4e18-4a49-82c4-723a1f3579cf",
+    "username": "agente094",
+    "email": "agente094@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "acf78690-f6d2-4ddc-baf2-ccd61de7a568",
+    "username": "agente095",
+    "email": "agente095@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "404a2238-4ef4-4f1b-be2a-816a76646891",
+    "username": "agente096",
+    "email": "agente096@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "508e2fae-e32d-42f2-a250-f0c9369d1e19",
+    "username": "agente097",
+    "email": "agente097@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "402b1341-8bf9-4535-8ee4-aad125d8cd2b",
+    "username": "agente098",
+    "email": "agente098@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "e2c7d0ce-98cf-4bf2-a39b-d445ad169440",
+    "username": "agente099",
+    "email": "agente099@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "12358445-e1e4-4582-bb26-24627ddc4b0b",
+    "username": "agente100",
+    "email": "agente100@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "20c28663-3543-4fed-b37e-bb00ddfd9c59",
+    "username": "agente101",
+    "email": "agente101@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "560fec2f-a5b9-40f2-943b-d5b445d9ede5",
+    "username": "agente102",
+    "email": "agente102@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "6c44044f-078d-4dad-b9c5-37208b925d30",
+    "username": "agente103",
+    "email": "agente103@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "5e0b649a-fec8-41da-8a95-e85b639b17e5",
+    "username": "agente104",
+    "email": "agente104@reto.example",
+    "role": "admin"
+  },
+  {
+    "id": "084b3e89-246c-4a81-8ced-4c485400659f",
+    "username": "agente105",
+    "email": "agente105@reto.example",
+    "role": "admin"
+  },
+  {
+    "id": "492d8792-5e3e-4324-9e85-b3e844af1341",
+    "username": "agente106",
+    "email": "agente106@reto.example",
+    "role": "agent"
+  },
+  {
+    "id": "c680e15b-02e7-4e01-b443-96c76e2035c6",
+    "username": "agente107",
+    "email": "agente107@reto.example",
+    "role": "admin"
+  }
+]

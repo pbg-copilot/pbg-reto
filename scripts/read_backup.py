@@ -15,16 +15,16 @@ def unescape_copy(value):
                   chr(int(m[1], 8)) if m[1][0] in '01234567' else escapes.get(m[1], m[1]), value)
 
 
-def rows_from_backup(path, pg_restore='pg_restore'):
-    tables = ['accounts', 'profiles', 'agencies', 'licenses', 'license_confirmations',
-              'producer_seeds', 'producers', 'producer_licenses', 'pbg_state_documents']
+def rows_from_backup(path, pg_restore='pg_restore', tables=None, on_statement=None):
     args = [pg_restore, '--data-only', '--no-owner', '--no-privileges', '--file=-']
-    args += ['--table=' + name for name in tables]
+    args += ['--table=' + name for name in tables or []]
     args.append(str(path))
     process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     table, columns = None, []
     try:
         for line in process.stdout:
+            if on_statement and line.startswith('SELECT pg_catalog.setval('):
+                on_statement(line)
             if line.startswith('COPY '):
                 match = re.match(r'COPY (\S+) \((.*?)\) FROM stdin;', line)
                 if match:

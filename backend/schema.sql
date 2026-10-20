@@ -1,22 +1,14 @@
+-- Local authentication only. Business tables retain their original schemas.
 CREATE SCHEMA IF NOT EXISTS reto;
 CREATE TABLE IF NOT EXISTS reto.imports (id text PRIMARY KEY, metadata jsonb NOT NULL, loaded_at timestamptz NOT NULL DEFAULT now());
-CREATE TABLE IF NOT EXISTS reto.agencies (id uuid PRIMARY KEY, name text NOT NULL);
-CREATE TABLE IF NOT EXISTS reto.agents (
-  id uuid PRIMARY KEY, agency_id uuid REFERENCES reto.agencies(id), username text NOT NULL UNIQUE,
-  email text NOT NULL UNIQUE, name text NOT NULL, phone text NOT NULL DEFAULT '',
-  role text NOT NULL DEFAULT 'agent', password_hash text NOT NULL, profile jsonb NOT NULL DEFAULT '{}'
-);
-CREATE TABLE IF NOT EXISTS reto.clients (
-  id uuid PRIMARY KEY, agent_id uuid NOT NULL REFERENCES reto.agents(id), agency_id uuid REFERENCES reto.agencies(id),
-  name text NOT NULL, email text NOT NULL, phone text NOT NULL, state text NOT NULL DEFAULT '',
-  stage text NOT NULL DEFAULT 'new', profile jsonb NOT NULL DEFAULT '{}'
-);
-CREATE TABLE IF NOT EXISTS reto.licenses (id uuid PRIMARY KEY, agent_id uuid NOT NULL REFERENCES reto.agents(id), state text NOT NULL, license_number text NOT NULL, details jsonb NOT NULL DEFAULT '{}');
-CREATE TABLE IF NOT EXISTS reto.quotes (id uuid PRIMARY KEY, agent_id uuid NOT NULL REFERENCES reto.agents(id), client_id uuid REFERENCES reto.clients(id), carrier text NOT NULL DEFAULT '', product text NOT NULL DEFAULT '', details jsonb NOT NULL DEFAULT '{}');
-CREATE TABLE IF NOT EXISTS reto.appointments (id uuid PRIMARY KEY, agent_id uuid NOT NULL REFERENCES reto.agents(id), client_id uuid REFERENCES reto.clients(id), details jsonb NOT NULL DEFAULT '{}');
-CREATE TABLE IF NOT EXISTS reto.notes (id uuid PRIMARY KEY, agent_id uuid NOT NULL REFERENCES reto.agents(id), client_id uuid REFERENCES reto.clients(id), details jsonb NOT NULL DEFAULT '{}');
-CREATE TABLE IF NOT EXISTS reto.source_records (source_table text NOT NULL, id uuid NOT NULL, payload jsonb NOT NULL, PRIMARY KEY(source_table,id));
-CREATE TABLE IF NOT EXISTS reto.sessions (token_hash text PRIMARY KEY, agent_id uuid NOT NULL UNIQUE REFERENCES reto.agents(id) ON DELETE CASCADE, created_at timestamptz NOT NULL DEFAULT now(), expires_at timestamptz NOT NULL);
-CREATE INDEX IF NOT EXISTS clients_owner ON reto.clients(agent_id);
-CREATE INDEX IF NOT EXISTS quotes_owner ON reto.quotes(agent_id,client_id);
-CREATE INDEX IF NOT EXISTS appointments_owner ON reto.appointments(agent_id,client_id);
+CREATE TABLE IF NOT EXISTS reto.account_aliases (account_id text PRIMARY KEY REFERENCES onboarding.accounts(id), username text NOT NULL UNIQUE);
+CREATE TABLE IF NOT EXISTS reto.sessions (token_hash text PRIMARY KEY, agent_id text NOT NULL UNIQUE REFERENCES onboarding.accounts(id) ON DELETE CASCADE, created_at timestamptz NOT NULL DEFAULT now(), expires_at timestamptz NOT NULL);
+CREATE OR REPLACE VIEW reto.agencies AS SELECT * FROM onboarding.agencies;
+CREATE OR REPLACE VIEW reto.agents AS
+SELECT a.id, a.agency_id, x.username, a.email,
+       coalesce(nullif(trim(concat_ws(' ', p.first_name, p.middle_name, p.last_name)), ''), a.email) AS name,
+       coalesce(p.agent_phone, '') AS phone, a.role, a.password_hash,
+       coalesce(to_jsonb(p), '{}'::jsonb) AS profile
+FROM onboarding.accounts a
+JOIN reto.account_aliases x ON x.account_id = a.id
+LEFT JOIN onboarding.profiles p ON p.account_id = a.id;

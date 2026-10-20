@@ -11,7 +11,7 @@ WORKDIR /app
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/dist ./dist
 COPY backend/package.json backend/schema.sql ./
-COPY data ./data
+COPY data/manifest.json data/test-users.json data/fidelity.json data/relationships.json ./data/
 USER node
 EXPOSE 8000
 CMD ["node", "dist/server.js"]

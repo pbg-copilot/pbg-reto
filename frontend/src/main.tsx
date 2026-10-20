@@ -248,7 +248,7 @@ function App() {
               </div>
               <div>
                 <span className="eyebrow">ENTORNO</span>
-                <strong>Prueba · Datos ficticios</strong>
+                <strong>Prueba · Copia de PostgreSQL</strong>
               </div>
             </div>
           </section>
@@ -340,7 +340,7 @@ function App() {
           </button>
           <p className="demo-hint">
             <span className="small-square" />
-            Estás en un entorno con datos ficticios.
+            Entorno local de prueba con contactos e IDs sustituidos.
           </p>
         </form>
         <footer className="login-footer">

@@ -1,0 +1,129 @@
+{
+  "onboarding.accounts": {
+    "fields": [
+      "role",
+      "status",
+      "plan_tier",
+      "billing_mode",
+      "subscription_status",
+      "current_period_end",
+      "seat_monthly_cents",
+      "manual_bill_cents",
+      "created_at",
+      "updated_at",
+      "seat_role",
+      "plan_term"
+    ],
+    "rows": 107,
+    "sha256": "dd7c7bbdb7eca40e6677813695f9c5bf7da7fae9723a6139330c51f3f076226c"
+  },
+  "onboarding.agencies": {
+    "fields": [
+      "name",
+      "billing_mode",
+      "status",
+      "seat_limit",
+      "timezone",
+      "created_at",
+      "updated_at"
+    ],
+    "rows": 5,
+    "sha256": "d407c7cfd8d799795d18786024533f6041b00843a45cac9cd5b101e1ed694d98"
+  },
+  "onboarding.profiles": {
+    "fields": [
+      "first_name",
+      "middle_name",
+      "last_name",
+      "npn",
+      "date_of_birth",
+      "address_line1",
+      "address_line2",
+      "address_city",
+      "address_state",
+      "address_zip",
+      "eo_policy_number"
+    ],
+    "rows": 105,
+    "sha256": "15f69d6e2418551d97b09b7a638e8732d64b2acdcd0b4bd1302b53e6fb78277a"
+  },
+  "onboarding.licenses": {
+    "fields": [
+      "state",
+      "license_number",
+      "expiry_date"
+    ],
+    "rows": 405,
+    "sha256": "4c87a0756a39b661d1adba596b5cad283e7a6700e67617189963de03363392af"
+  },
+  "analytics.quotes": {
+    "fields": [
+      "carrier",
+      "product",
+      "face_amount_cents",
+      "monthly_premium_cents",
+      "annual_premium_cents",
+      "created_at",
+      "day_et"
+    ],
+    "rows": 870,
+    "sha256": "b8a8a2ca5b4f436199758d228bfe8945f47a2319e0f1443849e13304c3825564"
+  },
+  "analytics.calls": {
+    "fields": [
+      "direction",
+      "started_at",
+      "talk_seconds",
+      "answered",
+      "hangup_cause",
+      "day_et"
+    ],
+    "rows": 11910,
+    "sha256": "e902cdcdde8ba28ec5b87b8fea83e881d13bbd6f37b33747d5ae1f2442571ce7"
+  },
+  "onboarding.money_events": {
+    "fields": [
+      "family",
+      "kind",
+      "occurred_at",
+      "amount_cents",
+      "currency",
+      "tier",
+      "term",
+      "created_at"
+    ],
+    "rows": 115,
+    "sha256": "63e219113bc015446f79507a66d63436234d3bff01265165f95ff673b58e64df"
+  },
+  "onboarding.usage_events": {
+    "fields": [
+      "kind",
+      "quantity",
+      "unit",
+      "occurred_at",
+      "source",
+      "created_at",
+      "voided_at"
+    ],
+    "rows": 17629,
+    "sha256": "251ba852e6a1969ad0d1b2bb8e9ddba3424c00af3ba882be0592b3f179dd3e9e"
+  },
+  "analytics.day_rollup": {
+    "fields": [
+      "day_et",
+      "scope",
+      "attempts",
+      "clients_reached",
+      "answered",
+      "conversations",
+      "talk_seconds_total",
+      "quotes",
+      "callbacks",
+      "callbacks_forwarded",
+      "disclosure_qualifying",
+      "disclosure_matched"
+    ],
+    "rows": 908,
+    "sha256": "67117aca1e7354b61a4de027ca8bb21933d47504bc9eafbd7c69b4edb5c28b01"
+  }
+}

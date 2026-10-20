@@ -1,0 +1,2 @@
+data/postgres/*.sql.gz -text -diff -delta
+*.sh text eol=lf

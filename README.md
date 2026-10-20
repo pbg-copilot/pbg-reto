@@ -1,26 +1,22 @@
 # RETO
 
-Aplicación inicial del reto: frontend React y TypeScript, API Fastify y TypeScript,
-y PostgreSQL 16. La interfaz conserva la paleta azul petróleo de PBG Copilot,
-usa únicamente la palabra RETO y muestra el nombre del agente conectado. El menú
-de cuenta contiene una sola opción: Logout.
-
-![Login de RETO](docs/screenshots/login.png)
-
-![Sesión del agente y menú Logout](docs/screenshots/home.png)
+Frontend React y TypeScript, API Fastify y TypeScript, y PostgreSQL 16.
+La interfaz usa la paleta azul petróleo, la palabra RETO, el nombre del agente
+conectado y un menú de cuenta que contiene únicamente Logout.
 
 ## Iniciar
 
-Requisitos: Docker Engine o Docker Desktop con Docker Compose v2.
+Requisitos: Docker Desktop o Docker Engine con Compose v2. Ejecutar desde la raíz:
 
 ```sh
 docker compose up -d --build
 ```
 
-El backend crea el esquema y carga automáticamente `data/seed.json.gz` en la primera
-ejecución. La carga es transaccional e idempotente: reiniciar conserva los datos,
-las sesiones y cualquier cambio local. Un volumen nombrado mantiene PostgreSQL.
-No se requiere acceso a AWS para levantar el reto.
+En el primer arranque PostgreSQL verifica los checksums y restaura automáticamente
+los esquemas originales, los registros, índices, constraints, triggers y secuencias
+del respaldo incluido en `data/postgres/`. Después la API prepara la autenticación
+local. No se necesita acceso a AWS. La primera carga requiere varios minutos.
+Los siguientes arranques conservan los datos y cambios locales.
 
 | Servicio | Dirección |
 | --- | --- |
@@ -29,165 +25,159 @@ No se requiere acceso a AWS para levantar el reto.
 | Health | http://localhost:8008/health |
 | PostgreSQL | localhost:5439, base `reto`, usuario `reto`, contraseña `reto_local_only` |
 
-Los puertos están limitados a loopback. `.env.example` permite cambiarlos. Si se
-cambia el puerto web o se usa otro host, actualizar también `APP_ORIGIN`.
+Los puertos se publican solo en loopback. Las opciones están en `.env.example`.
+Si se cambia el puerto web o el host, actualizar también `APP_ORIGIN`.
 
-**Usuario de ejemplo:** `agente001` o `agente001@reto.example`.
-**Contraseña de TODOS los usuarios de prueba:** `123456`, por indicación de Abel.
-Las contraseñas originales y sus hashes nunca se importan. La aplicación almacena
-el hash scrypt de la contraseña local. Estas credenciales son exclusivamente de
-demostración y no corresponden a ninguna cuenta de producción.
+## Usuarios de prueba recomendados
 
-### Usuarios de prueba recomendados
+Todos los usuarios locales usan **`123456`**. Se puede iniciar sesión con el
+correo o con el alias, por ejemplo `agente099`. Los alias y correos se conservan
+entre la primera versión y esta copia completa; los nombres ahora son los del
+respaldo original, según la instrucción de Abel.
 
-Los tres pueden iniciar sesión con el correo indicado y la contraseña `123456`.
+| Perfil | Correo | Rol |
+| --- | --- | --- |
+| Gonzalo Humberto Davila, agente con muchos clientes | `agente099@reto.example` | `agent` |
+| Natalia Sierra Saleh, administradora | `agente009@reto.example` | `admin` |
+| Juan Francisco Gavilanes, dueño de Domani | `agente016@reto.example` | `agency_owner` |
 
-| Perfil | Correo | Nombre | Datos y rol actual en la BD local |
-| --- | --- | --- | --- |
-| Agente con muchos datos | `agente099@reto.example` | Valentina León | Rol `agent`; 1.022 clientes y 6 cotizaciones. |
-| Administrador | `agente009@reto.example` | Elena Luna | Rol `admin`. |
-| Dueño de agencia en el origen | `agente067@reto.example` | Isabel Luna | Agencia Horizonte 02; originalmente `agency_owner`, actualmente `agent` en la copia local. |
+`agente067@reto.example` corresponde a Marlene San Fiel, dueña de San Fiel
+Insurance LLC, y conserva también `agency_owner`. No corresponde a Juan de Domani.
 
-**Pendiente de importación:** el respaldo original contiene cuatro cuentas con rol
-`agency_owner`. El importador actual las convirtió a `agent` y no conservó la
-relación `owner_account_id` de las agencias. Por tanto, la tercera cuenta aún no
-representa un perfil `agency_owner` funcional en el reto; deben conservarse el
-rol y la relación de propiedad para implementar ese acceso correctamente.
+Los cuatro dueños conservan `accounts.role = 'agency_owner'`, `accounts.agency_id`
+y su vínculo en `agencies.owner_account_id`. También se conservan `appeal_officer`,
+`admin`, los roles de asiento y las relaciones de líderes y miembros de equipos.
+`data/test-users.json` enumera los 107 alias, correos, IDs sustituidos y roles.
+La pantalla inicial sigue siendo la base del reto; el dashboard de agencia y los
+reportes se implementarán sobre estos datos.
+
+## Datos y estructura
+
+Esta versión reemplaza el modelo reducido `reto.clients`, las cotizaciones
+simuladas y las identidades ficticias de la entrega inicial. Restaura los
+**esquemas y tablas originales** de PostgreSQL. `data/manifest.json` registra
+la fecha y checksum del respaldo AWS, cada tabla y columna, los conteos originales
+y exportados y los checksums de las partes distribuidas.
+
+El respaldo del 20 de octubre de 2026 contiene 182 tablas y 351.429 registros.
+La copia distribuye 350.217 registros; los 1.212 restantes corresponden a las
+exclusiones de seguridad indicadas abajo.
+
+Incluye cuentas, agencias, perfiles, licencias, clientes, cotizaciones, agenda,
+llamadas, transcripciones, coaching, actividad, facturación, soporte y operaciones.
+Los documentos flexibles conservan su estructura original en columnas JSON/JSONB
+y texto; por ejemplo, los libros de clientes están en
+`public.pbg_state_documents`, como en la base AWS. No se trasladan a un modelo
+inventado ni se sustituye su contenido de negocio por datos simulados.
+
+Por instrucción expresa de Abel se sustituyen **correos, IDs de negocio y teléfonos**.
+El mapeo consistente mantiene sus referencias entre tablas, documentos JSON, claves
+dinámicas y rutas. Los correos usan `reto.example` y los teléfonos el prefijo no
+rutable `+999`. Los enteros técnicos y las claves naturales de calendario se
+conservan; las fechas de negocio mantienen su valor y tipo originales.
+
+**Esta copia contiene datos personales reales:** nombres, direcciones, fechas de
+nacimiento, NPN/licencias, información de solicitudes, notas y transcripciones.
+También conserva importes, fechas, estados y relaciones originales. Debe permanecer
+en el repositorio y entorno de trabajo autorizados.
+
+Se mantienen las tablas de autenticación originales, vacías de sesiones, OTPs,
+restablecimientos y credenciales WebRTC. Tampoco se distribuyen valores originales
+de secretos o hashes de contraseñas. Las contraseñas locales de cuentas, operadores
+y usuarios de operaciones se reemplazan por `123456`, almacenadas con scrypt.
+`public.pbg_import_originals` conserva su estructura pero no sus valores originales.
+Estas excepciones están enumeradas en el manifiesto.
+
+Los payloads cifrados que se pueden abrir con la clave privada disponible se
+procesan y vuelven a cifrar con la clave exclusivamente local de
+`data/local-compliance-key.txt`, manteniendo el formato AES-256-GCM `v1.iv.cipher`.
+Los cifrados históricos cuya clave no está disponible se conservan como bytes
+opacos originales; el manifiesto indica su cantidad. Las claves de producción y
+el mapeo privado nunca se incluyen.
+
+El respaldo de PostgreSQL contiene metadatos y referencias de medios. Los objetos
+binarios de S3/R2 permanecen fuera de esta entrega; sus rutas incluyen los IDs
+sustituidos y no constituyen enlaces funcionales a los documentos de producción.
+
+La fuente es el respaldo AWS indicado en el manifiesto, con su propia fecha de
+corte. No es una sincronización continua de producción. La aplicación del reto no
+se conecta a los servicios de producción ni ejecuta llamadas, correos o cobros.
+
+## Consultar la base
 
 ```sh
-docker compose ps
-docker compose logs backend
-docker compose exec postgres psql -U reto -d reto -c 'SELECT username, name, email FROM reto.agents ORDER BY username;'
-docker compose stop
+docker compose exec postgres psql -U reto -d reto
 ```
+
+```sql
+SELECT a.email, a.role, g.name AS agency, g.owner_account_id = a.id AS owns_agency
+FROM onboarding.accounts a
+LEFT JOIN onboarding.agencies g ON g.id = a.agency_id
+WHERE a.email IN ('agente099@reto.example','agente009@reto.example','agente016@reto.example');
+
+SELECT role, count(*) FROM onboarding.accounts GROUP BY role;
+SELECT path, document FROM public.pbg_state_documents WHERE path LIKE 'leads-store/books/%' LIMIT 3;
+SELECT * FROM analytics.day_rollup ORDER BY day_et DESC LIMIT 10;
+```
+
+El esquema `reto` solo aporta autenticación local: alias, sesiones y registro de
+importación. `reto.agents` y `reto.agencies` son vistas de las tablas originales.
+No son fuentes de datos de negocio independientes.
 
 ## API
 
-### `GET /health`
-
-Consulta PostgreSQL antes de responder. Devuelve 200 con
-`{"status":"ok","service":"reto-api","database":"ok"}` o 503 si la base falla.
-
-### `POST /auth/get-toke`
-
-La ruta conserva exactamente el nombre solicitado, `get-toke`.
+- `GET /health`: comprueba PostgreSQL y responde 200 o 503.
+- `POST /auth/get-toke`: recibe `usuario` y `contrasena`; devuelve `token`,
+  `token_type: Bearer`, `expires_in` y `agent`, con el rol original.
+- `GET /auth/me`: obtiene el agente mediante Bearer o la cookie HttpOnly.
+- `POST /auth/logout`: revoca la sesión y elimina la cookie; devuelve 204.
 
 ```sh
-curl -s http://localhost:8008/auth/get-toke \
+curl http://localhost:8008/auth/get-toke \
   -H 'Content-Type: application/json' \
-  -d '{"usuario":"agente001","contrasena":"123456"}'
+  -d '{"usuario":"agente016@reto.example","contrasena":"123456"}'
 ```
 
-Devuelve `token`, `token_type: "Bearer"`, `expires_in` y `agent`. Usuario acepta
-el alias o el correo ficticio. Las credenciales incorrectas devuelven 401 sin
-indicar si el usuario existe; un cuerpo inválido devuelve 400 y los intentos
-excesivos reciben 429.
+El token es opaco, aleatorio y solo se almacena su SHA256. Hay una sesión activa
+por cuenta; otro login revoca la anterior. Vence a las ocho horas. El frontend
+usa una cookie HttpOnly y SameSite, comprueba la sesión al recargar y no almacena
+tokens en localStorage. Los intentos excesivos reciben 429.
 
-El token es aleatorio y opaco. Solo su SHA256 se guarda en PostgreSQL. Una sesión
-activa por agente; iniciar otra revoca el token previo. Vence a las ocho horas
-por defecto. La expiración se verifica en el servidor.
-
-### `GET /auth/me`
-
-```sh
-curl http://localhost:8008/auth/me -H 'Authorization: Bearer TU_TOKEN'
-```
-
-Devuelve el agente de la sesión. Sin un token válido responde 401. El frontend
-usa la cookie HttpOnly y SameSite que establece el login; no guarda el token en
-localStorage ni sessionStorage. Al abrir o recargar la web comprueba la sesión.
-
-### `POST /auth/logout`
-
-Revoca el token en PostgreSQL y elimina la cookie. Responde 204. Los cambios
-desde un origen de navegador distinto de `APP_ORIGIN` se rechazan.
-
-## Datos incluidos
-
-La semilla deriva del respaldo existente de PostgreSQL de AWS del 20 de octubre
-de 2026, comprobado por SHA256. Esa base AWS es una copia de PBG Copilot con su
-propia fecha de corte, no una réplica continua del origen. `data/manifest.json`
-registra la procedencia, los conteos y el checksum del archivo distribuido.
-
-| Tabla local | Contenido |
-| --- | --- |
-| `reto.agencies` | 5 agencias ficticias |
-| `reto.agents` | 107 usuarios con identidad ficticia y contraseña local |
-| `reto.clients` | 18.476 clientes derivados de los libros vigentes y expedientes |
-| `reto.licenses` | 405 licencias con números `TEST` |
-| `reto.quotes` | 1.035 cotizaciones con importes simulados |
-| `reto.appointments` | 518 entradas de agenda, incluidas tareas |
-| `reto.notes` | 33.736 notas con texto ficticio |
-| `reto.source_records` | 25.530 registros transformados en JSONB para ampliar el reto |
-| `reto.sessions` | Sesiones generadas únicamente en este entorno |
-| `reto.imports` | Registro y procedencia de la carga |
-
-`source_records` contiene representaciones seguras de cuentas, perfiles, agencias,
-licencias, leads, expedientes, cotizaciones y calendarios. No reproduce la totalidad
-de los esquemas operativos: se excluyen autenticación, facturación, integraciones,
-copias históricas y archivos privados. Las tablas normalizadas son el punto de
-partida para implementar los endpoints del reto.
-
-Los IDs son UUID nuevos, derivados mediante un mapeo con clave privada que no se
-distribuye. Las relaciones entre agentes, agencias y clientes se conservan. Los
-correos usan `reto.example`; los teléfonos usan el prefijo deliberadamente no
-rutable `+999`. Las identidades, datos de salud, importes, notas y fechas privadas
-son ficticios. Las cotizaciones se marcan `simulated: true` y no son ofertas reales.
-
-El respaldo original de 341 MiB y el intermedio sin anonimizar permanecen fuera
-del repositorio, en almacenamiento privado. No se incluyen contraseñas, sesiones,
-tokens, identificadores tributarios reales, bancos, archivos S3, grabaciones,
-firmas, fotografías ni URLs privadas. Los datos de producción no se modificaron.
-
-## Pruebas
+## Comprobaciones
 
 ```sh
 npm ci
 npm test
 npx playwright install chromium
 npm run test:ui
+uv run --with cryptography --with pyahocorasick python -m unittest discover -s tests -p 'test_replica.py'
 ```
 
-Los tests de API necesitan Compose activo. Comprueban PostgreSQL, autenticación,
-validación, revocación del token, aislamiento de origen y logout. Los tests de
-navegador comprueban el login, la recarga de sesión, el nombre del agente, el menú
-con una sola opción y la pantalla móvil. `npm run check:data` valida la semilla,
-sus relaciones y la ausencia de formatos de credenciales e identificadores originales.
+Las pruebas comprueban checksums y correos sustituidos, todos los conteos de tablas,
+columnas y tipos, roles y dueños de agencia, contraseñas locales, autenticación,
+revocación, logout y la pantalla móvil. Las pruebas de API y base necesitan Compose.
 
-## Desarrollo
+## Regenerar desde un respaldo privado
+
+Solo el mantenedor necesita `pg_restore`, Python 3.11+, cryptography, pyahocorasick,
+el respaldo original y las claves privadas fuera del repo. Los participantes
+utilizan los archivos ya preparados. El generador no modifica AWS.
 
 ```sh
-cd backend
-npm ci
-npm run build
-cd ../frontend
-npm ci
-npm run build
+uv run --with cryptography --with pyahocorasick python scripts/replica.py \
+  --private-dir "$HOME/.pbg-secrets/reto-import" \
+  --output data/postgres-nueva
 ```
 
-La API vive en `backend/src`, la interfaz en `frontend/src` y los contratos de
-datos locales en `backend/schema.sql`. El backend se entrega como una aplicación
-modular inicial. Esta entrega no contiene llamadas, pagos, envío de mensajes,
-cotizadores externos ni un chat de IA: es la base solicitada para el reto.
+El directorio privado debe contener `source.dump`, `backup-metadata.json`,
+`mapping.key` y `compliance-keys.json` (lista de claves originales base64).
+Revisar privacidad, referencias y manifiesto antes de reemplazar la copia incluida.
+Las partes comprimidas se mantienen por debajo del límite de archivos de GitHub.
+`scripts/fidelity.py` y `scripts/relationships.py` generan las huellas de los
+valores de negocio y sus referencias para las pruebas de restauración.
+`scripts/audit_replica.py` comprueba que los identificadores, teléfonos y secretos
+originales del índice privado no aparezcan en los archivos distribuidos.
 
-## Actualizar los datos, solo por el mantenedor
-
-Los participantes utilizan la semilla incluida y no necesitan credenciales AWS.
-El mantenedor puede regenerarla desde un respaldo privado, usando Python 3.11 o
-superior, boto3 y `pg_restore` compatible con el respaldo:
-
-```sh
-python scripts/download-backup.py --private-dir "$HOME/.pbg-secrets/reto-import"
-python scripts/extract-backup.py \
-  --backup "$HOME/.pbg-secrets/reto-import/source.dump" \
-  --output "$HOME/.pbg-secrets/reto-import/raw.jsonl.gz"
-python scripts/anonymize.py \
-  --private-input "$HOME/.pbg-secrets/reto-import/raw.jsonl.gz" \
-  --mapping-key "$HOME/.pbg-secrets/reto-import/mapping.key" \
-  --backup-metadata "$HOME/.pbg-secrets/reto-import/backup-metadata.json"
-npm run check:data
-```
-
-El descargador comprueba la cuenta PBG y solo lee un respaldo existente en S3.
-Revisar el manifiesto y la privacidad antes de publicar una semilla nueva. Las
-aplicaciones no se conectan a AWS ni a producción al ejecutarse con Compose.
+La copia completa usa un volumen nuevo `postgres_replica_v2`. El volumen anterior
+`pbg-reto_postgres_data` se conserva para recuperación y no se elimina automáticamente.
+No ejecutar `docker compose down -v` si se necesitan conservar cambios locales.

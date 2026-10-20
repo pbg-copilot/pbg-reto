@@ -1,74 +1,80 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { gunzipSync } from "node:zlib";
 import { createHash } from "node:crypto";
-const bytes = readFileSync(new URL("../data/seed.json.gz", import.meta.url));
-const seed = JSON.parse(gunzipSync(bytes));
+import { readFileSync, createReadStream } from "node:fs";
+import { createGunzip } from "node:zlib";
+const root = new URL("../data/", import.meta.url);
 const manifest = JSON.parse(
-  readFileSync(new URL("../data/manifest.json", import.meta.url), "utf8"),
+  readFileSync(new URL("manifest.json", root), "utf8"),
 );
-test("dataset checksum and record counts match the distributed manifest", () => {
-  assert.equal(
-    createHash("sha256").update(bytes).digest("hex"),
-    manifest.seed_sha256,
+test("full replica preserves source table counts except explicit security exclusions", () => {
+  assert.equal(manifest.format_version, 2);
+  assert.equal(manifest.table_count, Object.keys(manifest.table_counts).length);
+  assert.ok(manifest.table_count > 150);
+  for (const [table, count] of Object.entries(manifest.source_table_counts))
+    assert.equal(
+      manifest.table_counts[table],
+      manifest.empty_security_tables.includes(table) ? 0 : count,
+      table,
+    );
+  assert.deepEqual(manifest.role_counts, {
+    agent: 97,
+    admin: 5,
+    appeal_officer: 1,
+    agency_owner: 4,
+  });
+  const aliases = JSON.parse(
+    readFileSync(new URL("test-users.json", root), "utf8"),
   );
-  assert.equal(seed.metadata.sanitized, true);
-  for (const [table, count] of Object.entries(manifest.counts))
-    assert.equal(seed[table].length, count, table);
-  assert.ok(seed.clients.length > 0);
-  assert.ok(seed.agents.length > 0);
+  assert.equal(
+    aliases.find((a) => a.email === "agente067@reto.example").role,
+    "agency_owner",
+  );
+  assert.equal(aliases.length, 107);
 });
-test("all identities and references use synthetic identifiers", () => {
-  const uuid =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-  const agents = new Set(seed.agents.map((a) => a.id)),
-    clients = new Map(seed.clients.map((c) => [c.id, c]));
-  const agencies = new Set(seed.agencies.map((a) => a.id));
-  for (const a of seed.agents) {
-    assert.match(a.id, uuid);
-    assert.match(a.email, /@reto\.example$/);
-    assert.match(a.phone, /^\+999000\d{9}$/);
-    assert.ok(!a.agency_id || agencies.has(a.agency_id));
-    assert.equal(a.password_hash, undefined);
-  }
-  for (const c of seed.clients) {
-    assert.match(c.id, uuid);
-    assert.ok(agents.has(c.agent_id));
-    assert.ok(!c.agency_id || agencies.has(c.agency_id));
-    assert.match(c.email, /@reto\.example$/);
-    assert.match(c.phone, /^\+999000\d{9}$/);
-  }
-  for (const table of ["quotes", "appointments", "notes"])
-    for (const r of seed[table]) {
-      assert.match(r.id, uuid);
-      assert.ok(agents.has(r.agent_id));
-      if (r.client_id) {
-        assert.ok(clients.has(r.client_id));
-        assert.equal(clients.get(r.client_id).agent_id, r.agent_id);
+test("every distributed SQL shard matches its checksum and contains only test emails", async () => {
+  for (const file of manifest.files) {
+    assert.ok(file.bytes < 95 * 1024 * 1024, "GitHub-compatible shard size");
+    const hash = createHash("sha256");
+    for await (const part of createReadStream(new URL(file.path, root)))
+      hash.update(part);
+    assert.equal(hash.digest("hex"), file.sha256, file.path);
+    const stream = createReadStream(new URL(file.path, root)).pipe(
+      createGunzip(),
+    );
+    const decoder = new TextDecoder();
+    let tail = "";
+    for await (const part of stream) {
+      const text = tail + decoder.decode(part, { stream: true });
+      const matches = text.includes("@")
+        ? [
+            ...text.matchAll(
+              /(?<![A-Za-z0-9._%+\-])[A-Za-z0-9._%+\-]{1,128}@[A-Za-z0-9.-]{1,255}\.[A-Za-z]{2,}/g,
+            ),
+          ]
+        : [];
+      for (const match of matches) {
+        if (match.index + match[0].length > text.length - 256) continue;
+        assert.ok(
+          match[0].endsWith("@reto.example"),
+          "Only masked email addresses may be exported",
+        );
       }
+      assert.equal(
+        /(?:AKIA|ASIA)[A-Z0-9]{16}|ghp_[A-Za-z0-9]{20,}|sk_live_[A-Za-z0-9]{15,}/.test(
+          text,
+        ),
+        false,
+        "No production credentials",
+      );
+      tail = text.slice(-512);
     }
-  for (const l of seed.licenses) {
-    assert.ok(agents.has(l.agent_id));
-    assert.match(l.license_number, /^TEST-/);
+    for (const match of tail.matchAll(
+      /(?<![A-Za-z0-9._%+\-])[A-Za-z0-9._%+\-]{1,128}@[A-Za-z0-9.-]{1,255}\.[A-Za-z]{2,}/g,
+    ))
+      assert.ok(
+        match[0].endsWith("@reto.example"),
+        "Only masked email addresses may be exported",
+      );
   }
-});
-test("the exported payload has no production credentials, links, media or free text", () => {
-  const raw = gunzipSync(bytes).toString();
-  for (const pattern of [
-    /sk-ant-[a-zA-Z0-9_-]{15,}/,
-    /AKIA[0-9A-Z]{16}/,
-    /postgres(?:ql)?:\/\//,
-    /https?:\/\//,
-    /acct_[0-9a-f]{8,}/,
-    /\bL\d{9,15}\b/,
-    /\b\d{3}-\d{2}-\d{4}\b/,
-  ])
-    assert.equal(pattern.test(raw), false, String(pattern));
-  for (const r of seed.source_records) {
-    assert.equal(r.payload.password_hash, undefined);
-    assert.equal(r.payload.token, undefined);
-    assert.equal(r.payload.r2_key, undefined);
-  }
-  for (const q of seed.quotes) assert.equal(q.details.simulated, true);
 });
