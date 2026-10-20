@@ -38,6 +38,22 @@ Las contraseñas originales y sus hashes nunca se importan. La aplicación almac
 el hash scrypt de la contraseña local. Estas credenciales son exclusivamente de
 demostración y no corresponden a ninguna cuenta de producción.
 
+### Usuarios de prueba recomendados
+
+Los tres pueden iniciar sesión con el correo indicado y la contraseña `123456`.
+
+| Perfil | Correo | Nombre | Datos y rol actual en la BD local |
+| --- | --- | --- | --- |
+| Agente con muchos datos | `agente099@reto.example` | Valentina León | Rol `agent`; 1.022 clientes y 6 cotizaciones. |
+| Administrador | `agente009@reto.example` | Elena Luna | Rol `admin`. |
+| Dueño de agencia en el origen | `agente067@reto.example` | Isabel Luna | Agencia Horizonte 02; originalmente `agency_owner`, actualmente `agent` en la copia local. |
+
+**Pendiente de importación:** el respaldo original contiene cuatro cuentas con rol
+`agency_owner`. El importador actual las convirtió a `agent` y no conservó la
+relación `owner_account_id` de las agencias. Por tanto, la tercera cuenta aún no
+representa un perfil `agency_owner` funcional en el reto; deben conservarse el
+rol y la relación de propiedad para implementar ese acceso correctamente.
+
 ```sh
 docker compose ps
 docker compose logs backend
