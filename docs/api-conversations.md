@@ -165,6 +165,42 @@ conversación se bloquea mientras se inserta el mensaje y se actualiza
 `updated_at`; si falla la operación, ambas escrituras se revierten. No se
 admiten mensajes en conversaciones archivadas (`409`).
 
+## `GET /api/assistant/status`
+
+Indica si la integración opcional está habilitada para la sesión autenticada.
+No entrega la URL ni la clave del proveedor. El asistente se habilita solo si
+`LLM_PROVIDER=openai-compatible`, `LLM_BASE_URL`, `LLM_MODEL`, `LLM_API_KEY` y
+`LLM_EXTERNAL_DATA_AUTHORIZED=true` están configurados. El valor predeterminado
+es deshabilitado.
+
+## `POST /api/conversations/:conversationId/assistant`
+
+Recibe `{ "content": "..." }` (máximo 4.000 caracteres). Revalida dentro de
+PostgreSQL la sesión, propiedad de conversación, cliente activo y alcance. El
+backend obtiene el perfil autorizado (`name`, `email`, `phone`, `stage`, ruta e
+ID de registro) y hasta 50 cotizaciones asociadas por coincidencia exacta de
+cliente/cuenta (`carrier`, `product`, importes registrados, fecha e ID de
+fuente). Envía al proveedor solo esos campos, las limitaciones/faltantes
+derivados por el backend y la pregunta del usuario. No envía notas, citas,
+datos de otros clientes, credenciales ni historial; no pasa herramientas ni
+acceso al repositorio/base de datos al modelo. El prompt le limita a redactar
+evidencia y faltantes; el backend agrega a la respuesta los IDs de las fuentes
+consultadas.
+
+Antes de enviar los datos al proveedor, el backend vuelve a validar sesión,
+alcance y cliente activo, y usa la evidencia de esa lectura. Luego valida otra
+vez el contexto antes de persistir. Si cambia el cliente, se rechaza la
+respuesta. Un proveedor deshabilitado devuelve `503 assistant_unavailable`; una
+falla o respuesta inválida devuelve `502 assistant_provider_error` y no guarda
+ninguno de los dos mensajes. El endpoint limita a 10 solicitudes por minuto.
+El modelo no ejecuta acciones de negocio ni produce decisiones comerciales.
+
+La autorización de transmisión de datos personales es una configuración de
+despliegue explícita (`LLM_EXTERNAL_DATA_AUTHORIZED=true`), que requiere
+aprobación específica del responsable de datos. La aplicación no activa ni
+presupone ese consentimiento. El modo predeterminado es determinista y no hace
+llamadas externas.
+
 ## `GET /api/conversations/:conversationId/client`
 
 Devuelve el perfil proyectado del cliente activo en la conversación, notas con

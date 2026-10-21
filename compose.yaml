@@ -31,6 +31,11 @@ services:
       APP_ORIGIN: ${APP_ORIGIN:-http://localhost:8088}
       DEMO_PASSWORD: ${DEMO_PASSWORD:-123456}
       SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-8}
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai-compatible}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_EXTERNAL_DATA_AUTHORIZED: ${LLM_EXTERNAL_DATA_AUTHORIZED:-false}
       PORT: 8000
     ports:
       - "127.0.0.1:${BACKEND_PORT:-8008}:8000"

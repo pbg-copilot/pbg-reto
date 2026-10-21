@@ -111,7 +111,7 @@ Esta especificación separa los requisitos de `Reto_Chat_PBG.pdf` de las decisio
 3. Resumen de perfil y cotizaciones con fuentes y faltantes.
 4. Agenda transaccional con confirmación, zona horaria, bloqueo de solapamientos, idempotencia y auditoría.
 5. Manejo de errores y demo reproducible con datos locales autorizados.
-6. Integrar IA solo si aporta valor sin debilitar las garantías anteriores.
+6. La IA opcional redacta únicamente el perfil y las cotizaciones recuperados y autorizados por backend; no recibe herramientas, no tiene acceso directo al almacenamiento y no toma decisiones comerciales. Su proveedor/modelo se configura con variables de entorno y la transmisión de datos personales permanece deshabilitada salvo autorización específica del responsable de datos.
 
 ## 6. Verificación manual de extremo a extremo
 
@@ -134,4 +134,4 @@ La demo no se conecta a producción ni ejecuta llamadas, correos o cobros.
 - Confirmar la fuente autorizada para asignaciones múltiples/vigentes; el esquema actual solo refleja un rol/agencia actual.
 - Confirmar reglas de opciones, responsable y vigencia. Sin reglas verificables no se emiten recomendaciones automáticas.
 - Confirmar horarios laborales, duración por tipo de cita y políticas de cancelación/modificación.
-- Declarar reglas comerciales no disponibles; mostrar los campos de cotización como valores analíticos almacenados, sin afirmar emisión, vigencia, cobertura o aprobación. Documentar medios binarios externos ausentes y funciones de IA no implementadas/validadas.
+- Declarar reglas comerciales no disponibles; mostrar los campos de cotización como valores analíticos almacenados, sin afirmar emisión, vigencia, cobertura o aprobación. La redacción de IA es opcional y depende de un proveedor compatible configurado; una falla produce un error controlado. Documentar medios binarios externos ausentes.
