@@ -191,9 +191,9 @@ admiten mensajes en conversaciones archivadas (`409`).
 ## `POST /api/conversations/:conversationId/appointment-chat`
 
 Guarda una intervención del usuario y una respuesta conversacional determinista
-para el flujo de creación de citas. La respuesta solo puede ser una de las
+para el flujo de creación y consulta de citas. La respuesta solo puede ser una de las
 plantillas permitidas (`request_details`, `invalid_details`, `review`,
-`repeat_confirmation`, `created`, `conflict`, `cancelled`); el servidor arma
+`repeat_confirmation`, `created`, `conflict`, `cancelled`, `appointments_list`); el servidor arma
 las confirmaciones y resultados usando datos de la cita y del cliente activo,
 nunca texto de asistente arbitrario proporcionado por el navegador. `review`
 requiere una confirmación pendiente propia; `created` requiere una cita
@@ -219,6 +219,11 @@ la etapa del flujo en PostgreSQL para retomarlo al recargar o volver al chat.
 etapa activa (`idle`, `details` o `confirmation`) para el cliente actualmente
 seleccionado. Si hay una confirmación pendiente, la respuesta incluye su
 referencia para que el mismo intento idempotente se pueda reanudar.
+
+Una solicitud `appointments_list` consulta citas confirmadas del cliente activo
+en PostgreSQL, limitada por la autorización del agente responsable. No depende
+del proveedor de IA ni incluye citas en la evidencia que se envía a ese proveedor.
+Las preguntas como “lista las citas” se responden con esos registros autorizados.
 
 En el chat, “Agendar cita” inicia la solicitud. Se espera una fecha y hora
 local en formato `AAAA-MM-DD HH:mm` o `DD/MM/AAAA HH:mm`; la zona por defecto es `America/Bogota` y

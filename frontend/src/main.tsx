@@ -83,7 +83,7 @@ type AppointmentMutationResult = {
   appointment: Appointment;
   idempotent_replay?: boolean;
 };
-type AppointmentChatKind = "request_details" | "invalid_details" | "review" | "repeat_confirmation" | "created" | "conflict" | "cancelled";
+type AppointmentChatKind = "request_details" | "invalid_details" | "review" | "repeat_confirmation" | "created" | "conflict" | "cancelled" | "appointments_list";
 type AppointmentChatStage = "idle" | "details" | "confirmation";
 class ApiError extends Error {
   constructor(message: string, readonly status: number, readonly code: string) { super(message); }
@@ -91,6 +91,7 @@ class ApiError extends Error {
 const dateLabel = (value?: string | null) => value ? new Date(value).toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" }) : "Fecha no disponible";
 const appointmentDateLabel = (appointment: Appointment) => new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeZone: appointment.time_zone }).format(new Date(appointment.start_at));
 const isCreateAppointmentRequest = (value: string) => /\b(?:agendar|agenda|programar|reservar|crear)\b.{0,70}\bcita\b/i.test(value) || /\b(?:quiero|necesito|puedes|podr[ií]as)\s+(?:agendar|programar|reservar|crear)\b.{0,50}\bcita\b/i.test(value);
+const isAppointmentListRequest = (value: string) => /\b(?:lista|listar|liste|muestra|mostrar|mu[eé]strame|ver|consulta|consultar|dime|indica)\b.{0,60}\b(?:citas?|agenda)\b/i.test(value) || /\b(?:citas?|agenda)\b.{0,50}\b(?:tengo|hay|existe|agendada|programada|confirmada|confirmadas)\b/i.test(value) || /\b(?:tengo|hay|existe)\b.{0,40}\b(?:citas?|agenda)\b/i.test(value);
 function parseAppointmentDetails(value: string) {
   const match = value.match(/\b(\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{4})[ T](\d{1,2}:\d{2})(?:\s*(a\.?m\.?|p\.?m\.?))?/i);
   if (!match) return null;
@@ -392,12 +393,13 @@ function App() {
   }
   async function handleAppointmentChat(content: string) {
     const starting = appointmentChatStage === "idle" && isCreateAppointmentRequest(content);
-    if (!starting && appointmentChatStage === "idle") return false;
+    const listing = appointmentChatStage === "idle" && isAppointmentListRequest(content);
+    if (!starting && !listing && appointmentChatStage === "idle") return false;
     const conversationId = activeConversationId;
     const requestId = contextRequest.current;
     const client = activeClient;
     if (!conversationId || !client) return true;
-    if (agent?.role !== "agent") {
+    if (starting && agent?.role !== "agent") {
       setConversationError("La creación de citas por chat está disponible para cuentas de agente.");
       return true;
     }
@@ -412,7 +414,18 @@ function App() {
         return true;
       }
 
+      if (listing) {
+        await sendAppointmentChatTurn(conversationId, requestId, client, content, "appointments_list");
+        return true;
+      }
+
       if (appointmentChatStage === "details") {
+        if (agent?.role !== "agent") {
+          setConversationError("La creación de citas por chat está disponible para cuentas de agente.");
+          setAppointmentChatStage("idle");
+          return true;
+        }
+        const appointmentAgentId = agent.id;
         if (/^(cancelar|cancel|olvidalo|olvídalo)\b/i.test(content.trim())) {
           await sendAppointmentChatTurn(conversationId, requestId, client, content, "cancelled");
           if (requestId === contextRequest.current) setAppointmentChatStage("idle");
@@ -428,7 +441,7 @@ function App() {
         try {
           prepared = await api<{ confirmation: AppointmentConfirmation }>(`/api/conversations/${conversationId}/appointments/confirm`, {
             method: "POST",
-            body: JSON.stringify({ action: "create", agentAccountId: agent.id, localStart: details.localStart, durationMinutes: details.durationMinutes, timeZone: details.timeZone }),
+            body: JSON.stringify({ action: "create", agentAccountId: appointmentAgentId, localStart: details.localStart, durationMinutes: details.durationMinutes, timeZone: details.timeZone }),
           });
         } catch (error) {
           if (error instanceof ApiError && (error.status === 400 || error.status === 409) && error.code !== "context_changed") {
@@ -833,7 +846,7 @@ function App() {
               {clientSearchLoading && <p className="search-hint">Buscando dentro de tu alcance…</p>}{clientError && <div className="inline-error" role="alert">{clientError}</div>}{clientQuery.trim().length > 0 && clientQuery.trim().length < 2 && <p className="search-hint">Escribe al menos 2 caracteres.</p>}{clientResults.length > 0 && <div className="client-results" role="listbox" aria-label="Resultados de clientes">{clientResults.map((client) => <button key={`${client.document_path}#${client.client_record_id}`} role="option" aria-selected={activeClient?.client_record_id === client.client_record_id && activeClient?.document_path === client.document_path} onClick={async () => { const conversationId = activeConversationId; if (!conversationId) return; const requestId = ++contextRequest.current; searchRequest.current += 1; appointmentRequest.current += 1; setDetailLoading(true); setClientError(""); setClientQuery(""); setClientResults([]); try { await api(`/api/conversations/${conversationId}/client`, { method: "POST", body: JSON.stringify({ documentPath: client.document_path, clientRecordId: client.client_record_id }) }); if (requestId === contextRequest.current && conversationId === activeConversationRef.current) { setDetailError(""); setAppointmentError(""); setAppointmentConflict(false); setAppointmentBusy(false); setAppointmentAction("create"); setSelectedAppointmentId(""); setAppointmentDate(""); setAppointmentTime(""); setAppointments([]); setPendingAppointment(null); setAppointmentChatStage("idle"); setAppointmentResult(null); setQuotes(null); setProfile(null); setMessageDraft(""); setActiveClient(client); setMessages([]); setMessagesHasMore(false); setMessagesCursor(null); await reloadConversationHistory(conversationId, requestId); setConversations((current) => current.map((item) => item.id === conversationId ? { ...item, active_client_path: client.document_path, active_client_record_id: client.client_record_id } : item)); await Promise.all([loadProfile(conversationId, requestId), loadAppointments(conversationId, requestId)]); } } catch (e) { if (requestId === contextRequest.current) { if (!(e instanceof ApiError && e.status === 401)) setClientError(e instanceof Error ? e.message : "No se pudo seleccionar el cliente."); } } finally { if (requestId === contextRequest.current) setDetailLoading(false); } }}><strong>{client.name || "Sin nombre"}</strong><small>{client.email || "Correo no disponible"}</small><span className="result-stage">{client.stage || "Etapa no disponible"}</span></button>)}</div>}{clientQuery.trim().length >= 2 && !clientSearchLoading && !clientError && clientResults.length === 0 && <p className="search-hint">No encontramos clientes dentro de tu alcance.</p>}
             </div>
               {activeClient && <div className="panel-section lookup-actions"><span className="eyebrow teal">CONSULTAS DETERMINISTAS</span><div className="action-buttons"><button onClick={() => activeConversationId && void loadProfile(activeConversationId)} disabled={detailLoading || !activeConversationId}>Ver expediente</button><button onClick={async () => { const conversationId = activeConversationId; if (!conversationId) return; const requestId = ++contextRequest.current; setDetailLoading(true); setDetailError(""); setProfile(null); setQuotes(null); try { const response = await api<QuoteResponse>(`/api/conversations/${conversationId}/quotes`); if (requestId === contextRequest.current && conversationId === activeConversationRef.current) setQuotes(response); } catch (e) { if (requestId === contextRequest.current && !(e instanceof ApiError && e.status === 401)) setDetailError(e instanceof Error ? e.message : "No se pudieron consultar las cotizaciones."); } finally { if (requestId === contextRequest.current) setDetailLoading(false); } }} disabled={detailLoading || !activeConversationId}>Ver cotizaciones</button></div><p className="search-hint">Solo se muestran los datos autorizados y la información faltante.</p></div>}
-            {activeClient && agent.role === "agent" && <div className="panel-section appointment-section">
+            {activeClient && agent?.role === "agent" && <div className="panel-section appointment-section">
               <span className="eyebrow teal">AGENDA</span><h3>Gestionar cita</h3>
               {appointmentsLoading && <p className="search-hint">Cargando citas de este cliente…</p>}
               {appointmentsError && <div className="inline-error" role="alert">{appointmentsError}<button onClick={() => activeConversationId && void loadAppointments(activeConversationId)}>Volver a cargar citas</button></div>}

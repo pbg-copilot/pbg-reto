@@ -1476,13 +1476,11 @@ app.get<{ Params: { conversationId: string } }>(
                   to_char(local_start, 'YYYY-MM-DD"T"HH24:MI:SS') AS local_start,
                   start_utc_offset_minutes, status
              FROM reto.chat_appointments
-            WHERE conversation_id = $1
-              AND client_document_path = $2
-              AND client_record_id = $3
+            WHERE client_document_path = $1
+              AND client_record_id = $2
               AND status = 'confirmed'
             ORDER BY start_at, id`,
           [
-            conversation.id,
             conversation.active_client_path,
             conversation.active_client_record_id,
           ],
@@ -2384,7 +2382,7 @@ app.post<{
   Params: { conversationId: string };
   Body: {
     content: string;
-    kind: "request_details" | "invalid_details" | "review" | "repeat_confirmation" | "created" | "conflict" | "cancelled";
+    kind: "request_details" | "invalid_details" | "review" | "repeat_confirmation" | "created" | "conflict" | "cancelled" | "appointments_list";
     expectedClientPath: string;
     expectedClientRecordId: string;
     confirmationId?: string;
@@ -2406,7 +2404,7 @@ app.post<{
         required: ["content", "kind", "expectedClientPath", "expectedClientRecordId"],
         properties: {
           content: { type: "string", minLength: 1, maxLength: 4000 },
-          kind: { type: "string", enum: ["request_details", "invalid_details", "review", "repeat_confirmation", "created", "conflict", "cancelled"] },
+          kind: { type: "string", enum: ["request_details", "invalid_details", "review", "repeat_confirmation", "created", "conflict", "cancelled", "appointments_list"] },
           expectedClientPath: { type: "string", minLength: 1, maxLength: 1000 },
           expectedClientRecordId: { type: "string", minLength: 1, maxLength: 200 },
           confirmationId: { type: "string", format: "uuid" },
@@ -2428,7 +2426,7 @@ app.post<{
       pool, digest(tokenOf(req)), req.params.conversationId,
       async (client, conversation, principal) => {
         if (conversation.status !== "active") return { state: "archived" as const };
-        if (principal.role !== "agent") return { state: "agent_only" as const };
+        if (principal.role !== "agent" && req.body.kind !== "appointments_list") return { state: "agent_only" as const };
         if (!conversation.active_client_path || !conversation.active_client_record_id)
           return { state: "client_not_selected" as const };
         if (conversation.active_client_path !== req.body.expectedClientPath ||
@@ -2500,6 +2498,25 @@ app.post<{
           if (!appointment || !(await isAuthorizedAppointmentAgent(client, principal, appointment.agent_account_id)))
             return { state: "appointment_not_found" as const };
           response = `La cita quedó guardada en la agenda.\nCliente: ${profile.name || "Cliente activo"}\nAgente: ${agentName}\nFecha y hora: ${String(appointment.local_start).replace("T", " ")}\nDuración: ${appointment.duration_minutes} minutos\nZona horaria: ${appointment.time_zone}.`;
+        } else if (req.body.kind === "appointments_list") {
+          const { rows } = await client.query(
+            `SELECT id, agent_account_id, local_start, time_zone,
+                    extract(epoch FROM (end_at - start_at))::int / 60 AS duration_minutes
+               FROM reto.chat_appointments
+              WHERE client_document_path = $1
+                AND client_record_id = $2
+                AND status = 'confirmed'
+              ORDER BY start_at, id`,
+            [conversation.active_client_path, conversation.active_client_record_id],
+          );
+          const appointments = [];
+          for (const appointment of rows) {
+            if (await isAuthorizedAppointmentAgent(client, principal, appointment.agent_account_id))
+              appointments.push(appointment);
+          }
+          response = appointments.length
+            ? `Estas son las citas confirmadas del cliente activo:\n${appointments.map((appointment: { local_start: string; duration_minutes: number; time_zone: string }) => `• ${String(appointment.local_start).replace("T", " ")} · ${appointment.duration_minutes} minutos · ${appointment.time_zone}`).join("\n")}`
+            : "No hay citas confirmadas para el cliente activo.";
         }
 
         if (req.body.kind === "request_details" || req.body.kind === "invalid_details" || req.body.kind === "conflict") {

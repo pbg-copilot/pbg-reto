@@ -38,6 +38,7 @@ La interfaz permite consultar perfil y cotizaciones sin proveedor de IA. Para re
 2. Envía una fecha futura y hora local en formato `AAAA-MM-DD HH:mm` o `DD/MM/AAAA HH:mm`, por ejemplo `2026-10-25 15:00` o `25/10/2026 15:00, 45 minutos`. Si no indicas duración, se usan 30 minutos; la zona predeterminada es `America/Bogota`.
 3. Revisa el mensaje de confirmación con cliente, agente, fecha, hora, duración y zona. Responde **Confirmar** para guardar, o **Cancelar** para descartar.
 4. Confirma en el panel de agenda y en las tablas SQL que la cita quedó guardada como `confirmed` y que existe su acción de auditoría.
+5. Pregunta en el chat **Lista las citas del cliente**. Debe mostrar las citas confirmadas del cliente activo con fecha, duración y zona horaria, sin requerir que la IA externa esté habilitada.
 
 ### 3. Cita confirmada desde el panel
 
