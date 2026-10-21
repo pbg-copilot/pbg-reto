@@ -32,6 +32,7 @@ Esta especificación separa los requisitos de `Reto_Chat_PBG.pdf` de las decisio
 ### Agenda
 
 - Consultar, crear, modificar y cancelar citas mediante la API autenticada.
+- Permitir iniciar la creación de citas desde el chat con recopilación determinista de fecha, hora, duración y zona horaria, y respuestas persistidas en el historial.
 - Antes de guardar, pedir confirmación explícita de cliente, agente, fecha, hora, duración y zona horaria.
 - La confirmación corresponde a esos valores exactos; cualquier cambio requiere nueva confirmación.
 - Convertir la hora local usando la zona IANA elegida. Persistir `start_at`/`end_at` como instantes `timestamptz`, junto con el identificador IANA; opcionalmente conservar hora local y offset resuelto para reconstruir la solicitud.

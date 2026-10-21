@@ -83,11 +83,42 @@ type AppointmentMutationResult = {
   appointment: Appointment;
   idempotent_replay?: boolean;
 };
+type AppointmentChatKind = "request_details" | "invalid_details" | "review" | "repeat_confirmation" | "created" | "conflict" | "cancelled";
+type AppointmentChatStage = "idle" | "details" | "confirmation";
 class ApiError extends Error {
   constructor(message: string, readonly status: number, readonly code: string) { super(message); }
 }
 const dateLabel = (value?: string | null) => value ? new Date(value).toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" }) : "Fecha no disponible";
 const appointmentDateLabel = (appointment: Appointment) => new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeZone: appointment.time_zone }).format(new Date(appointment.start_at));
+const isCreateAppointmentRequest = (value: string) => /\b(?:agendar|agenda|programar|reservar|crear)\b.{0,70}\bcita\b/i.test(value) || /\b(?:quiero|necesito|puedes|podr[ií]as)\s+(?:agendar|programar|reservar|crear)\b.{0,50}\bcita\b/i.test(value);
+function parseAppointmentDetails(value: string) {
+  const match = value.match(/\b(\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{4})[ T](\d{1,2}:\d{2})(?:\s*(a\.?m\.?|p\.?m\.?))?/i);
+  if (!match) return null;
+  const [, rawDate, rawTime, meridiem] = match;
+  let date = rawDate;
+  if (rawDate.includes("/")) {
+    const [day, month, year] = rawDate.split("/").map(Number);
+    date = `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  }
+  const [year, month, day] = date.split("-").map(Number);
+  const calendarDate = new Date(0);
+  calendarDate.setUTCHours(0, 0, 0, 0);
+  calendarDate.setUTCFullYear(year, month - 1, day);
+  if (calendarDate.getUTCFullYear() !== year || calendarDate.getUTCMonth() !== month - 1 || calendarDate.getUTCDate() !== day) return null;
+  let [hour, minute] = rawTime.split(":").map(Number);
+  if (minute > 59 || hour > 23 || hour < 0) return null;
+  if (meridiem) {
+    if (hour < 1 || hour > 12) return null;
+    if (hour === 12) hour = 0;
+    if (meridiem.toLowerCase().startsWith("p")) hour += 12;
+  }
+  const time = `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+  const durationMatch = value.match(/\b(\d{1,4})\s*(?:minutos?|mins?)\b/i);
+  const durationMinutes = durationMatch ? Number(durationMatch[1]) : 30;
+  if (durationMinutes < 1 || durationMinutes > 1440) return null;
+  const zoneMatch = value.match(/\b(?:Africa|America|Antarctica|Arctic|Asia|Atlantic|Australia|Europe|Indian|Pacific)\/[A-Za-z0-9_+.-]+(?:\/[A-Za-z0-9_+.-]+)?/);
+  return { localStart: `${date}T${time}`, durationMinutes, timeZone: zoneMatch?.[0] || "America/Bogota" };
+}
 const textValue = (value: { original?: string | null; es?: string | null; en?: string | null }) => value.original ?? value.es ?? value.en ?? "Texto no disponible";
 function formattedText(value: string) {
   return value.split(/(\*\*[\s\S]+?\*\*)/g).map((part, index) =>
@@ -190,6 +221,7 @@ function App() {
   const [appointmentDuration, setAppointmentDuration] = useState(30);
   const [pendingAppointment, setPendingAppointment] = useState<{ confirmation: AppointmentConfirmation; idempotencyKey: string } | null>(null);
   const [appointmentResult, setAppointmentResult] = useState<AppointmentMutationResult | null>(null);
+  const [appointmentChatStage, setAppointmentChatStage] = useState<AppointmentChatStage>("idle");
   const appointmentRequest = useRef(0);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState("");
@@ -209,7 +241,7 @@ function App() {
     setConversations([]); setActiveConversationId(""); setRenamingConversationId(""); setConversationTitleDraft(""); setMessages([]);
     setMessagesHasMore(false); setMessagesCursor(null); setActiveClient(null);
     setProfile(null); setQuotes(null); setMessageDraft(""); setClientQuery("");
-    setAppointments([]); setAppointmentsLoading(false); setAppointmentsError(""); setAppointmentError(""); setAppointmentConflict(false); setAppointmentBusy(false); setPendingAppointment(null); setAppointmentResult(null);
+    setAppointments([]); setAppointmentsLoading(false); setAppointmentsError(""); setAppointmentError(""); setAppointmentConflict(false); setAppointmentBusy(false); setPendingAppointment(null); setAppointmentResult(null); setAppointmentChatStage("idle");
     setAppointmentAction("create"); setSelectedAppointmentId(""); setAppointmentDate(""); setAppointmentTime("");
     setClientResults([]); setClientError(""); setConversationError("");
     setDetailError(""); setNotice("");
@@ -325,9 +357,158 @@ function App() {
     setMessagesHasMore(history.pagination.hasMore);
     setMessagesCursor(history.pagination.nextBeforeSequence);
   }
+  async function sendAppointmentChatTurn(
+    conversationId: string,
+    requestId: number,
+    client: Client,
+    content: string,
+    kind: AppointmentChatKind,
+    extra: { confirmationId?: string; appointmentId?: string } = {},
+  ) {
+    const result = await api<{ messages: Message[] }>(`/api/conversations/${conversationId}/appointment-chat`, {
+      method: "POST",
+      body: JSON.stringify({ content, kind, expectedClientPath: client.document_path, expectedClientRecordId: client.client_record_id, ...extra }),
+    });
+    if (requestId !== contextRequest.current || conversationId !== activeConversationRef.current) return;
+    setMessages((current) => [...current, ...result.messages]);
+    setMessageDraft("");
+    const updatedAt = result.messages[result.messages.length - 1]?.created_at;
+    if (updatedAt) setConversations((current) => current.map((item) => item.id === conversationId ? { ...item, updated_at: updatedAt } : item));
+  }
+  async function restoreAppointmentChatState(conversationId: string, requestId: number) {
+    try {
+      const state = await api<{ state: "idle" | "details" | "confirmation"; confirmation?: AppointmentConfirmation }>(`/api/conversations/${conversationId}/appointment-chat/state`);
+      if (requestId !== contextRequest.current || conversationId !== activeConversationRef.current) return;
+      if (state.state === "details") setAppointmentChatStage("details");
+      else if (state.state === "confirmation" && state.confirmation) {
+        setAppointmentChatStage("confirmation");
+        // The confirmation UUID is stable across reloads and unique per action.
+        setPendingAppointment({ confirmation: state.confirmation, idempotencyKey: state.confirmation.id });
+      }
+    } catch (error) {
+      if (requestId === contextRequest.current && conversationId === activeConversationRef.current && !(error instanceof ApiError && error.status === 401))
+        setConversationError(error instanceof Error ? error.message : "No se pudo recuperar la solicitud de cita pendiente.");
+    }
+  }
+  async function handleAppointmentChat(content: string) {
+    const starting = appointmentChatStage === "idle" && isCreateAppointmentRequest(content);
+    if (!starting && appointmentChatStage === "idle") return false;
+    const conversationId = activeConversationId;
+    const requestId = contextRequest.current;
+    const client = activeClient;
+    if (!conversationId || !client) return true;
+    if (agent?.role !== "agent") {
+      setConversationError("La creación de citas por chat está disponible para cuentas de agente.");
+      return true;
+    }
+
+    setMessageBusy(true);
+    setConversationError("");
+    setNotice("");
+    try {
+      if (starting) {
+        await sendAppointmentChatTurn(conversationId, requestId, client, content, "request_details");
+        if (requestId === contextRequest.current) setAppointmentChatStage("details");
+        return true;
+      }
+
+      if (appointmentChatStage === "details") {
+        if (/^(cancelar|cancel|olvidalo|olvídalo)\b/i.test(content.trim())) {
+          await sendAppointmentChatTurn(conversationId, requestId, client, content, "cancelled");
+          if (requestId === contextRequest.current) setAppointmentChatStage("idle");
+          return true;
+        }
+        const details = parseAppointmentDetails(content);
+        if (!details) {
+          await sendAppointmentChatTurn(conversationId, requestId, client, content, "invalid_details");
+          return true;
+        }
+        setAppointmentBusy(true);
+        let prepared: { confirmation: AppointmentConfirmation };
+        try {
+          prepared = await api<{ confirmation: AppointmentConfirmation }>(`/api/conversations/${conversationId}/appointments/confirm`, {
+            method: "POST",
+            body: JSON.stringify({ action: "create", agentAccountId: agent.id, localStart: details.localStart, durationMinutes: details.durationMinutes, timeZone: details.timeZone }),
+          });
+        } catch (error) {
+          if (error instanceof ApiError && (error.status === 400 || error.status === 409) && error.code !== "context_changed") {
+            await sendAppointmentChatTurn(conversationId, requestId, client, content, "invalid_details");
+            return true;
+          }
+          throw error;
+        }
+        if (prepared.confirmation.client_document_path !== client.document_path || prepared.confirmation.client_record_id !== client.client_record_id)
+          throw new ApiError("Cambió el cliente activo. Vuelve a iniciar la solicitud de cita.", 409, "context_changed");
+        if (requestId !== contextRequest.current || conversationId !== activeConversationRef.current) return true;
+        const pending = { confirmation: prepared.confirmation, idempotencyKey: prepared.confirmation.id };
+        setPendingAppointment(pending);
+        setAppointmentChatStage("confirmation");
+        await sendAppointmentChatTurn(conversationId, requestId, client, content, "review", { confirmationId: prepared.confirmation.id });
+        return true;
+      }
+
+      if (appointmentChatStage === "confirmation") {
+        const pending = pendingAppointment;
+        if (/^(cancelar|cancel|no|descartar)\b/i.test(content.trim())) {
+          await sendAppointmentChatTurn(conversationId, requestId, client, content, "cancelled");
+          if (requestId === contextRequest.current) { setAppointmentChatStage("idle"); setPendingAppointment(null); }
+          return true;
+        }
+        if (!/^(confirmar|confirmo|si|sí|acepto|guardar)\b/i.test(content.trim())) {
+          if (pending) await sendAppointmentChatTurn(conversationId, requestId, client, content, "repeat_confirmation", { confirmationId: pending.confirmation.id });
+          else setConversationError("No hay una confirmación de cita vigente. Inicia una nueva solicitud.");
+          return true;
+        }
+        if (!pending) {
+          setConversationError("No hay una confirmación de cita vigente. Inicia una nueva solicitud.");
+          setAppointmentChatStage("idle");
+          return true;
+        }
+        setAppointmentBusy(true);
+        try {
+          const created = await api<AppointmentMutationResult>(`/api/conversations/${conversationId}/appointments`, {
+            method: "POST",
+            body: JSON.stringify({ confirmationId: pending.confirmation.id, idempotencyKey: pending.idempotencyKey }),
+          });
+          if (requestId !== contextRequest.current || conversationId !== activeConversationRef.current) return true;
+          setAppointmentResult(created);
+          setPendingAppointment(null);
+          setAppointmentChatStage("idle");
+          await loadAppointments(conversationId, requestId);
+          try {
+            await sendAppointmentChatTurn(conversationId, requestId, client, content, "created", { appointmentId: created.appointment.id });
+          } catch {
+            setConversationError("La cita quedó guardada y ya aparece en la agenda, pero no se pudo añadir el mensaje de confirmación al historial.");
+          }
+        } catch (error) {
+          if (error instanceof ApiError && error.status === 409 && error.code === "slot_taken") {
+            setPendingAppointment(null);
+            setAppointmentChatStage("details");
+            await sendAppointmentChatTurn(conversationId, requestId, client, content, "conflict");
+          } else throw error;
+        }
+        return true;
+      }
+    } catch (error) {
+      if (requestId === contextRequest.current && conversationId === activeConversationRef.current && !(error instanceof ApiError && error.status === 401)) {
+        setConversationError(error instanceof Error ? error.message : "No se pudo completar la solicitud de cita.");
+        if (error instanceof ApiError && error.code === "context_changed") setAppointmentChatStage("idle");
+      }
+      return true;
+    } finally {
+      setMessageBusy(false);
+      setAppointmentBusy(false);
+    }
+    return true;
+  }
   async function askAssistant() {
     const content = messageDraft.trim();
-    if (!content || !activeConversationId || !activeClient || !assistantEnabled || messageBusy) return;
+    if (!content || !activeConversationId || !activeClient || messageBusy) return;
+    if (await handleAppointmentChat(content)) return;
+    if (!assistantEnabled) {
+      setConversationError("El asistente está deshabilitado. Configura el proveedor para enviar preguntas normales; puedes iniciar una cita escribiendo “Agendar cita”.");
+      return;
+    }
     const conversationId = activeConversationId;
     setMessageBusy(true); setConversationError(""); setNotice("");
     try {
@@ -465,6 +646,7 @@ function App() {
         await Promise.all([
           loadProfile(conversation.id, requestId),
           loadAppointments(conversation.id, requestId),
+          restoreAppointmentChatState(conversation.id, requestId),
         ]);
       }
     }).catch((error) => {
@@ -514,6 +696,7 @@ function App() {
     setAppointments([]); setAppointmentsLoading(false); setAppointmentsError(""); setAppointmentError(""); setAppointmentConflict(false); setAppointmentBusy(false); setPendingAppointment(null); setAppointmentResult(null);
     setAppointmentAction("create"); setSelectedAppointmentId(""); setAppointmentDate(""); setAppointmentTime("");
     setMessageDraft(""); setNotice(""); setClientQuery("");
+    setAppointmentChatStage("idle"); setPendingAppointment(null);
     setClientResults([]); setDetailError(""); setConversationError("");
   }
   async function login(e: React.FormEvent) {
@@ -640,14 +823,14 @@ function App() {
                 {messages.map((message) => { const content = message.sender_role === "assistant" ? assistantDisplayText(message.content) : message.content; return <article className={`message ${message.sender_role === "user" ? "user-message" : "assistant-message"}`} key={message.id}><div className="message-avatar">{message.sender_role === "user" ? "Tú" : "R"}</div><div className="message-content"><div className="message-meta">{message.sender_role === "user" ? "Tú" : "RETO"}<time>{dateLabel(message.created_at)}</time></div><p>{formattedText(content)}</p></div></article>; })}
                 {notice && <div className="saved-notice" role="status">{notice}</div>}
               </div>
-              <form className="composer" onSubmit={(event) => { event.preventDefault(); void askAssistant(); }}><label htmlFor="message-draft" className="sr-only">Escribe una pregunta</label><textarea id="message-draft" value={messageDraft} onChange={(event) => setMessageDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void askAssistant(); } }} placeholder="Escribe una pregunta sobre el cliente activo…" maxLength={4000} rows={2} disabled={conversationLoading || !activeConversationId} /><div className="composer-bottom"><span>{assistantEnabled ? "La evidencia autorizada se envía al proveedor configurado." : "Asistente IA deshabilitado por configuración."} Enter para preguntar · Shift+Enter para nueva línea.</span><button className="composer-submit" type="submit" disabled={!messageDraft.trim() || !activeClient || !assistantEnabled || messageBusy || conversationLoading}>{messageBusy ? "Consultando…" : "Preguntar al asistente"}<Arrow /></button></div></form>
+              <form className="composer" onSubmit={(event) => { event.preventDefault(); void askAssistant(); }}><label htmlFor="message-draft" className="sr-only">Escribe una pregunta o solicitud de cita</label><textarea id="message-draft" value={messageDraft} onChange={(event) => setMessageDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void askAssistant(); } }} placeholder="Pregunta algo o escribe “Agendar cita”…" maxLength={4000} rows={2} disabled={conversationLoading || !activeConversationId} /><div className="composer-bottom"><span>{assistantEnabled ? "Puedes consultar al asistente o escribir “Agendar cita”." : "IA deshabilitada; puedes escribir “Agendar cita”."} Enter para enviar · Shift+Enter para nueva línea.</span><button className="composer-submit" type="submit" disabled={!messageDraft.trim() || !activeClient || messageBusy || conversationLoading}>{messageBusy ? "Procesando…" : "Enviar"}<Arrow /></button></div></form>
             </>}
           </section>
           <aside className="context-panel" aria-label="Cliente y consultas">
             <div className="panel-section"><span className="eyebrow teal">CONTEXTO DEL EXPEDIENTE</span><h2>Cliente activo</h2>
               {activeClient ? <div className="active-client"><span className="client-avatar">{(profile?.client.name || activeClient.name).split(" ").slice(0,2).map((part) => part[0]).join("")}</span><div><strong>{profile?.client.name || activeClient.name}</strong><small>Cliente activo</small></div></div> : <p className="muted-copy">Selecciona un cliente para consultar su perfil y sus cotizaciones.</p>}
               <label className="search-label" htmlFor="client-search">Buscar cliente</label><div className="search-box"><span aria-hidden="true">⌕</span><input id="client-search" value={clientQuery} onChange={(event) => setClientQuery(event.target.value)} placeholder="Nombre o correo" disabled={!activeConversationId} /></div>
-              {clientSearchLoading && <p className="search-hint">Buscando dentro de tu alcance…</p>}{clientError && <div className="inline-error" role="alert">{clientError}</div>}{clientQuery.trim().length > 0 && clientQuery.trim().length < 2 && <p className="search-hint">Escribe al menos 2 caracteres.</p>}{clientResults.length > 0 && <div className="client-results" role="listbox" aria-label="Resultados de clientes">{clientResults.map((client) => <button key={`${client.document_path}#${client.client_record_id}`} role="option" aria-selected={activeClient?.client_record_id === client.client_record_id && activeClient?.document_path === client.document_path} onClick={async () => { const conversationId = activeConversationId; if (!conversationId) return; const requestId = ++contextRequest.current; searchRequest.current += 1; appointmentRequest.current += 1; setDetailLoading(true); setClientError(""); setClientQuery(""); setClientResults([]); try { await api(`/api/conversations/${conversationId}/client`, { method: "POST", body: JSON.stringify({ documentPath: client.document_path, clientRecordId: client.client_record_id }) }); if (requestId === contextRequest.current && conversationId === activeConversationRef.current) { setDetailError(""); setAppointmentError(""); setAppointmentConflict(false); setAppointmentBusy(false); setAppointmentAction("create"); setSelectedAppointmentId(""); setAppointmentDate(""); setAppointmentTime(""); setAppointments([]); setPendingAppointment(null); setAppointmentResult(null); setQuotes(null); setProfile(null); setMessageDraft(""); setActiveClient(client); setMessages([]); setMessagesHasMore(false); setMessagesCursor(null); await reloadConversationHistory(conversationId, requestId); setConversations((current) => current.map((item) => item.id === conversationId ? { ...item, active_client_path: client.document_path, active_client_record_id: client.client_record_id } : item)); await Promise.all([loadProfile(conversationId, requestId), loadAppointments(conversationId, requestId)]); } } catch (e) { if (requestId === contextRequest.current) { if (!(e instanceof ApiError && e.status === 401)) setClientError(e instanceof Error ? e.message : "No se pudo seleccionar el cliente."); } } finally { if (requestId === contextRequest.current) setDetailLoading(false); } }}><strong>{client.name || "Sin nombre"}</strong><small>{client.email || "Correo no disponible"}</small><span className="result-stage">{client.stage || "Etapa no disponible"}</span></button>)}</div>}{clientQuery.trim().length >= 2 && !clientSearchLoading && !clientError && clientResults.length === 0 && <p className="search-hint">No encontramos clientes dentro de tu alcance.</p>}
+              {clientSearchLoading && <p className="search-hint">Buscando dentro de tu alcance…</p>}{clientError && <div className="inline-error" role="alert">{clientError}</div>}{clientQuery.trim().length > 0 && clientQuery.trim().length < 2 && <p className="search-hint">Escribe al menos 2 caracteres.</p>}{clientResults.length > 0 && <div className="client-results" role="listbox" aria-label="Resultados de clientes">{clientResults.map((client) => <button key={`${client.document_path}#${client.client_record_id}`} role="option" aria-selected={activeClient?.client_record_id === client.client_record_id && activeClient?.document_path === client.document_path} onClick={async () => { const conversationId = activeConversationId; if (!conversationId) return; const requestId = ++contextRequest.current; searchRequest.current += 1; appointmentRequest.current += 1; setDetailLoading(true); setClientError(""); setClientQuery(""); setClientResults([]); try { await api(`/api/conversations/${conversationId}/client`, { method: "POST", body: JSON.stringify({ documentPath: client.document_path, clientRecordId: client.client_record_id }) }); if (requestId === contextRequest.current && conversationId === activeConversationRef.current) { setDetailError(""); setAppointmentError(""); setAppointmentConflict(false); setAppointmentBusy(false); setAppointmentAction("create"); setSelectedAppointmentId(""); setAppointmentDate(""); setAppointmentTime(""); setAppointments([]); setPendingAppointment(null); setAppointmentChatStage("idle"); setAppointmentResult(null); setQuotes(null); setProfile(null); setMessageDraft(""); setActiveClient(client); setMessages([]); setMessagesHasMore(false); setMessagesCursor(null); await reloadConversationHistory(conversationId, requestId); setConversations((current) => current.map((item) => item.id === conversationId ? { ...item, active_client_path: client.document_path, active_client_record_id: client.client_record_id } : item)); await Promise.all([loadProfile(conversationId, requestId), loadAppointments(conversationId, requestId)]); } } catch (e) { if (requestId === contextRequest.current) { if (!(e instanceof ApiError && e.status === 401)) setClientError(e instanceof Error ? e.message : "No se pudo seleccionar el cliente."); } } finally { if (requestId === contextRequest.current) setDetailLoading(false); } }}><strong>{client.name || "Sin nombre"}</strong><small>{client.email || "Correo no disponible"}</small><span className="result-stage">{client.stage || "Etapa no disponible"}</span></button>)}</div>}{clientQuery.trim().length >= 2 && !clientSearchLoading && !clientError && clientResults.length === 0 && <p className="search-hint">No encontramos clientes dentro de tu alcance.</p>}
             </div>
               {activeClient && <div className="panel-section lookup-actions"><span className="eyebrow teal">CONSULTAS DETERMINISTAS</span><div className="action-buttons"><button onClick={() => activeConversationId && void loadProfile(activeConversationId)} disabled={detailLoading || !activeConversationId}>Ver expediente</button><button onClick={async () => { const conversationId = activeConversationId; if (!conversationId) return; const requestId = ++contextRequest.current; setDetailLoading(true); setDetailError(""); setProfile(null); setQuotes(null); try { const response = await api<QuoteResponse>(`/api/conversations/${conversationId}/quotes`); if (requestId === contextRequest.current && conversationId === activeConversationRef.current) setQuotes(response); } catch (e) { if (requestId === contextRequest.current && !(e instanceof ApiError && e.status === 401)) setDetailError(e instanceof Error ? e.message : "No se pudieron consultar las cotizaciones."); } finally { if (requestId === contextRequest.current) setDetailLoading(false); } }} disabled={detailLoading || !activeConversationId}>Ver cotizaciones</button></div><p className="search-hint">Solo se muestran los datos autorizados y la información faltante.</p></div>}
             {activeClient && agent.role === "agent" && <div className="panel-section appointment-section">

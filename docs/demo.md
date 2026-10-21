@@ -32,7 +32,14 @@ La interfaz permite consultar perfil y cotizaciones sin proveedor de IA. Para re
 4. Si la IA está habilitada, pregunta: “Resume los datos disponibles y enumera qué falta para evaluar las cotizaciones”. La respuesta resume la evidencia sin mostrar IDs ni fuentes internas. Si está deshabilitada, no se presenta una respuesta generada; las consultas deterministas siguen disponibles.
 5. Recarga y vuelve a abrir la conversación. Deben persistir historial y cliente activo, sin mezclar conversaciones.
 
-### 2. Cita confirmada
+### 2. Cita creada mediante el chat
+
+1. Selecciona un cliente como contexto y escribe **Agendar cita** en el chat.
+2. Envía una fecha futura y hora local en formato `AAAA-MM-DD HH:mm` o `DD/MM/AAAA HH:mm`, por ejemplo `2026-10-25 15:00` o `25/10/2026 15:00, 45 minutos`. Si no indicas duración, se usan 30 minutos; la zona predeterminada es `America/Bogota`.
+3. Revisa el mensaje de confirmación con cliente, agente, fecha, hora, duración y zona. Responde **Confirmar** para guardar, o **Cancelar** para descartar.
+4. Confirma en el panel de agenda y en las tablas SQL que la cita quedó guardada como `confirmed` y que existe su acción de auditoría.
+
+### 3. Cita confirmada desde el panel
 
 1. En **Agenda**, elige **Nueva cita**. Selecciona una fecha futura y un intervalo sin conflicto, duración y zona `America/Bogota`.
 2. Pulsa **Revisar cita** y comprueba cliente, agente, inicio, fin, zona y offset.
@@ -41,7 +48,7 @@ La interfaz permite consultar perfil y cotizaciones sin proveedor de IA. Para re
 
 La confirmación vence en cinco minutos. Si cambia un valor, prepara otra.
 
-### 3. Idempotencia y conflicto
+### 4. Idempotencia y conflicto
 
 **Replay idempotente:** en las herramientas de desarrollador del navegador, pestaña **Network**, localiza el `POST /api/conversations/{conversationId}/appointments` exitoso. Reenvía exactamente la misma solicitud, con el mismo `confirmationId` y `idempotencyKey` (por ejemplo, **Edit and resend**). Debe devolver el mismo ID y `idempotent_replay: true`; no debe aparecer otra cita ni otra acción de escritura para esa clave. No cambies esos valores.
 
@@ -49,7 +56,7 @@ La confirmación vence en cinco minutos. Si cambia un valor, prepara otra.
 
 En `reto.chat_actions`, creación: `outcome = 'succeeded'`; conflicto: `outcome = 'conflict'` y `error_code = 'slot_taken'`.
 
-### 4. Rechazo de acceso
+### 5. Rechazo de acceso
 
 1. Anota la ruta e ID del cliente elegido y el ID de la conversación de `agente099`.
 2. En una ventana privada, inicia sesión como otro agente, por ejemplo `agente001`, y crea una conversación propia.
@@ -71,7 +78,7 @@ console.log(response.status, await response.json());
 
 La cookie se envía automáticamente en esta solicitud same-origin. Sustituye los marcadores por los anotados; no uses datos de otro entorno.
 
-### 5. Resultado vacío y sesión vencida
+### 6. Resultado vacío y sesión vencida
 
 - **Resultado vacío:** como `agente099`, busca `sin-cliente-demo-987654` (mínimo dos caracteres). Debe aparecer **No encontramos clientes dentro de tu alcance**. También puedes seleccionar un cliente sin cotizaciones coincidentes y comprobar `quotes_status: empty`.
 - **Sesión vencida (solo local):** inicia sesión con la cuenta secundaria `agente001`, fuerza la expiración con esta sentencia y recarga. La interfaz debe volver al inicio de sesión; al autenticarte de nuevo se crea otra sesión. El esquema local permite una sola sesión por cuenta, por lo que esto invalida la sesión completa de `agente001`; no uses tu cuenta principal ni una sesión que quieras conservar.
@@ -90,7 +97,7 @@ La cookie se envía automáticamente en esta solicitud same-origin. Sustituye lo
 
   Esto invalida la única sesión de `agente001` solo en la réplica local. No afecta la sesión de `agente099`.
 
-### 6. Fallo simulado del proveedor (opcional)
+### 7. Fallo simulado del proveedor (opcional)
 
 Solo si IA está habilitada. La URL de prueba apunta a loopback dentro del contenedor: falla localmente y no transmite datos al proveedor. En PowerShell, desde la raíz:
 

@@ -188,6 +188,46 @@ conversación se bloquea mientras se inserta el mensaje y se actualiza
 `updated_at`; si falla la operación, ambas escrituras se revierten. No se
 admiten mensajes en conversaciones archivadas (`409`).
 
+## `POST /api/conversations/:conversationId/appointment-chat`
+
+Guarda una intervención del usuario y una respuesta conversacional determinista
+para el flujo de creación de citas. La respuesta solo puede ser una de las
+plantillas permitidas (`request_details`, `invalid_details`, `review`,
+`repeat_confirmation`, `created`, `conflict`, `cancelled`); el servidor arma
+las confirmaciones y resultados usando datos de la cita y del cliente activo,
+nunca texto de asistente arbitrario proporcionado por el navegador. `review`
+requiere una confirmación pendiente propia; `created` requiere una cita
+confirmada asociada a una acción exitosa del usuario. El cliente esperado se
+valida contra el contexto activo dentro de la transacción.
+
+```json
+{
+  "content": "2026-10-25 15:00, 45 minutos",
+  "kind": "review",
+  "expectedClientPath": "leads-store/books/...",
+  "expectedClientRecordId": "record-id",
+  "confirmationId": "uuid"
+}
+```
+
+El endpoint está disponible para agentes en conversaciones activas con cliente
+seleccionado. Guarda ambas intervenciones ligadas al expediente, sin exponer
+IDs ni rutas en el texto. Devuelve `409` si cambió el cliente activo y conserva
+la etapa del flujo en PostgreSQL para retomarlo al recargar o volver al chat.
+
+`GET /api/conversations/:conversationId/appointment-chat/state` devuelve la
+etapa activa (`idle`, `details` o `confirmation`) para el cliente actualmente
+seleccionado. Si hay una confirmación pendiente, la respuesta incluye su
+referencia para que el mismo intento idempotente se pueda reanudar.
+
+En el chat, “Agendar cita” inicia la solicitud. Se espera una fecha y hora
+local en formato `AAAA-MM-DD HH:mm` o `DD/MM/AAAA HH:mm`; la zona por defecto es `America/Bogota` y
+la duración por defecto es 30 minutos. El usuario puede añadir una duración en
+minutos y una zona IANA. El backend crea una confirmación y el chat presenta
+cliente, agente, fecha, hora, duración y zona antes de aceptar “Confirmar”. La
+creación final reutiliza los endpoints transaccionales de confirmación y
+guardado, incluidos el control de solapamientos y la clave idempotente.
+
 ## `GET /api/assistant/status`
 
 Indica si la integración opcional está habilitada para la sesión autenticada.
