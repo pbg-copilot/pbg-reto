@@ -87,6 +87,7 @@ Esta especificación separa los requisitos de `Reto_Chat_PBG.pdf` de las decisio
 - Reutilizar login/sesión/logout existentes (`POST /auth/get-toke`, `GET /auth/me`, `POST /auth/logout`).
 - La API autenticada de conversaciones, su historial y el guardado de mensajes de usuario están documentados en [`api-conversations.md`](./api-conversations.md); las lecturas validan propiedad y ordenan por secuencia estable.
 - Añadir servicios/endpoints para conversaciones, búsqueda/detalle de clientes, cotizaciones y agenda. La ruta de cotizaciones, que exige coincidencia exacta de IDs y devuelve procedencia/faltantes, está documentada en [`api-conversations.md`](./api-conversations.md). La búsqueda/selección valida `ownerKey` por igualdad exacta con `onboarding.accounts.id` y falla cerrada si no resuelve.
+- La consulta de disponibilidad recibe hora local, duración y zona IANA, valida horas ambiguas/inexistentes y compara instantes UTC contra citas confirmadas de `reto.chat_appointments`; su alcance y limitaciones están documentados en [`api-appointments.md`](./api-appointments.md).
 - Conservar estructura de negocio original y relaciones; añadir tablas mediante migraciones, sin sustituir documentos originales por modelos ficticios.
 - El modelo inspeccionado de expedientes, cotizaciones, agencia y bookings, con sus relaciones y límites, está documentado en [`data-model.md`](./data-model.md). Las APIs deben conservar esas distinciones.
 

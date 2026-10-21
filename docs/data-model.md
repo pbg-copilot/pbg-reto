@@ -105,6 +105,19 @@ Significado de campos en esta API: `carrier` y `product` son etiquetas tal como 
 
 ## Agenda y bookings
 
+### Calendario de Chat PBG: `reto.chat_appointments`
+
+La migración `002_chat_appointments` crea la fuente de citas del reto, separada
+de `teamops.bookings`. Conserva agente, conversación, cliente opcional, intervalo
+absoluto (`start_at`/`end_at` como `timestamptz`), zona IANA, hora local original,
+offset resuelto y estado. La API de disponibilidad consulta los intervalos
+confirmados de esta tabla. La creación y cancelación de citas se implementan en
+la issue 10; hasta entonces la tabla puede no tener filas.
+
+La consulta calcula conflictos con intervalos semiabiertos `[inicio, fin)` y no
+impone todavía una política de horario laboral, feriados o bloqueos externos.
+No se reutilizan bookings históricos del equipo como agenda de seguros.
+
 ### `teamops.bookings`
 
 Hay 358 filas. Campos estructurales relevantes: `id`, `source`, `meeting_type`, `duration_minutes`, datos del visitante, `start_utc`, `end_utc`, `visitor_timezone`, `host_timezone`, `status`, marcas de cancelación/borrado, `host_id`, `booked_by`, `kind` y `rowid`.

@@ -33,6 +33,8 @@ Los roles no listados en la matriz (incluido `appeal_officer` del respaldo) no t
 
 La ruta de cotizaciones devuelve solo filas de `analytics.quotes` cuyos `lead_id` y `account_id` coinciden exactamente con el ID del cliente activo y el propietario activo del libro. Además aplica el alcance de la sesión antes de consultar. La decisión de producto del MVP es exponerlas como instantáneas analíticas, no como ofertas vigentes/aprobadas; no infiere coberturas ni elegibilidad. `teamops.bookings` sigue siendo un flujo interno, no una fuente confirmada de citas de seguros. El control de acceso y la coincidencia de IDs no sustituyen una fuente autoritativa si en el futuro se agregan acciones comerciales.
 
+La consulta de disponibilidad solo permite a un agente leer su calendario, a un `agency_owner` consultar agentes activos de su agencia actual y a un administrador consultar agentes activos. El ID del agente es un selector, nunca una credencial. La consulta no expone datos de clientes y lee solo citas confirmadas de `reto.chat_appointments`.
+
 ## 3. Cómo se calcula el alcance
 
 ### Identidad y estado
