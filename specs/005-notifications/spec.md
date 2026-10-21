@@ -1,6 +1,6 @@
 # 005 · Notificaciones
 
-- **Estado:** Borrador
+- **Estado:** Hecha (2026-10-21)
 - **Prioridad:** Must
 - **PDF:** §06, §08
 - **Depende de:** 001 (jobs), 002 (`recordEvent`)
@@ -31,9 +31,13 @@ información interna.
 | `comment_added` público con `requests_info` | Solicitante (tipo "Solicitud de información") | in_app + email |
 | `comment_added` público del solicitante | Equipo | in_app |
 | `reopened` | Solicitante y equipo | in_app (+ email al solicitante) |
+| `assigned` (interno) | El nuevo responsable, si no se asignó a sí mismo | in_app |
 | Notas internas y cualquier evento `internal` | **Nadie fuera del equipo**; no generan notificación al solicitante | — |
 
-El actor que provoca el evento no se notifica a sí mismo.
+El actor que provoca el evento no se notifica a sí mismo. La única excepción es la
+confirmación de creación al solicitante («Recibimos tu ticket»).
+
+«Equipo» significa el responsable del ticket o, si no tiene, todos los admins.
 
 ## Criterios de aceptación
 
@@ -46,7 +50,7 @@ El actor que provoca el evento no se notifica a sí mismo.
 | AC-005.5 | `GET /notifications` (paginado, filtro `unread`), `GET /notifications/unread-count`, `PATCH /notifications/:id/read` y `POST /notifications/read-all` operan solo sobre las propias; una ajena da 404 |
 | AC-005.6 | La campana muestra el contador con polling cada 20 s y al recuperar el foco. La bandeja permite marcar leída. Abrir una notificación navega al enlace, donde la API **vuelve a verificar permisos** (si ya no hay acceso, 404 con un mensaje amable) |
 | AC-005.7 | Cada notificación tiene una entrega por canal en `notification_deliveries`. `in_app` queda `delivered` al confirmarse la transacción. `email` nace como `pending` y la procesa el worker |
-| AC-005.8 | El worker envía el correo a **Mailpit** (buzón local, nunca correos reales) con reintentos y backoff exponencial. Si se agotan los intentos queda `failed` con `last_error`. Si Mailpit está detenido y luego vuelve, la entrega termina en `delivered` sin duplicados de notificación (D6) |
+| AC-005.8 | El worker envía el correo a **Mailpit** (buzón local, nunca correos reales) con reintentos y backoff exponencial. Solo se envía a dominios de `MAIL_ALLOWED_DOMAINS` (por defecto `reto.example`); otro dominio deja la entrega `failed` sin intentar el envío. Si se agotan los intentos queda `failed` con `last_error`. Si Mailpit está detenido y luego vuelve, la entrega termina en `delivered` sin duplicados de notificación (D6) |
 | AC-005.9 | Hay idempotencia en dos niveles: una notificación por `(evento, destinatario)` mediante `dedupe_key` único, y un job por `(entrega)`. El correo lleva un `Message-ID` determinista. La política es *at-least-once* y queda documentada |
 | AC-005.10 | La UI admin de cada ticket muestra el estado de entrega por canal (entregada, pendiente o fallida) de sus notificaciones |
 | AC-005.11 | *(Could)* Tiempo real por SSE. Si no se implementa, se documenta el polling como decisión |

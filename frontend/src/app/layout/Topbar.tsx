@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { NavLink } from "react-router";
-import { BellIcon, ChevronDownIcon, LogOutIcon, MoonIcon, SunIcon } from "lucide-react";
+import { ChevronDownIcon, LogOutIcon, MoonIcon, SunIcon } from "lucide-react";
 import { isAdmin, type Agent } from "@reto/shared";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -11,9 +11,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { useLogout } from "@/features/auth/useSession";
+import { NotificationBell } from "@/features/notifications/NotificationBell";
 import { applyTheme, readTheme, type Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
@@ -61,14 +61,7 @@ export function Topbar({ agent }: { agent: Agent }) {
         </nav>
 
         <div className="ml-auto flex items-center gap-1 sm:gap-2">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="Notificaciones">
-                <BellIcon />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Notificaciones (próximamente)</TooltipContent>
-          </Tooltip>
+          <NotificationBell />
           <Button
             variant="ghost"
             size="icon"

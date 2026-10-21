@@ -43,6 +43,16 @@ const envSchema = z
     SMTP_PORT: z.coerce.number().int().positive().default(1025),
     MAIL_FROM: z.string().default("Soporte RETO <soporte@reto.local>"),
     EMAIL_NOTIFICATIONS: flag.default(true),
+    // Lista blanca de dominios de destino: el reto nunca escribe a correos reales.
+    MAIL_ALLOWED_DOMAINS: z
+      .string()
+      .default("reto.example")
+      .transform((value) =>
+        value
+          .split(",")
+          .map((item) => item.trim().toLowerCase())
+          .filter(Boolean),
+      ),
     UPLOAD_MAX_BYTES: z.coerce.number().int().positive().default(10 * 1024 * 1024),
     UPLOAD_MAX_FILES: z.coerce.number().int().min(1).max(10).default(5),
     WORKER_POLL_MS: z.coerce.number().int().min(100).default(1000),

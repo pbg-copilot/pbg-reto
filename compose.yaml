@@ -24,6 +24,7 @@ x-backend: &backend
     SMTP_HOST: mailpit
     SMTP_PORT: 1025
     EMAIL_NOTIFICATIONS: ${EMAIL_NOTIFICATIONS:-true}
+    MAIL_ALLOWED_DOMAINS: ${MAIL_ALLOWED_DOMAINS:-reto.example}
   restart: unless-stopped
   init: true
 

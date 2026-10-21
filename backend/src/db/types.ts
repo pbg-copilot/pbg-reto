@@ -200,6 +200,33 @@ export interface ConversationMessagesTable {
   created_at: DefaultTimestamp;
 }
 
+export interface NotificationsTable {
+  id: Generated<string>;
+  recipient_id: string;
+  ticket_id: string | null;
+  type: string;
+  title: string;
+  body: Generated<string>;
+  payload: JsonObject;
+  link: string;
+  source_event_id: number | null;
+  dedupe_key: string;
+  read_at: NullableTimestamp;
+  created_at: DefaultTimestamp;
+}
+
+export interface NotificationDeliveriesTable {
+  id: Generated<string>;
+  notification_id: string;
+  channel: "in_app" | "email";
+  status: "pending" | "delivered" | "failed";
+  attempts: Generated<number>;
+  last_error: string | null;
+  delivered_at: NullableTimestamp;
+  created_at: DefaultTimestamp;
+  updated_at: DefaultTimestamp;
+}
+
 // Vista del repo base (solo lectura). Nunca seleccionar password_hash.
 export interface AgentsView {
   id: string;
@@ -225,6 +252,8 @@ export interface DB {
   "helpdesk.incidents": IncidentsTable;
   "helpdesk.conversations": ConversationsTable;
   "helpdesk.conversation_messages": ConversationMessagesTable;
+  "helpdesk.notifications": NotificationsTable;
+  "helpdesk.notification_deliveries": NotificationDeliveriesTable;
   "reto.agents": AgentsView;
 }
 
@@ -237,4 +266,6 @@ export type ArticleVersionRow = Selectable<ArticleVersionsTable>;
 export type IncidentRow = Selectable<IncidentsTable>;
 export type ConversationRow = Selectable<ConversationsTable>;
 export type ConversationMessageRow = Selectable<ConversationMessagesTable>;
+export type NotificationRow = Selectable<NotificationsTable>;
+export type DeliveryRow = Selectable<NotificationDeliveriesTable>;
 export type NewJob = Insertable<JobsTable>;

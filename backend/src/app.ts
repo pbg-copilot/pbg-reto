@@ -24,6 +24,10 @@ import conversationRoutes from "./modules/conversations/routes.js";
 import { createConversationService } from "./modules/conversations/service.js";
 import { createProvider } from "./modules/assistant/index.js";
 import type { AssistantProvider } from "./modules/assistant/provider.js";
+import notificationRoutes from "./modules/notifications/routes.js";
+import { createNotificationService } from "./modules/notifications/service.js";
+import { createNotificationListener } from "./modules/notifications/listener.js";
+import { onTicketEvent } from "./modules/tickets/events.js";
 
 export type BuildAppOptions = {
   env: Env;
@@ -62,12 +66,16 @@ export async function buildApp({ env, db, logger = false, provider }: BuildAppOp
     secureCookie: env.PUBLIC_APP_URL.startsWith("https:"),
   });
   await app.register(catalogRoutes);
+  // Las notificaciones se crean en la misma transacción de cada evento del ticket (outbox).
+  const offTicketEvent = onTicketEvent(createNotificationListener({ email: env.EMAIL_NOTIFICATIONS }));
+  app.addHook("onClose", async () => offTicketEvent());
   const tickets = createTicketService(db);
   await app.register(ticketRoutes, { service: tickets });
   await app.register(articleRoutes, { service: createArticleService(db) });
   await app.register(conversationRoutes, {
     service: createConversationService({ db, env, tickets, provider: provider ?? createProvider(env) }),
   });
+  await app.register(notificationRoutes, { service: createNotificationService(db) });
 
   return app;
 }

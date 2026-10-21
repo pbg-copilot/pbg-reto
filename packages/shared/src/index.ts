@@ -4,3 +4,4 @@ export * from "./pagination.js";
 export * from "./tickets.js";
 export * from "./articles.js";
 export * from "./conversations.js";
+export * from "./notifications.js";

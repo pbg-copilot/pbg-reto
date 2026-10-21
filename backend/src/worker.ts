@@ -1,7 +1,7 @@
 import { hostname } from "node:os";
 import { loadEnv } from "./config/env.js";
 import { db } from "./db/kysely.js";
-import { jobHandlers } from "./jobs/handlers.js";
+import { createJobHandlers } from "./jobs/handlers.js";
 import { createWorker } from "./jobs/runner.js";
 
 const env = loadEnv();
@@ -13,7 +13,7 @@ const log = { info: write("info"), warn: write("warn"), error: write("error") };
 
 const worker = createWorker({
   db,
-  handlers: jobHandlers,
+  handlers: createJobHandlers({ db, env }),
   workerId: `${hostname()}:${process.pid}`,
   concurrency: env.WORKER_CONCURRENCY,
   pollMs: env.WORKER_POLL_MS,

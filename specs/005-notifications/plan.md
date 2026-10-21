@@ -36,7 +36,8 @@ CREATE TABLE helpdesk.notification_deliveries (
 
 ## Flujo transaccional (outbox)
 
-`modules/notifications/listener.ts` se registra en `events.ts` (002). Por cada evento,
+`modules/notifications/listener.ts` se registra en `events.ts` (002) desde `buildApp`, y
+se desregistra en `onClose`. Por cada evento,
 **dentro de la misma `tx`**:
 
 1. `resolveRecipients(event, ticket)` aplica la tabla de la spec. Se descartan el
@@ -57,7 +58,10 @@ transaccional.
 
 1. Cargar la entrega. Si ya está `delivered`, terminar sin hacer nada (idempotente).
 2. Cargar la notificación y el correo del destinatario desde `reto.agents`. Los
-   correos son `@reto.example` y van a Mailpit.
+   correos son `@reto.example` y van a Mailpit. Si el dominio no está en
+   `MAIL_ALLOWED_DOMAINS`, se marca `failed` (`recipient_domain_not_allowed`) sin
+   enviar ni reintentar: así un SMTP real mal configurado nunca escribe a personas
+   reales.
 3. `nodemailer` con SMTP a `mailpit:1025`:
    - `messageId: <delivery_id@reto.local>`;
    - asunto igual al `title`;
@@ -82,7 +86,13 @@ at-least-once.
 - `GET /notifications/unread-count` → `{ count }`.
 - `PATCH /notifications/:id/read` → idempotente (si ya estaba leída, 200).
 - `POST /notifications/read-all`.
-- Para admin, `GET /tickets/:id` incluye `deliveries: [{notification_type, recipient, channel, status, attempts, last_error, at}]`.
+- `GET /tickets/:id/deliveries` (admin) →
+  `[{id, notification_type, recipient, channel, status, attempts, last_error, created_at, delivered_at}]`.
+  - Es un endpoint aparte y no un campo del detalle: el panel se refresca solo
+    mientras haya entregas pendientes.
+  - `recipient` es solo `{id, name}`, sin el correo.
+- `POST /notifications/deliveries/:id/retry` (admin, *Should*) → vuelve a encolar una
+  entrega `failed`: reinicia el job con su misma `dedupe_key`.
 
 ## Frontend `features/notifications/`
 

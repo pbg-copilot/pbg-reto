@@ -141,3 +141,38 @@ test("AC-002.4 another requester cannot open the ticket by URL", async ({ browse
   await outsider.goto(`/tickets/${id}`);
   await expect(outsider.getByRole("heading", { name: "Página no disponible" })).toBeVisible();
 });
+
+test("AC-005.6/AC-005.10 the bell shows a status change; opening it marks it read; admins see deliveries", async ({ browser }) => {
+  const requester = await newContextPage(browser, "agente048");
+  const id = await createTicket(requester, `${PREFIX} campana`);
+  const { display_number: number } = await (await requester.request.get(`/api/tickets/${id}`)).json();
+  // Parte de cero: las notificaciones anteriores de la cuenta de test quedan leídas.
+  await requester.request.post("/api/notifications/read-all");
+
+  const admin = await newContextPage(browser, "agente015");
+  await admin.goto(`/tickets/${id}`);
+  await admin.getByRole("button", { name: "Pasar a En revisión" }).click();
+  await expect(admin.getByText("En revisión").first()).toBeVisible();
+
+  // El solicitante no estaba mirando: al volver, la campana tiene el aviso.
+  await requester.goto("/");
+  await expect(requester.getByTestId("notification-count")).toHaveText("1");
+  await requester.getByRole("button", { name: "Notificaciones, 1 sin leer" }).click();
+  await requester.getByRole("menuitem", { name: `${number} pasó de Abierto a En revisión` }).click();
+  await expect(requester).toHaveURL(new RegExp(`/tickets/${id}$`));
+  await expect(requester.getByTestId("notification-count")).toHaveCount(0);
+
+  await requester.goto("/notificaciones");
+  await expect(requester.getByRole("heading", { level: 1, name: "Notificaciones" })).toBeVisible();
+  await expect(requester.getByRole("link", { name: `${number} pasó de Abierto a En revisión` })).toBeVisible();
+
+  // Panel de entregas: solo admin, con el estado por canal.
+  await admin.reload();
+  await expect(admin.getByRole("list", { name: "Entregas de notificaciones" })).toBeVisible();
+  const statusDeliveries = admin.getByTestId("delivery").filter({ hasText: "Cambio de estado" });
+  // En la app queda entregada al confirmarse; el correo puede seguir pendiente un instante.
+  await expect(statusDeliveries.filter({ hasText: "En la app" })).toContainText("Entregada");
+  await expect(statusDeliveries.filter({ hasText: "Correo" })).toHaveCount(1);
+  await requester.goto(`/tickets/${id}`);
+  await expect(requester.getByRole("list", { name: "Entregas de notificaciones" })).toHaveCount(0);
+});

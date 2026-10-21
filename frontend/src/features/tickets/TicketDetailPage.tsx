@@ -12,6 +12,7 @@ import { ApiError } from "@/lib/api";
 import { formatDateTime, formatRelative } from "@/lib/format";
 import { NotFoundPage } from "@/features/errors/NotFoundPage";
 import { useArticleFromTicket } from "@/features/catalog/api";
+import { DeliveriesPanel } from "@/features/notifications/DeliveriesPanel";
 import { useTicket } from "./api";
 import { AdminAttributes } from "./components/AdminAttributes";
 import { CommentComposer } from "./components/CommentComposer";
@@ -242,6 +243,18 @@ export function TicketDetailPage() {
               <TicketHistory events={t.events} names={names} />
             </CardContent>
           </Card>
+
+          {admin && (
+            <Card className="glass">
+              <CardHeader>
+                <CardTitle className="text-base">Entregas</CardTitle>
+                <CardDescription>Avisos al solicitante y al equipo, por canal.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <DeliveriesPanel ticketId={t.id} />
+              </CardContent>
+            </Card>
+          )}
         </aside>
       </div>
     </div>

@@ -85,6 +85,40 @@ inicia y cierra sesión con `agente099`, `agente009` y `agente016`.
 - **La primera restauración tarda.** El healthcheck de PostgreSQL espera hasta 15
   minutos antes de marcar error. Seguir el avance con `docker compose logs -f postgres`.
 
+Las pruebas manuales paso a paso, con las cuentas para cada una, están en
+[`docs/pruebas-manuales.md`](docs/pruebas-manuales.md).
+
+### Notificaciones
+
+- **Qué se avisa.**
+  - Al solicitante: la creación, cada cambio de estado (número, estado anterior,
+    estado nuevo, fecha y enlace), las respuestas públicas del equipo, las
+    solicitudes de información y las reaperturas.
+  - Al equipo: cuando el solicitante responde o reabre (al responsable, o a todos
+    los admins si no hay responsable) y cuando a alguien le asignan un ticket.
+  - Las notas internas no generan avisos al solicitante, y su texto nunca aparece en
+    una notificación.
+- **Transaccional (outbox).** La notificación, su entrega y el job del correo se
+  guardan en la misma transacción que el cambio del ticket. Si el cambio falla, no
+  queda ningún aviso. Si el aviso falla, se revierte el cambio.
+- **Bandeja.**
+  - La campana consulta el contador cada 20 s y al volver a la pestaña. El tiempo
+    real por SSE queda como mejora.
+  - Las notificaciones persisten: quien no estaba conectado las ve al entrar.
+  - Al abrir una, la API vuelve a verificar el permiso sobre el ticket.
+- **Correo.**
+  - Lo envía el worker a **Mailpit** (http://localhost:8025): un buzón local que no
+    envía nada a internet.
+  - Solo se escribe a los dominios de `MAIL_ALLOWED_DOMAINS` (`reto.example`).
+  - Reintentos con backoff de 10, 20, 40, 80 y 160 s (6 intentos). Agotados, la
+    entrega queda **Fallida** y un admin puede reintentarla desde el panel
+    «Entregas» del ticket.
+- **Idempotencia y duplicados.**
+  - Una notificación por evento y destinatario (`dedupe_key`), y un job por entrega.
+  - La política es *at-least-once*: si el worker muere justo después de enviar,
+    el correo se repite con el mismo `Message-ID`, y los clientes de correo lo
+    agrupan.
+
 ## Usuarios de prueba recomendados
 
 Todos los usuarios locales usan **`123456`**. Se puede iniciar sesión con el
