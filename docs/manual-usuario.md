@@ -144,10 +144,13 @@ rango quedan en la URL: se puede compartir el enlace y Atrás vuelve a la pesta�
 | Pestaña | Qué muestra |
 | --- | --- |
 | **Ahora mismo** (en vivo, cada minuto) | Sin atender, esperan al equipo, esperan al solicitante, antigüedad de lo pendiente, carga del equipo y salud del servicio. Cada tarjeta muestra los 5 más antiguos y un enlace a la bandeja ya filtrada |
-| **Atención** | KPIs del rango (abiertos, en revisión, sin atender, reapertura, primera respuesta y resolución). **Evolución**: se elige la métrica, la agrupación (día, semana o mes) y el tipo de gráfico. **Distribución** por categoría, prioridad, estado o motivo de escalamiento. Cumplimiento por prioridad |
+| **Atención** | KPIs del rango (abiertos, en revisión, sin atender, reapertura, primera respuesta y resolución). **Evolución**: se elige la métrica, la agrupación (día, semana o mes) y el tipo de gráfico. **Distribución** por categoría, prioridad, estado o motivo de escalamiento, en barras o dona. Cumplimiento por prioridad |
 | **Asistente IA** | Conversaciones, costo de IA, costo por conversación y usos del copiloto. Evolución de conversaciones (resueltas o escaladas) y del costo. Artículos más sugeridos y artículos que no funcionaron |
 | **Fórmulas** | Cómo se calcula cada número |
 
+- **Tipo de gráfico:** cada métrica abre con el que mejor la lee: barras para cantidades
+  por periodo, líneas para tiempos (medianas) y área para el costo. Se puede cambiar. La
+  dona solo aparece para partes de un total con pocas porciones, como «Por estado».
 - **Periodo:** 7, 30 o 90 días, o **Personalizado** con dos fechas (hasta un año). Si no se
   elige la agrupación, se ajusta sola: por día hasta un mes, por semana hasta seis meses y
   por mes en adelante.

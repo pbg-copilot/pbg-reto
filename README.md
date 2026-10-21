@@ -99,8 +99,9 @@ configuran en `/admin/prioridades`.
   pestaña, el rango y la agrupación quedan en la URL (`?seccion=atencion&dias=90`).
 - **Gráficos** (charts de shadcn sobre Recharts): una métrica a elegir (creados y
   cerrados, primera respuesta, resolución, reaperturas, conversaciones, costo de IA),
-  agrupada por día, semana o mes, en barras, líneas o área. Otro gráfico muestra la
-  distribución por categoría, prioridad, estado o motivo de escalamiento.
+  agrupada por día, semana o mes, en barras, líneas o área (cada métrica abre con el tipo
+  que mejor la lee). Otro gráfico muestra la distribución por categoría, prioridad,
+  estado o motivo de escalamiento, en barras o en dona.
 - **Exportar a Excel:** un `.xlsx` del periodo elegido con Resumen, Evolución, Por
   prioridad, Por categoría y Tickets. No incluye datos del solicitante, notas internas ni
   descripciones.

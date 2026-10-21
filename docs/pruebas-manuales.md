@@ -272,6 +272,10 @@ notificación de otra persona da 404.
 - [ ] **Métrica a elegir.** En Atención → Evolución, cambiar la métrica (por ejemplo
   «Resolución (mediana)»), la agrupación (Semana) y el tipo (Líneas). El tooltip muestra
   el periodo y el valor con su unidad.
+- [ ] **Tipo de gráfico.** Al elegir «Primera respuesta (mediana)» el gráfico pasa a
+  Líneas y con «Costo de IA» (pestaña Asistente IA) a Área; se puede cambiar a mano. En
+  Distribución → «Por estado» abre como dona con los colores de los estados (Abierto
+  azul, En revisión dorado, Cerrado verde).
 - [ ] **Agrupación automática.** Con 90 días, sin tocar la agrupación, queda «Semana».
 - [ ] **Rango personalizado.** «Personalizado» → dos fechas. Una fecha de fin anterior al
   inicio muestra el error y no cambia lo que se ve.

@@ -137,7 +137,11 @@ export function MetricsPage() {
         activationMode="manual"
         className="gap-4"
       >
-        <TabsList aria-label="Secciones del panel" className="h-auto! w-full justify-start overflow-x-auto sm:w-fit">
+        {/* Celular: se desliza sin barra visible. Escritorio: entra entero, sin desborde. */}
+        <TabsList
+          aria-label="Secciones del panel"
+          className="h-auto! w-full justify-start overflow-x-auto overflow-y-hidden [scrollbar-width:none] sm:w-fit sm:overflow-visible [&::-webkit-scrollbar]:hidden"
+        >
           {SECTIONS.map(({ value, label, icon: Icon }) => (
             <TabsTrigger key={value} value={value} className="flex-none px-3 py-1.5">
               <Icon aria-hidden="true" />
