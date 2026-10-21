@@ -119,7 +119,15 @@ Los límites de uso de la API (solicitudes y tokens por minuto) dependen del niv
 la cuenta, que sube con el gasto acumulado. Para producción a gran escala conviene
 revisar el nivel en la Console → Limits.
 
-## 8. Cómo se mide en la práctica
+## 8. Medición real
+
+Con el asistente ya implementado, 4 mensajes reales con `claude-haiku-5-5` (detalle en
+`docs/adr/0003-ai-provider-haiku.md`) costaron **US$0.0022**, unos **US$0.00055 por
+mensaje**. La estimación de las secciones 3 y 4 es conservadora: el costo real es más o
+menos un tercio, porque el prompt caching funciona desde la segunda llamada y el esfuerzo
+`low` produce respuestas breves.
+
+## 9. Cómo se mide en la práctica
 
 - Cada respuesta del asistente guarda los tokens reales que informa la API
   (`usage`): entrada, salida y caché.
@@ -129,7 +137,7 @@ revisar el nivel en la Console → Limits.
   por promedios medidos.
 - La Console de Anthropic (Usage) muestra el gasto facturado.
 
-## 9. Qué no incluye
+## 10. Qué no incluye
 
 Solo cubre el costo del modelo de IA. No incluye servidores, base de datos,
 almacenamiento de archivos ni el proveedor de correo en producción.

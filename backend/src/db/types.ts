@@ -120,6 +120,86 @@ export interface TicketReadsTable {
   last_read_at: DefaultTimestamp;
 }
 
+export interface ArticlesTable {
+  id: Generated<string>;
+  slug: string;
+  category_code: string;
+  status: Generated<"draft" | "published" | "archived">;
+  is_example: Generated<boolean>;
+  published_version_id: string | null;
+  source_ticket_id: string | null;
+  created_by: string | null;
+  created_at: DefaultTimestamp;
+  updated_at: DefaultTimestamp;
+  archived_at: NullableTimestamp;
+}
+
+// Las columnas date llegan como "YYYY-MM-DD" (parser configurado en db/kysely.ts).
+type DateColumn = ColumnType<string, string | undefined, string>;
+
+export interface ArticleVersionsTable {
+  id: Generated<string>;
+  article_id: string;
+  version: number;
+  title: string;
+  symptoms: string;
+  applies_to: Generated<string>;
+  diagnosis_steps: string;
+  solution: string;
+  escalation_conditions: string;
+  tags: ColumnType<string[], string[] | undefined, string[]>;
+  reviewed_at: DateColumn;
+  valid_until: ColumnType<string | null, string | null | undefined, string | null>;
+  published_at: NullableTimestamp;
+  created_by: string | null;
+  created_at: DefaultTimestamp;
+}
+
+export interface IncidentsTable {
+  id: Generated<string>;
+  title: string;
+  public_summary: string;
+  status: "investigating" | "identified" | "monitoring" | "resolved";
+  category_code: string | null;
+  article_id: string | null;
+  started_at: DefaultTimestamp;
+  resolved_at: NullableTimestamp;
+  created_by: string | null;
+  updated_at: DefaultTimestamp;
+}
+
+export interface ConversationsTable {
+  id: Generated<string>;
+  requester_id: string;
+  status: Generated<"active" | "resolved" | "escalated">;
+  title: string | null;
+  case_details: JsonObject;
+  attempted_steps: JsonArray;
+  failed_article_ids: ColumnType<string[], string[] | undefined, string[]>;
+  ticket_id: string | null;
+  last_message_at: DefaultTimestamp;
+  created_at: DefaultTimestamp;
+  updated_at: DefaultTimestamp;
+}
+
+export interface ConversationMessagesTable {
+  id: Generated<string>;
+  seq: Generated<string>;
+  conversation_id: string;
+  role: "user" | "assistant";
+  kind: "message" | "tool_result" | "resolution_feedback" | "notice";
+  content: JsonArray;
+  display_text: string | null;
+  visible: Generated<boolean>;
+  client_message_id: string | null;
+  article_refs: JsonArray;
+  ticket_ref: ColumnType<Record<string, unknown> | null, Record<string, unknown> | string | null | undefined, Record<string, unknown> | string | null>;
+  meta: JsonObject;
+  model: string | null;
+  usage: ColumnType<Record<string, unknown> | null, Record<string, unknown> | string | null | undefined, Record<string, unknown> | string | null>;
+  created_at: DefaultTimestamp;
+}
+
 // Vista del repo base (solo lectura). Nunca seleccionar password_hash.
 export interface AgentsView {
   id: string;
@@ -140,6 +220,11 @@ export interface DB {
   "helpdesk.ticket_comment_revisions": TicketCommentRevisionsTable;
   "helpdesk.ticket_events": TicketEventsTable;
   "helpdesk.ticket_reads": TicketReadsTable;
+  "helpdesk.articles": ArticlesTable;
+  "helpdesk.article_versions": ArticleVersionsTable;
+  "helpdesk.incidents": IncidentsTable;
+  "helpdesk.conversations": ConversationsTable;
+  "helpdesk.conversation_messages": ConversationMessagesTable;
   "reto.agents": AgentsView;
 }
 
@@ -147,4 +232,9 @@ export type Job = Selectable<JobsTable>;
 export type TicketRow = Selectable<TicketsTable>;
 export type TicketEventRow = Selectable<TicketEventsTable>;
 export type CommentRow = Selectable<TicketCommentsTable>;
+export type ArticleRow = Selectable<ArticlesTable>;
+export type ArticleVersionRow = Selectable<ArticleVersionsTable>;
+export type IncidentRow = Selectable<IncidentsTable>;
+export type ConversationRow = Selectable<ConversationsTable>;
+export type ConversationMessageRow = Selectable<ConversationMessagesTable>;
 export type NewJob = Insertable<JobsTable>;

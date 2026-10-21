@@ -1,7 +1,7 @@
 import { useEffect, type ReactNode } from "react";
-import { Link, useOutletContext, useParams } from "react-router";
-import { ArrowLeftIcon, BotIcon, CheckCircle2Icon, FileTextIcon } from "lucide-react";
-import { closureReasonLabel, impactLabel, isAdmin, type Agent, type TicketDetail } from "@reto/shared";
+import { Link, useNavigate, useOutletContext, useParams } from "react-router";
+import { ArrowLeftIcon, BookPlusIcon, BotIcon, CheckCircle2Icon, FileTextIcon, SirenIcon } from "lucide-react";
+import { closureReasonLabel, impactLabel, incidentStatusLabel, isAdmin, type Agent, type TicketDetail } from "@reto/shared";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api";
 import { formatDateTime, formatRelative } from "@/lib/format";
 import { NotFoundPage } from "@/features/errors/NotFoundPage";
+import { useArticleFromTicket } from "@/features/catalog/api";
 import { useTicket } from "./api";
 import { AdminAttributes } from "./components/AdminAttributes";
 import { CommentComposer } from "./components/CommentComposer";
@@ -31,6 +32,8 @@ export function TicketDetailPage() {
   const agent = useOutletContext<Agent>();
   const ticket = useTicket(id);
   const names = useCatalogNames();
+  const navigate = useNavigate();
+  const fromTicket = useArticleFromTicket();
 
   useEffect(() => {
     if (ticket.data) document.title = `RETO · ${ticket.data.display_number}`;
@@ -78,6 +81,16 @@ export function TicketDetailPage() {
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="flex min-w-0 flex-col gap-6">
+          {t.incident && (
+            <Alert className="border-gold/40 bg-gold-soft">
+              <SirenIcon aria-hidden="true" />
+              <AlertTitle>Vinculado a un incidente conocido: {t.incident.title}</AlertTitle>
+              <AlertDescription>
+                Estado del incidente: {incidentStatusLabel[t.incident.status]}. Te avisaremos cuando haya novedades.
+              </AlertDescription>
+            </Alert>
+          )}
+
           {t.status === "closed" && t.closure_reason && (
             <Alert className="border-success/40 bg-success-soft">
               <CheckCircle2Icon aria-hidden="true" />
@@ -94,6 +107,20 @@ export function TicketDetailPage() {
               </AlertTitle>
               {t.resolution_summary && (
                 <AlertDescription className="whitespace-pre-wrap">{t.resolution_summary}</AlertDescription>
+              )}
+              {admin && t.closure_reason === "resolved" && (
+                <AlertDescription className="pt-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={fromTicket.isPending}
+                    onClick={() => fromTicket.mutate(t.id, { onSuccess: (article) => navigate(`/admin/catalogo/${article.id}`) })}
+                  >
+                    <BookPlusIcon data-icon="inline-start" aria-hidden="true" />
+                    Crear artículo desde este ticket
+                  </Button>
+                  {fromTicket.error && <span className="pl-2 text-destructive">{fromTicket.error.message}</span>}
+                </AlertDescription>
               )}
             </Alert>
           )}

@@ -4,7 +4,7 @@ import { pool } from "../src/db.js";
 import { db } from "../src/db/kysely.js";
 import { migrateToLatest } from "../src/db/migrate.js";
 import { digest } from "../src/modules/auth/session.js";
-import { buildApp, type App } from "../src/app.js";
+import { buildApp, type App, type BuildAppOptions } from "../src/app.js";
 
 // Cuentas reservadas para tests (specs/README.md). Nunca las de la demo manual.
 export const TEST_USERS = {
@@ -24,12 +24,15 @@ export const testEnv = () =>
 const silentLog = { info: () => {}, error: () => {} };
 let migrated = false;
 
-export async function buildTestApp(configure?: (app: App) => void | Promise<void>) {
+export async function buildTestApp(
+  configure?: (app: App) => void | Promise<void>,
+  options: Pick<BuildAppOptions, "provider"> = {},
+) {
   if (!migrated) {
     await migrateToLatest(db, silentLog);
     migrated = true;
   }
-  const app = await buildApp({ env: testEnv(), db });
+  const app = await buildApp({ env: testEnv(), db, ...options });
   await configure?.(app);
   await app.ready();
   return app;

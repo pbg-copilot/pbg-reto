@@ -7,6 +7,7 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { isVersionConflict, useAdmins, useAssign, useUpdateTicket } from "../api";
+import { useIncidents } from "@/features/catalog/api";
 import { useCatalogNames } from "../useCatalogNames";
 import { ConflictAlert } from "./ConflictAlert";
 
@@ -19,6 +20,7 @@ type Pending =
 // Responsable, categoría, prioridad y etiquetas (solo equipo). Cada cambio valida la versión.
 export function AdminAttributes({ ticket }: { ticket: TicketDetail }) {
   const admins = useAdmins(true);
+  const incidents = useIncidents(true);
   const names = useCatalogNames();
   const assign = useAssign(ticket.id);
   const update = useUpdateTicket(ticket.id);
@@ -117,6 +119,31 @@ export function AdminAttributes({ ticket }: { ticket: TicketDetail }) {
               {names.categories.map((c) => (
                 <SelectItem key={c.code} value={c.code}>
                   {c.name}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+      </Field>
+      <Field>
+        <FieldLabel htmlFor="incident">Incidente conocido</FieldLabel>
+        <Select
+          value={ticket.incident?.id ?? UNASSIGNED}
+          onValueChange={(value) => run({ kind: "update", body: { incident_id: value === UNASSIGNED ? null : value } })}
+          disabled={busy}
+        >
+          <SelectTrigger id="incident" className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              <SelectItem value={UNASSIGNED}>Ninguno</SelectItem>
+              {ticket.incident && !(incidents.data ?? []).some((i) => i.id === ticket.incident?.id) && (
+                <SelectItem value={ticket.incident.id}>{ticket.incident.title}</SelectItem>
+              )}
+              {(incidents.data ?? []).map((incident) => (
+                <SelectItem key={incident.id} value={incident.id}>
+                  {incident.title}
                 </SelectItem>
               ))}
             </SelectGroup>

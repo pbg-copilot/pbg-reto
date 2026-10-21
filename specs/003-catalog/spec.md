@@ -1,6 +1,6 @@
 # 003 · Catálogo de problemas conocidos e incidentes
 
-- **Estado:** Borrador
+- **Estado:** Hecha (2026-10-20)
 - **Prioridad:** Must (incidentes y artículo desde ticket: Should)
 - **PDF:** §03
 - **Depende de:** 001, 002

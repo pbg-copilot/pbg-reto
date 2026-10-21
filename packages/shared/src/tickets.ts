@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { paginatedSchema, paginationQuerySchema } from "./pagination.js";
+import { INCIDENT_STATUSES } from "./articles.js";
 
 // Dominio de tickets (specs/000-overview/domain.md). Códigos en inglés, etiquetas en español.
 
@@ -87,8 +88,9 @@ export const updateTicketBodySchema = z
     priority: z.string().min(1).max(40).optional(),
     category: z.string().min(1).max(40).optional(),
     tags: z.array(z.string().trim().min(1).max(30)).max(10).optional(),
+    incident_id: z.uuid().nullable().optional().describe("Vincular a un incidente conocido (null para quitar)"),
   })
-  .refine((body) => body.priority !== undefined || body.category !== undefined || body.tags !== undefined, {
+  .refine((body) => body.priority !== undefined || body.category !== undefined || body.tags !== undefined || body.incident_id !== undefined, {
     message: "Indica al menos un cambio",
   });
 export type UpdateTicketBody = z.infer<typeof updateTicketBodySchema>;
@@ -201,6 +203,7 @@ export const ticketDetailSchema = ticketSummarySchema.extend({
   resolution_summary: z.string().nullable(),
   duplicate_of: z.object({ id: z.string(), display_number: z.string() }).nullable(),
   reopened_count: z.number().int(),
+  incident: z.object({ id: z.string(), title: z.string(), status: z.enum(INCIDENT_STATUSES) }).nullable(),
   closed_at: isoDate.nullable(),
   version: z.number().int(),
   comments: z.array(commentSchema),

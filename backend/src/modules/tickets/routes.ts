@@ -27,8 +27,9 @@ const idempotencyHeader = z.looseObject({
 });
 
 const ticketRoutes: FastifyPluginAsyncZod<{ service: TicketService }> = async (app, { service }) => {
-  const authed = { preHandler: app.requireAuth };
-  const idempotent = { preHandler: [app.requireAuth, app.idempotent] };
+  // Autenticación antes de validar el body: sin permiso, 401/403 y no errores de esquema.
+  const authed = { preValidation: app.requireAuth };
+  const idempotent = { preValidation: app.requireAuth, preHandler: app.idempotent };
   const tags = ["tickets"];
 
   app.post(

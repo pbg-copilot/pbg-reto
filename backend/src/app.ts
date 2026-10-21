@@ -18,11 +18,19 @@ import authRoutes from "./modules/auth/routes.js";
 import ticketRoutes from "./modules/tickets/routes.js";
 import catalogRoutes from "./modules/tickets/catalog-routes.js";
 import { createTicketService } from "./modules/tickets/service.js";
+import articleRoutes from "./modules/articles/routes.js";
+import { createArticleService } from "./modules/articles/service.js";
+import conversationRoutes from "./modules/conversations/routes.js";
+import { createConversationService } from "./modules/conversations/service.js";
+import { createProvider } from "./modules/assistant/index.js";
+import type { AssistantProvider } from "./modules/assistant/provider.js";
 
 export type BuildAppOptions = {
   env: Env;
   db: Database;
   logger?: FastifyServerOptions["logger"];
+  // Los tests inyectan un proveedor (por ejemplo, el fake o uno que siempre falla).
+  provider?: AssistantProvider;
 };
 
 declare module "fastify" {
@@ -33,7 +41,7 @@ declare module "fastify" {
 }
 
 // Factory de la API. Los tests la usan con app.inject() sin levantar puertos.
-export async function buildApp({ env, db, logger = false }: BuildAppOptions) {
+export async function buildApp({ env, db, logger = false, provider }: BuildAppOptions) {
   const app = Fastify({ logger, bodyLimit: 16384 }).withTypeProvider<ZodTypeProvider>();
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
@@ -54,7 +62,12 @@ export async function buildApp({ env, db, logger = false }: BuildAppOptions) {
     secureCookie: env.PUBLIC_APP_URL.startsWith("https:"),
   });
   await app.register(catalogRoutes);
-  await app.register(ticketRoutes, { service: createTicketService(db) });
+  const tickets = createTicketService(db);
+  await app.register(ticketRoutes, { service: tickets });
+  await app.register(articleRoutes, { service: createArticleService(db) });
+  await app.register(conversationRoutes, {
+    service: createConversationService({ db, env, tickets, provider: provider ?? createProvider(env) }),
+  });
 
   return app;
 }

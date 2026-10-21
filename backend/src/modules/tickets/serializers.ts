@@ -69,6 +69,7 @@ export function toDetail(
     comments: CommentWithAuthor[];
     events: EventWithActor[];
     duplicateOf: { id: string; number: number } | null;
+    incident: TicketDetail["incident"];
   },
 ): TicketDetail {
   return {
@@ -84,6 +85,7 @@ export function toDetail(
       ? { id: parts.duplicateOf.id, display_number: displayNumber(parts.duplicateOf.number) }
       : null,
     reopened_count: row.reopened_count,
+    incident: parts.incident,
     closed_at: isoOrNull(row.closed_at),
     version: row.version,
     comments: parts.comments.map((comment) => toComment(comment, row.requester_id)),

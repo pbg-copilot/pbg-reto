@@ -45,12 +45,13 @@ export function createTicketService(db: Database) {
       await markRead(db, actor.id, id);
       row.unread = false;
     }
-    const [comments, events, duplicateOf] = await Promise.all([
+    const [comments, events, duplicateOf, incident] = await Promise.all([
       repo.listComments(db, actor, id),
       repo.listEvents(db, actor, id),
       row.duplicate_of_ticket_id ? repo.findTicketRefById(db, row.duplicate_of_ticket_id) : Promise.resolve(undefined),
+      row.incident_id ? repo.findIncident(db, row.incident_id) : Promise.resolve(undefined),
     ]);
-    return toDetail(row, actor, { comments, events, duplicateOf: duplicateOf ?? null });
+    return toDetail(row, actor, { comments, events, duplicateOf: duplicateOf ?? null, incident: incident ?? null });
   }
 
   // Bloquea el ticket visible dentro de la transacción y aplica el control de versión.
@@ -339,8 +340,8 @@ export function createTicketService(db: Database) {
       return withConflictDetails(actor, id, async () => {
         await db.transaction().execute(async (trx) => {
           const current = await lockForUpdate(trx, actor, id, body.version);
-          const changes: Partial<Pick<TicketRow, "priority_code" | "category_code" | "tags">> = {};
-          const events: { type: string; data: Record<string, unknown> }[] = [];
+          const changes: Partial<Pick<TicketRow, "priority_code" | "category_code" | "tags" | "incident_id">> = {};
+          const events: { type: string; data: Record<string, unknown>; visibility?: "public" | "internal" }[] = [];
           if (body.priority !== undefined && body.priority !== current.priority_code) {
             if (!(await repo.findActivePriority(trx, body.priority)))
               throw new AppError(400, "invalid_request", "La prioridad no existe.", { fields: { priority: "No válida" } });
@@ -360,6 +361,18 @@ export function createTicketService(db: Database) {
               events.push({ type: "tags_changed", data: { from: current.tags, to: tags } });
             }
           }
+          if (body.incident_id !== undefined && body.incident_id !== current.incident_id) {
+            const incident = body.incident_id ? await repo.findIncident(trx, body.incident_id) : null;
+            if (body.incident_id && !incident)
+              throw new AppError(400, "invalid_request", "El incidente no existe.", { fields: { incident_id: "No válido" } });
+            changes.incident_id = body.incident_id;
+            // Público: el solicitante ve el incidente conocido que afecta su caso (§03).
+            events.push({
+              type: incident ? "incident_linked" : "incident_unlinked",
+              data: { incident_id: body.incident_id, title: incident?.title ?? null },
+              visibility: "public",
+            });
+          }
           if (events.length === 0) return;
           await trx
             .updateTable("helpdesk.tickets")
@@ -367,7 +380,7 @@ export function createTicketService(db: Database) {
             .where("id", "=", id)
             .execute();
           for (const event of events)
-            await recordEvent(trx, { ticket: current, ...event, visibility: "internal", actorId: actor.id });
+            await recordEvent(trx, { ticket: current, type: event.type, data: event.data, visibility: event.visibility ?? "internal", actorId: actor.id });
           await markRead(trx, actor.id, id);
         });
         return detail(actor, id);

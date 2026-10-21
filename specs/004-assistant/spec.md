@@ -1,6 +1,6 @@
 # 004 · Asistente de soporte (chat con IA)
 
-- **Estado:** Borrador
+- **Estado:** Hecha (2026-10-20) · T004.19 pendiente
 - **Prioridad:** Must
 - **PDF:** §01, §02, §11
 - **Depende de:** 001, 002, 003

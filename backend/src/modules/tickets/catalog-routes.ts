@@ -9,7 +9,7 @@ const catalogRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get(
     "/support/categories",
     {
-      preHandler: app.requireAuth,
+      preValidation: app.requireAuth,
       schema: {
         tags: ["support"],
         security,
@@ -29,7 +29,7 @@ const catalogRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get(
     "/support/priorities",
     {
-      preHandler: app.requireAuth,
+      preValidation: app.requireAuth,
       schema: {
         tags: ["support"],
         security,
@@ -53,7 +53,7 @@ const catalogRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get(
     "/support/admins",
     {
-      preHandler: app.requireAdmin,
+      preValidation: app.requireAdmin,
       schema: {
         tags: ["support"],
         security,

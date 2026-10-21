@@ -81,6 +81,7 @@ compatibilidad con el repo base.
 - Es obligatorio en:
   - `POST /support/conversations`
   - `POST /support/conversations/:id/messages`
+  - `POST /support/conversations/:id/resolution`
   - `POST /support/conversations/:id/escalate`
   - `POST /tickets`
   - `POST /tickets/:id/comments`
@@ -129,6 +130,7 @@ compatibilidad con el repo base.
 | `POST /support/conversations/:id/escalate` | dueño | 004 |
 | `POST /support/conversations/:id/attachments` | dueño | 006 |
 | `GET /support/articles` · `GET /support/articles/:idOrSlug` | sesión (admin ve borradores) | 003 |
+| `GET /support/articles/:id/manage` | admin | 003 |
 | `POST /support/articles` · `POST /support/articles/:id/versions` | admin | 003 |
 | `POST /support/articles/:id/publish` · `POST /support/articles/:id/archive` | admin | 003 |
 | `POST /support/articles/from-ticket/:ticketId` | admin | 003 |

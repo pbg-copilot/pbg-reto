@@ -189,3 +189,7 @@ export async function findAdmin(db: Db, id: string) {
     .executeTakeFirst();
 }
 
+
+export async function findIncident(db: Db, id: string) {
+  return db.selectFrom("helpdesk.incidents").select(["id", "title", "status"]).where("id", "=", id).executeTakeFirst();
+}

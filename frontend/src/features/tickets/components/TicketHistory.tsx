@@ -38,6 +38,10 @@ export function describeEvent(event: TicketEvent, names: Names): string {
       return d.requests_info ? "Pidió información al solicitante" : "Comentó";
     case "comment_edited":
       return "Corrigió un comentario";
+    case "incident_linked":
+      return `Vinculó el caso al incidente «${str(d.title)}»`;
+    case "incident_unlinked":
+      return "Desvinculó el caso del incidente";
     default:
       return event.type;
   }

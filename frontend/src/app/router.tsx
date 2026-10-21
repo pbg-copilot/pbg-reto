@@ -19,13 +19,11 @@ export const router = createBrowserRouter([
       { index: true, element: <HomePage /> },
       {
         path: "soporte",
-        element: (
-          <ComingSoon
-            title="Soporte"
-            spec="spec 004"
-            description="Aquí estará el chat con el asistente y el acceso a tus tickets."
-          />
-        ),
+        lazy: async () => ({ Component: (await import("@/features/support/SupportPage")).SupportPage }),
+      },
+      {
+        path: "soporte/c/:id",
+        lazy: async () => ({ Component: (await import("@/features/support/SupportPage")).SupportPage }),
       },
       // Carga diferida por ruta: cada pantalla se descarga al visitarla.
       {
@@ -41,18 +39,28 @@ export const router = createBrowserRouter([
         lazy: async () => ({ Component: (await import("@/features/tickets/TicketDetailPage")).TicketDetailPage }),
       },
       {
+        path: "soporte/articulos/:slug",
+        lazy: async () => ({ Component: (await import("@/features/catalog/ArticleReaderPage")).ArticleReaderPage }),
+      },
+      {
         path: "admin",
         element: <RequireAdmin />,
         children: [
           {
             path: "catalogo",
-            element: (
-              <ComingSoon
-                title="Catálogo"
-                spec="spec 003"
-                description="Gestión de artículos de problemas conocidos e incidentes."
-              />
-            ),
+            lazy: async () => ({ Component: (await import("@/features/catalog/AdminCatalogPage")).AdminCatalogPage }),
+          },
+          {
+            path: "catalogo/nuevo",
+            lazy: async () => ({ Component: (await import("@/features/catalog/ArticleEditorPage")).ArticleEditorPage }),
+          },
+          {
+            path: "catalogo/:id",
+            lazy: async () => ({ Component: (await import("@/features/catalog/ArticleEditorPage")).ArticleEditorPage }),
+          },
+          {
+            path: "incidentes",
+            lazy: async () => ({ Component: (await import("@/features/catalog/IncidentsPage")).IncidentsPage }),
           },
           {
             path: "metricas",

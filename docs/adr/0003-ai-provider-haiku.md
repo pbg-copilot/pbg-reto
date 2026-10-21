@@ -57,3 +57,20 @@ La demo usa contenido ficticio, como pide el PDF.
 La API exige una key **asociada a un workspace**. Las keys de usuario
 (`sk-ant-usr-…`) piden el header `anthropic-workspace-id`. Conviene crear la key
 dentro de un workspace en la Console.
+
+## Medición real (2026-10-20, `claude-haiku-5-5`, `effort: low`)
+
+| Caso | Llamadas | Tokens (entrada / salida / lectura de caché) | Costo | Latencia |
+| --- | --- | --- | --- | --- |
+| D1 problema conocido (búsqueda → artículo → respuesta) | 3 | 1.907 / 456 / 5.092 | US$0.00079 | 18,5 s (primera petición: compila los esquemas estrictos) |
+| D2, 1.er mensaje (registra el caso y pregunta) | 2 | 814 / 538 / 5.092 | US$0.00040 | 4,5 s |
+| D2, 2.º mensaje (crea el ticket) | 2 | 3.190 / 1.093 / 5.092 | US$0.00092 | 5,7 s |
+| D5 inyección (se niega sin usar herramientas) | 1 | 135 / 115 / 2.546 | US$0.00010 | 1,4 s |
+
+- **Promedio:** ≈ US$0.00055 por mensaje del usuario, menos que lo estimado en
+  `docs/costos-ia.md` (≈ US$0.002). El prefijo de tools + system se sirve desde la
+  caché a partir de la segunda llamada.
+- **Comportamiento observado:**
+  - usa el artículo correcto, aclara que es de ejemplo y pregunta si se resolvió;
+  - sin artículo, hace como máximo 2 preguntas útiles y escala;
+  - ante la inyección, se niega y no muestra datos ajenos.
