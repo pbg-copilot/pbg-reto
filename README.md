@@ -259,10 +259,11 @@ Más pruebas manuales, por spec y con la cuenta para cada una:
 | Comando | Qué cubre | Cuándo correrlo |
 | --- | --- | --- |
 | `pnpm typecheck` · `pnpm lint` | Tipos y lint de los tres paquetes | Siempre |
-| `pnpm test:unit` | 135 tests de Vitest en `backend/test/`: reglas de negocio, permisos con tres actores (dueño, otro usuario y admin), idempotencia, outbox, worker y el asistente con el proveedor simulado. Usa el Postgres de compose | Con `postgres` arriba |
+| `pnpm test:unit` | 140 tests de Vitest en `backend/test/`: reglas de negocio, permisos con tres actores (dueño, otro usuario y admin), idempotencia, outbox, worker y el asistente con el proveedor simulado. Usa el Postgres de compose | Con `postgres` arriba |
 | `pnpm test:ui` | 22 tests de Playwright en `tests/ui/`: login, shell, tickets, catálogo y chat contra :8088 | Con todo arriba |
 | `pnpm test:e2e` | 10 tests de Playwright en `tests/e2e/`: los casos D1–D6 de punta a punta, incluidos Mailpit detenido y dos admins | Con todo arriba |
 | `pnpm test` | Pruebas del repo base: API, datos y base dentro del contenedor | Con todo arriba. **Cierra la sesión de las cuentas de demo** |
+| `pnpm eval:assistant` | 10 escenarios contra el **modelo real** (conocido, desconocido, persistente, persona, inyección, contraseña, «¿revisaste producción?», cuenta, mi ticket, acción propuesta). Corta en US$0.05 y escribe `docs/eval-asistente.md` | A mano, con `ANTHROPIC_API_KEY`. Última corrida: 10/10 por US$0.0063 |
 
 `pnpm test:ui` y `pnpm test:e2e` cambian el backend y el worker al asistente simulado
 (`compose.e2e.yaml`). Al terminar los **restauran siempre** con la configuración del
@@ -270,7 +271,8 @@ Más pruebas manuales, por spec y con la cuenta para cada una:
 restaurar a mano con `docker compose up -d backend worker`. Para correr un solo caso:
 `pnpm test:e2e -g D3`.
 
-Los tests nunca usan la API real de Anthropic ni envían correos fuera de Mailpit.
+Los tests nunca usan la API real de Anthropic ni envían correos fuera de Mailpit. La única
+excepción es `pnpm eval:assistant`, que se corre a mano y tiene un tope de costo.
 
 ### Documentación
 
@@ -281,6 +283,7 @@ Los tests nunca usan la API real de Anthropic ni envían correos fuera de Mailpi
 | [`docs/permisos.md`](docs/permisos.md) | Matriz de permisos con el test que cubre cada fila |
 | [`docs/asistente.md`](docs/asistente.md) | Qué puede hacer el asistente, sus herramientas y qué datos recibe |
 | [`docs/costos-ia.md`](docs/costos-ia.md) | Costo del asistente según el número de clientes |
+| [`docs/eval-asistente.md`](docs/eval-asistente.md) | Última evaluación del asistente con el modelo real |
 | [`docs/despliegue-y-escalabilidad.md`](docs/despliegue-y-escalabilidad.md) | Dónde desplegar, cuándo escalar y el worker frente a Redis o RabbitMQ |
 | [`docs/adr/`](docs/adr/) | Decisiones: esquema `helpdesk` (0001), monolito modular con pnpm (0002), Haiku (0003), adjuntos por streaming (0004) y hoja de ruta de IA (0005) |
 | [`specs/`](specs/README.md) | Specs SDD por feature, estado y trazabilidad con el PDF. Lo pendiente está en `specs/BACKLOG.md` |

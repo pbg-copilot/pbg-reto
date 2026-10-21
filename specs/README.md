@@ -29,7 +29,7 @@ Specs del reto en formato Spec-Driven Development. El alcance lo define
 | 006 | [attachments](006-attachments/) | **Hecha** (+ visión) | Must · visión Should | 21 oct, noche |
 | 009 | [assistant-skills](009-assistant-skills/) | **Hecha** | Should | 21 oct, noche |
 | 007 | [admin-metrics](007-admin-metrics/) | **Hecha** (+ copiloto) | Should | 21 oct, noche |
-| 008 | [delivery](008-delivery/) | **Hecha** (falta correr `pnpm test` del repo base) | Must | 22 oct, tarde |
+| 008 | [delivery](008-delivery/) | **Hecha** | Must | 22 oct, tarde |
 
 Orden de implementación desde aquí, acordado el 2026-10-21:
 
@@ -52,7 +52,6 @@ El orden sigue las dependencias:
 ## Fuera de alcance / futuro
 
 Todas las specs están hechas. Lo que quedó fuera o pendiente:
-- `pnpm eval:assistant` (T004.19, Should);
 - tiempo real por SSE (hoy hay polling cada 20 s);
 - proveedor de correo real, antivirus y purga de adjuntos;
 - MCP y embeddings (ADR 0005);

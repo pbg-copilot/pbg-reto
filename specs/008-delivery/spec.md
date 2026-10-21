@@ -1,6 +1,6 @@
 # 008 · Entrega, demostración y documentación
 
-- **Estado:** Hecha (2026-10-21) · falta correr `pnpm test` (repo base)
+- **Estado:** Hecha (2026-10-21)
 - **Prioridad:** Must
 - **PDF:** §13, §14, §15
 - **Depende de:** todas

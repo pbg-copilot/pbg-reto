@@ -24,9 +24,7 @@
 
 ## Verificación final
 
-- [ ] **T008.11** Clon limpio, arranque y todos los tests en verde. → AC-008.1, AC-008.3
-  Falta solo `pnpm test` (repo base): cierra la sesión de las cuentas de demo y había una
-  abierta. El resto está en verde (ver notas).
+- [x] **T008.11** Clon limpio, arranque y todos los tests en verde. → AC-008.1, AC-008.3
 - [x] **T008.12** Revisión de secretos y datos personales:
   `git grep -nE 'sk-ant-|AKIA|ghp_|BEGIN (RSA|OPENSSH)'`, y revisar que los seeds
   solo tengan datos ficticios. → AC-008.6
@@ -60,8 +58,8 @@
     `cp .env.example .env`;
   - `pnpm install --frozen-lockfile`, `build`, `typecheck`, `lint` y
     `docker compose -p reto-clean build` dieron verde;
-  - los tests corrieron en el stack de desarrollo: `test:unit` 135/135, `test:ui` 22/22
-    y `test:e2e` 10/10 (tres corridas completas seguidas).
+  - los tests corrieron en el stack de desarrollo: `test:unit` 140/140, `test:ui` 22/22,
+    `test:e2e` 10/10 (tres corridas completas) y `pnpm test` del repo base 6/6.
 
   El `up` desde cero con otros puertos queda como verificación opcional.
 - **Datos personales (T008.12).**

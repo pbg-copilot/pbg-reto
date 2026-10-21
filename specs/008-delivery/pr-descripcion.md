@@ -16,7 +16,8 @@ Módulo de soporte para la plataforma RETO:
 - **notificaciones** en la app y por correo (Mailpit) con outbox transaccional y worker
   con reintentos;
 - para el equipo: bandeja con filtros, catálogo e incidentes, métricas de atención,
-  estado operativo en vivo y un copiloto (resumen, respuesta sugerida, duplicados).
+  estado operativo en vivo, un panel en pestañas con gráficos a elegir y exportación a
+  Excel, y un copiloto (resumen, respuesta sugerida, duplicados).
 
 Todo vive en el esquema nuevo `helpdesk`, creado con migraciones. No se modificaron los
 esquemas originales, `data/postgres/`, `database/init/` ni el contrato de
@@ -33,7 +34,7 @@ esquemas originales, `data/postgres/`, `database/init/` ni el contrato de
 | 005 · notifications | Bandeja persistente, correo por outbox, entregas por canal, reintentos con backoff y reintento manual |
 | 006 · attachments | Bucket privado, descarga autorizada por streaming, validación por magic bytes, retiro con trazabilidad, visión con consentimiento |
 | 009 · assistant-skills | Diagnóstico de la propia cuenta y acciones propuestas por el asistente que la persona confirma |
-| 007 · admin-metrics | TPR, TR, reapertura, cumplimiento por prioridad, costo de IA, estado operativo en vivo y copiloto del equipo |
+| 007 · admin-metrics | TPR, TR, reapertura, cumplimiento por prioridad, costo de IA, estado operativo en vivo, panel en pestañas con gráficos de shadcn (métrica, agrupación y tipo a elegir; distribución en barras o dona), rango personalizado, exportación a `.xlsx` y estado de la conexión. Copiloto del equipo |
 | 008 · delivery | E2E D1–D6, documentación, verificación final |
 
 ## Decisiones
@@ -76,7 +77,11 @@ pnpm test:unit      # Vitest contra el Postgres de compose
 pnpm test:ui        # Playwright contra :8088
 pnpm test:e2e       # D1–D6 de punta a punta con el asistente simulado
 pnpm test           # repo base (cierra la sesión de las cuentas de demo)
+pnpm eval:assistant # opcional: 10 escenarios con el modelo real (tope US$0.05)
 ```
+
+Última corrida: `test:unit` 140/140, `test:ui` 22/22, `test:e2e` 10/10, repo base 6/6 y
+`eval:assistant` 10/10 con Haiku por US$0.0063 (`docs/eval-asistente.md`).
 
 El guion paso a paso está en el README («Guion de demo») y la guía para presentarlo en
 `docs/manual-usuario.md`.
@@ -136,7 +141,6 @@ en `/admin/metricas`.
 - SSE para notificaciones y cambios de tickets.
 - Proveedor de correo real (SES o Resend) y antivirus para adjuntos (ClamAV).
 - Purga de binarios retirados, archivado de tickets viejos y agregados de métricas.
-- `pnpm eval:assistant` con escenarios y costo.
 - MCP de solo lectura para el equipo y embeddings si el catálogo crece (ADR 0005).
 - Fusionar duplicados, horario laboral en las métricas y preferencias de notificación.
 

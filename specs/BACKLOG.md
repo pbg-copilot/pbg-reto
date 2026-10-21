@@ -21,6 +21,9 @@ Hecha el 2026-10-21:
 - Verificación en una copia limpia, revisión de secretos y datos personales, estado de
   las specs y borrador del PR (`specs/008-delivery/pr-descripcion.md`).
 
+- `pnpm eval:assistant` (T004.19): 10/10 con Haiku por US$0.0063 (`docs/eval-asistente.md`).
+- Todas las suites en verde: `test:unit` 140, `test:ui` 22, `test:e2e` 10 y el repo base 6.
+
 Opcional: levantar el stack desde cero en otra carpeta y con otros puertos
 (`specs/008-delivery/plan.md`, «Verificación final»).
 
@@ -28,7 +31,6 @@ Opcional: levantar el stack desde cero en otra carpeta y con otros puertos
 
 | Tema | Estado | Referencia |
 | --- | --- | --- |
-| `pnpm eval:assistant` (10 escenarios con su costo) | Pendiente (Should) | T004.19 |
 | Tiempo real por SSE | No se implementa: polling cada 20 s, documentado | AC-005.11 |
 | Preferencias de notificación por usuario | Fuera de alcance | 005 |
 | Proveedor de correo real (SES o Resend) | Fuera de alcance: Mailpit en el reto | 005 |
