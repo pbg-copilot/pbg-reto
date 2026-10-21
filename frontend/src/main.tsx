@@ -46,10 +46,48 @@ type QuoteResponse = {
   rules: { status: string; reason: string };
   missing: string[];
 };
+type Appointment = {
+  id: string;
+  conversation_id: string;
+  client_document_path: string;
+  client_record_id: string;
+  agent_account_id: string;
+  start_at: string;
+  end_at: string;
+  time_zone: string;
+  local_start: string;
+  start_utc_offset_minutes: number;
+  status: "confirmed" | "cancelled";
+};
+type AppointmentAction = "create" | "reschedule" | "cancel";
+type AppointmentConfirmation = {
+  id: string;
+  expires_at: string;
+  action: AppointmentAction;
+  appointment_id: string | null;
+  client_document_path: string;
+  client_record_id: string;
+  agent_account_id: string;
+  interval: {
+    start_at: string;
+    end_at: string;
+    duration_minutes: number;
+    time_zone: string;
+    start_local: string;
+    end_local: string;
+    start_utc_offset_minutes: number;
+  };
+};
+type AppointmentMutationResult = {
+  action: AppointmentAction;
+  appointment: Appointment;
+  idempotent_replay?: boolean;
+};
 class ApiError extends Error {
   constructor(message: string, readonly status: number, readonly code: string) { super(message); }
 }
 const dateLabel = (value?: string | null) => value ? new Date(value).toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" }) : "Fecha no disponible";
+const appointmentDateLabel = (appointment: Appointment) => new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeZone: appointment.time_zone }).format(new Date(appointment.start_at));
 const textValue = (value: { original?: string | null; es?: string | null; en?: string | null }) => value.original ?? value.es ?? value.en ?? "Texto no disponible";
 function Arrow() {
   return (
@@ -120,6 +158,20 @@ function App() {
   const [activeClient, setActiveClient] = useState<Client | null>(null);
   const [profile, setProfile] = useState<ClientProfile | null>(null);
   const [quotes, setQuotes] = useState<QuoteResponse | null>(null);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [appointmentsLoading, setAppointmentsLoading] = useState(false);
+  const [appointmentsError, setAppointmentsError] = useState("");
+  const [appointmentError, setAppointmentError] = useState("");
+  const [appointmentConflict, setAppointmentConflict] = useState(false);
+  const [appointmentBusy, setAppointmentBusy] = useState(false);
+  const [appointmentAction, setAppointmentAction] = useState<AppointmentAction>("create");
+  const [selectedAppointmentId, setSelectedAppointmentId] = useState("");
+  const [appointmentDate, setAppointmentDate] = useState("");
+  const [appointmentTime, setAppointmentTime] = useState("");
+  const [appointmentDuration, setAppointmentDuration] = useState(30);
+  const [pendingAppointment, setPendingAppointment] = useState<{ confirmation: AppointmentConfirmation; idempotencyKey: string } | null>(null);
+  const [appointmentResult, setAppointmentResult] = useState<AppointmentMutationResult | null>(null);
+  const appointmentRequest = useRef(0);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState("");
   const [messageDraft, setMessageDraft] = useState("");
@@ -132,10 +184,13 @@ function App() {
     buttonRef = useRef<HTMLButtonElement>(null);
   function clearWorkspace() {
     contextRequest.current += 1; searchRequest.current += 1;
+    appointmentRequest.current += 1;
     activeConversationRef.current = "";
     setConversations([]); setActiveConversationId(""); setMessages([]);
     setMessagesHasMore(false); setMessagesCursor(null); setActiveClient(null);
     setProfile(null); setQuotes(null); setMessageDraft(""); setClientQuery("");
+    setAppointments([]); setAppointmentsLoading(false); setAppointmentsError(""); setAppointmentError(""); setAppointmentConflict(false); setAppointmentBusy(false); setPendingAppointment(null); setAppointmentResult(null);
+    setAppointmentAction("create"); setSelectedAppointmentId(""); setAppointmentDate(""); setAppointmentTime("");
     setClientResults([]); setClientError(""); setConversationError("");
     setDetailError(""); setNotice("");
     setConversationLoading(false); setHistoryLoading(false); setClientSearchLoading(false);
@@ -231,6 +286,78 @@ function App() {
       if (requestId === contextRequest.current) setDetailLoading(false);
     }
   }
+  async function loadAppointments(conversationId: string, requestId = contextRequest.current) {
+    setAppointmentsLoading(true); setAppointmentsError("");
+    try {
+      const result = await api<{ appointments: Appointment[] }>(`/api/conversations/${conversationId}/appointments`);
+      if (requestId === contextRequest.current && conversationId === activeConversationRef.current) setAppointments(result.appointments);
+    } catch (e) {
+      if (requestId === contextRequest.current && conversationId === activeConversationRef.current && !(e instanceof ApiError && e.status === 401)) setAppointmentsError(e instanceof Error ? e.message : "No se pudieron cargar las citas.");
+    } finally {
+      if (requestId === contextRequest.current && conversationId === activeConversationRef.current) setAppointmentsLoading(false);
+    }
+  }
+  function invalidateAppointmentReview() {
+    appointmentRequest.current += 1;
+    setPendingAppointment(null); setAppointmentResult(null); setAppointmentError(""); setAppointmentConflict(false);
+  }
+  async function prepareAppointment() {
+    if (!activeConversationId || !activeClient || agent?.role !== "agent" || appointmentBusy) return;
+    const conversationId = activeConversationId;
+    const requestId = contextRequest.current;
+    const appointment = appointments.find((item) => item.id === selectedAppointmentId);
+    if (appointmentAction !== "create" && !appointment) {
+      setAppointmentError("Selecciona una cita vigente para continuar.");
+      return;
+    }
+    if (appointmentAction !== "cancel" && (!appointmentDate || !appointmentTime)) {
+      setAppointmentError("Indica la fecha y la hora local de la cita.");
+      return;
+    }
+    const payload: Record<string, unknown> = { action: appointmentAction };
+    if (appointmentAction !== "create") payload.appointmentId = appointment!.id;
+    if (appointmentAction === "create") payload.agentAccountId = agent.id;
+    if (appointmentAction !== "cancel") {
+      payload.localStart = `${appointmentDate}T${appointmentTime}`;
+      payload.durationMinutes = appointmentDuration;
+      payload.timeZone = "America/Bogota";
+      if (appointmentAction === "reschedule") payload.agentAccountId = appointment!.agent_account_id;
+    }
+    const operationId = ++appointmentRequest.current;
+    setAppointmentBusy(true); setAppointmentError(""); setAppointmentConflict(false); setAppointmentResult(null); setPendingAppointment(null);
+    try {
+      const result = await api<{ confirmation: AppointmentConfirmation }>(`/api/conversations/${conversationId}/appointments/confirm`, { method: "POST", body: JSON.stringify(payload) });
+      if (operationId === appointmentRequest.current && requestId === contextRequest.current && conversationId === activeConversationRef.current) {
+        setPendingAppointment({ confirmation: result.confirmation, idempotencyKey: crypto.randomUUID() });
+      }
+    } catch (e) {
+      if (operationId === appointmentRequest.current && requestId === contextRequest.current && conversationId === activeConversationRef.current && !(e instanceof ApiError && e.status === 401)) setAppointmentError(e instanceof Error ? e.message : "No se pudo preparar la operación.");
+    } finally {
+      if (operationId === appointmentRequest.current) setAppointmentBusy(false);
+    }
+  }
+  async function executeAppointment() {
+    if (!activeConversationId || !pendingAppointment || appointmentBusy) return;
+    const conversationId = activeConversationId;
+    const requestId = contextRequest.current;
+    const operationId = appointmentRequest.current;
+    const pending = pendingAppointment;
+    setAppointmentBusy(true); setAppointmentError(""); setAppointmentConflict(false); setAppointmentResult(null);
+    try {
+      const result = await api<AppointmentMutationResult>(`/api/conversations/${conversationId}/appointments`, { method: "POST", body: JSON.stringify({ confirmationId: pending.confirmation.id, idempotencyKey: pending.idempotencyKey }) });
+      if (operationId === appointmentRequest.current && requestId === contextRequest.current && conversationId === activeConversationRef.current) {
+        setAppointmentResult(result); setPendingAppointment(null); setAppointmentAction("create"); setSelectedAppointmentId("");
+        await loadAppointments(conversationId, requestId);
+      }
+    } catch (e) {
+      if (operationId === appointmentRequest.current && requestId === contextRequest.current && conversationId === activeConversationRef.current && !(e instanceof ApiError && e.status === 401)) {
+        if (e instanceof ApiError && e.status === 409) { setPendingAppointment(null); setAppointmentConflict(e.code === "slot_taken"); }
+        setAppointmentError(e instanceof Error ? e.message : "No se pudo completar la operación.");
+      }
+    } finally {
+      if (operationId === appointmentRequest.current) setAppointmentBusy(false);
+    }
+  }
   useEffect(() => {
     if (!agent) return;
     let cancelled = false;
@@ -253,6 +380,7 @@ function App() {
     let cancelled = false;
     setConversationLoading(true); setConversationError(""); setDetailError("");
     setMessages([]); setMessagesHasMore(false); setMessagesCursor(null); setActiveClient(null); setProfile(null); setQuotes(null);
+    setAppointments([]); setAppointmentsLoading(false); setAppointmentsError(""); setAppointmentError(""); setAppointmentConflict(false); setPendingAppointment(null); setAppointmentResult(null);
     setMessageDraft(""); setNotice("");
     api<{ conversation: Conversation; messages: Message[]; pagination: { hasMore: boolean; nextBeforeSequence: string | null } }>(`/api/conversations/${activeConversationId}?limit=100`).then(async (history) => {
       if (cancelled || requestId !== contextRequest.current) return;
@@ -264,6 +392,7 @@ function App() {
       if (conversation.active_client_path && conversation.active_client_record_id) {
         setActiveClient({ document_path: conversation.active_client_path, client_record_id: conversation.active_client_record_id, name: "Cliente seleccionado", email: null, phone: null, stage: null });
         await loadProfile(conversation.id, requestId);
+        await loadAppointments(conversation.id, requestId);
       }
     }).catch((error) => {
       if (!cancelled && requestId === contextRequest.current && !(error instanceof ApiError && error.status === 401)) setConversationError(error instanceof Error ? error.message : "No se pudo abrir la conversación.");
@@ -302,11 +431,14 @@ function App() {
   function activateConversation(conversationId: string) {
     contextRequest.current += 1;
     searchRequest.current += 1;
+    appointmentRequest.current += 1;
     activeConversationRef.current = conversationId;
     setActiveConversationId(conversationId);
     setMessages([]); setMessagesHasMore(false); setMessagesCursor(null);
     setHistoryLoading(false);
     setActiveClient(null); setProfile(null); setQuotes(null);
+    setAppointments([]); setAppointmentsLoading(false); setAppointmentsError(""); setAppointmentError(""); setAppointmentConflict(false); setAppointmentBusy(false); setPendingAppointment(null); setAppointmentResult(null);
+    setAppointmentAction("create"); setSelectedAppointmentId(""); setAppointmentDate(""); setAppointmentTime("");
     setMessageDraft(""); setNotice(""); setClientQuery("");
     setClientResults([]); setDetailError(""); setConversationError("");
   }
@@ -432,9 +564,31 @@ function App() {
             <div className="panel-section"><span className="eyebrow teal">CONTEXTO DEL EXPEDIENTE</span><h2>Cliente activo</h2>
               {activeClient ? <div className="active-client"><span className="client-avatar">{(profile?.client.name || activeClient.name).split(" ").slice(0,2).map((part) => part[0]).join("")}</span><div><strong>{profile?.client.name || activeClient.name}</strong><small>ID · {activeClient.client_record_id}</small></div></div> : <p className="muted-copy">Selecciona un cliente para consultar su perfil y sus cotizaciones.</p>}
               <label className="search-label" htmlFor="client-search">Buscar cliente</label><div className="search-box"><span aria-hidden="true">⌕</span><input id="client-search" value={clientQuery} onChange={(event) => setClientQuery(event.target.value)} placeholder="Nombre, correo o ID" disabled={!activeConversationId} /></div>
-              {clientSearchLoading && <p className="search-hint">Buscando dentro de tu alcance…</p>}{clientError && <div className="inline-error" role="alert">{clientError}</div>}{clientQuery.trim().length > 0 && clientQuery.trim().length < 2 && <p className="search-hint">Escribe al menos 2 caracteres.</p>}{clientResults.length > 0 && <div className="client-results" role="listbox" aria-label="Resultados de clientes">{clientResults.map((client) => <button key={`${client.document_path}#${client.client_record_id}`} role="option" aria-selected={activeClient?.client_record_id === client.client_record_id && activeClient?.document_path === client.document_path} onClick={async () => { const conversationId = activeConversationId; if (!conversationId) return; const requestId = ++contextRequest.current; searchRequest.current += 1; setDetailLoading(true); setClientError(""); setDetailError(""); setQuotes(null); setProfile(null); setActiveClient(client); setClientQuery(""); setClientResults([]); setNotice(""); try { await api(`/api/conversations/${conversationId}/client`, { method: "POST", body: JSON.stringify({ documentPath: client.document_path, clientRecordId: client.client_record_id }) }); if (requestId === contextRequest.current && conversationId === activeConversationRef.current) { setConversations((current) => current.map((item) => item.id === conversationId ? { ...item, active_client_path: client.document_path, active_client_record_id: client.client_record_id } : item)); await loadProfile(conversationId, requestId); } } catch (e) { if (requestId === contextRequest.current) { setActiveClient(null); setProfile(null); if (!(e instanceof ApiError && e.status === 401)) setClientError(e instanceof Error ? e.message : "No se pudo seleccionar el cliente."); } } finally { if (requestId === contextRequest.current) setDetailLoading(false); } }}><strong>{client.name || "Sin nombre"}</strong><small>{client.email || client.client_record_id}</small><span className="result-stage">{client.stage || "Etapa no disponible"}</span></button>)}</div>}{clientQuery.trim().length >= 2 && !clientSearchLoading && !clientError && clientResults.length === 0 && <p className="search-hint">No encontramos clientes dentro de tu alcance.</p>}
+              {clientSearchLoading && <p className="search-hint">Buscando dentro de tu alcance…</p>}{clientError && <div className="inline-error" role="alert">{clientError}</div>}{clientQuery.trim().length > 0 && clientQuery.trim().length < 2 && <p className="search-hint">Escribe al menos 2 caracteres.</p>}{clientResults.length > 0 && <div className="client-results" role="listbox" aria-label="Resultados de clientes">{clientResults.map((client) => <button key={`${client.document_path}#${client.client_record_id}`} role="option" aria-selected={activeClient?.client_record_id === client.client_record_id && activeClient?.document_path === client.document_path} onClick={async () => { const conversationId = activeConversationId; if (!conversationId) return; const requestId = ++contextRequest.current; searchRequest.current += 1; appointmentRequest.current += 1; setDetailLoading(true); setClientError(""); setDetailError(""); setAppointmentError(""); setAppointmentConflict(false); setAppointmentBusy(false); setAppointmentAction("create"); setSelectedAppointmentId(""); setAppointmentDate(""); setAppointmentTime(""); setAppointments([]); setPendingAppointment(null); setAppointmentResult(null); setQuotes(null); setProfile(null); setActiveClient(client); setClientQuery(""); setClientResults([]); setNotice(""); try { await api(`/api/conversations/${conversationId}/client`, { method: "POST", body: JSON.stringify({ documentPath: client.document_path, clientRecordId: client.client_record_id }) }); if (requestId === contextRequest.current && conversationId === activeConversationRef.current) { setConversations((current) => current.map((item) => item.id === conversationId ? { ...item, active_client_path: client.document_path, active_client_record_id: client.client_record_id } : item)); await loadProfile(conversationId, requestId); await loadAppointments(conversationId, requestId); } } catch (e) { if (requestId === contextRequest.current) { setActiveClient(null); setProfile(null); if (!(e instanceof ApiError && e.status === 401)) setClientError(e instanceof Error ? e.message : "No se pudo seleccionar el cliente."); } } finally { if (requestId === contextRequest.current) setDetailLoading(false); } }}><strong>{client.name || "Sin nombre"}</strong><small>{client.email || client.client_record_id}</small><span className="result-stage">{client.stage || "Etapa no disponible"}</span></button>)}</div>}{clientQuery.trim().length >= 2 && !clientSearchLoading && !clientError && clientResults.length === 0 && <p className="search-hint">No encontramos clientes dentro de tu alcance.</p>}
             </div>
             {activeClient && <div className="panel-section lookup-actions"><span className="eyebrow teal">CONSULTAS DETERMINISTAS</span><div className="action-buttons"><button onClick={() => activeConversationId && void loadProfile(activeConversationId)} disabled={detailLoading || !activeConversationId}>Ver expediente</button><button onClick={async () => { const conversationId = activeConversationId; if (!conversationId) return; const requestId = ++contextRequest.current; setDetailLoading(true); setDetailError(""); setProfile(null); setQuotes(null); try { const response = await api<QuoteResponse>(`/api/conversations/${conversationId}/quotes`); if (requestId === contextRequest.current && conversationId === activeConversationRef.current) setQuotes(response); } catch (e) { if (requestId === contextRequest.current && !(e instanceof ApiError && e.status === 401)) setDetailError(e instanceof Error ? e.message : "No se pudieron consultar las cotizaciones."); } finally { if (requestId === contextRequest.current) setDetailLoading(false); } }} disabled={detailLoading || !activeConversationId}>Ver cotizaciones</button></div><p className="search-hint">Solo se muestran registros autorizados, con su procedencia y datos faltantes.</p></div>}
+            {activeClient && agent.role === "agent" && <div className="panel-section appointment-section">
+              <span className="eyebrow teal">AGENDA</span><h3>Gestionar cita</h3>
+              {appointmentsLoading && <p className="search-hint">Cargando citas de este cliente…</p>}
+              {appointmentsError && <div className="inline-error" role="alert">{appointmentsError}<button onClick={() => activeConversationId && void loadAppointments(activeConversationId)}>Volver a cargar citas</button></div>}
+              {appointmentError && <div className="inline-error" role="alert">{appointmentError}{pendingAppointment ? <button onClick={() => void executeAppointment()}>Reintentar con la misma clave</button> : appointmentConflict ? <button onClick={() => { setAppointmentError(""); setAppointmentConflict(false); document.getElementById("appointment-date")?.focus(); }}>Cambiar horario para reintentar</button> : <button onClick={() => void prepareAppointment()}>Reintentar</button>}</div>}
+              {!appointmentsLoading && !appointmentsError && appointments.length === 0 && <p className="search-hint">No hay citas confirmadas de Chat PBG para este cliente.</p>}
+              {appointments.map((appointment) => <div className={`appointment-row ${selectedAppointmentId === appointment.id ? "chosen" : ""}`} key={appointment.id}>
+                <div><strong>{appointmentDateLabel(appointment)}</strong><small>{appointment.local_start.slice(11, 16)} · {appointment.time_zone}</small><small>Agente · {appointment.agent_account_id}</small></div>
+                <div className="appointment-row-actions"><button disabled={appointmentBusy} onClick={() => { invalidateAppointmentReview(); setAppointmentAction("reschedule"); setSelectedAppointmentId(appointment.id); setAppointmentDate(appointment.local_start.slice(0, 10)); setAppointmentTime(appointment.local_start.slice(11, 16)); setAppointmentDuration(Math.max(1, Math.round((new Date(appointment.end_at).getTime() - new Date(appointment.start_at).getTime()) / 60000))); }}>Reprogramar</button><button disabled={appointmentBusy} onClick={() => { invalidateAppointmentReview(); setAppointmentAction("cancel"); setSelectedAppointmentId(appointment.id); }}>Cancelar cita</button></div>
+              </div>)}
+              <div className="appointment-mode"><button disabled={appointmentBusy} className={appointmentAction === "create" ? "active" : ""} onClick={() => { invalidateAppointmentReview(); setAppointmentAction("create"); setSelectedAppointmentId(""); }}>Nueva cita</button></div>
+              {appointmentAction !== "cancel" && <div className="appointment-fields">
+                <label>Fecha local<input id="appointment-date" type="date" value={appointmentDate} disabled={appointmentBusy} onChange={(event) => { invalidateAppointmentReview(); setAppointmentDate(event.target.value); }} /></label>
+                <label>Hora local<input type="time" value={appointmentTime} disabled={appointmentBusy} onChange={(event) => { invalidateAppointmentReview(); setAppointmentTime(event.target.value); }} /></label>
+                <label>Duración<select value={appointmentDuration} disabled={appointmentBusy} onChange={(event) => { invalidateAppointmentReview(); setAppointmentDuration(Number(event.target.value)); }}><option value={15}>15 minutos</option><option value={30}>30 minutos</option><option value={45}>45 minutos</option><option value={60}>1 hora</option><option value={90}>1 hora 30 minutos</option><option value={120}>2 horas</option></select></label>
+                <p>Zona horaria: <strong>America/Bogota</strong></p>
+              </div>}
+              <button className="review-appointment" onClick={() => void prepareAppointment()} disabled={appointmentBusy || appointmentsLoading || !activeConversationId || (appointmentAction !== "create" && !selectedAppointmentId)}>{appointmentBusy ? "Preparando…" : appointmentAction === "cancel" ? "Revisar cancelación" : appointmentAction === "reschedule" ? "Revisar reprogramación" : "Revisar cita"}</button>
+              {pendingAppointment && <div className="appointment-review" aria-live="polite"><strong>Revisa antes de confirmar</strong><span>Acción · {pendingAppointment.confirmation.action === "create" ? "Crear cita" : pendingAppointment.confirmation.action === "reschedule" ? "Reprogramar cita" : "Cancelar cita"}</span><span>Cliente · {activeClient.name} (ID {pendingAppointment.confirmation.client_record_id})</span>{pendingAppointment.confirmation.appointment_id && <span>Cita · {pendingAppointment.confirmation.appointment_id}</span>}<span>Agente · {pendingAppointment.confirmation.agent_account_id}</span><span>Inicio · {pendingAppointment.confirmation.interval.start_local}</span><span>Fin · {pendingAppointment.confirmation.interval.end_local}</span><span>Zona · {pendingAppointment.confirmation.interval.time_zone} (UTC{pendingAppointment.confirmation.interval.start_utc_offset_minutes / 60})</span><small>Confirmación vence {dateLabel(pendingAppointment.confirmation.expires_at)}. La disponibilidad se valida de nuevo al guardar.</small><div className="appointment-review-actions"><button onClick={() => void executeAppointment()} disabled={appointmentBusy}>{appointmentBusy ? "Guardando…" : "Confirmar operación"}</button><button disabled={appointmentBusy} onClick={() => { invalidateAppointmentReview(); setAppointmentBusy(false); }}>Cancelar revisión</button></div></div>}
+              {appointmentResult && <div className="appointment-result" role="status"><strong>{appointmentResult.action === "create" ? "Cita creada" : appointmentResult.action === "reschedule" ? "Cita reprogramada" : "Cita cancelada"}{appointmentResult.idempotent_replay ? " · resultado recuperado" : ""}</strong><span>Registro · {appointmentResult.appointment.id}</span><span>{appointmentResult.appointment.local_start} · {appointmentResult.appointment.time_zone}</span></div>}
+              <p className="search-hint">El conflicto de horario se valida al confirmar. Si otro guardado ocupa el intervalo, revisa un nuevo horario y confirma otra vez.</p>
+            </div>}
             <div className="panel-section results-section"><div className="result-heading"><span className="eyebrow teal">RESULTADO Y FUENTES</span>{detailLoading && <span className="mini-loader" aria-label="Cargando" />}</div>{detailError && <div className="inline-error" role="alert">{detailError}<button onClick={() => activeConversationId && activeClient && void loadProfile(activeConversationId)}>Reintentar</button></div>}{!activeClient && <div className="panel-empty">Elige un cliente para consultar información. Las fuentes aparecerán aquí.</div>}{activeClient && !profile && !quotes && !detailLoading && !detailError && <div className="panel-empty">Usa “Ver expediente” o “Ver cotizaciones”.</div>}
               {profile && <div className="result-card"><div className="result-card-title"><span className="source-dot" /> Expediente encontrado</div><dl className="profile-fields">{[["Nombre", profile.client.name], ["Correo", profile.client.email], ["Teléfono", profile.client.phone], ["Etapa", profile.client.stage]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value || <span className="missing-value">No consta</span>}</dd></div>)}</dl><div className="source-block"><strong>Fuente</strong><span>{profile.source.document_path}</span><small>Registro {profile.source.client_record_id} · {dateLabel(profile.source.date)}</small></div><div className="missing-block"><strong>Datos faltantes</strong>{profile.missing.length ? <ul>{profile.missing.map((item) => <li key={item}>{item}</li>)}</ul> : <span>No se reportan campos faltantes.</span>}</div><div className="notes-heading"><strong>Notas del expediente</strong><span>{profile.notes_status === "loaded" ? `${profile.notes.length} encontradas` : profile.notes_status === "empty" ? "Sin notas" : "No disponibles"}</span></div>{profile.notes.map((note) => <div className="note-item" key={`${note.id}-${note.index}`}><p>{textValue(note.text)}</p><small>{dateLabel(note.occurred_at)} · Fuente: {note.source.document_path} · nota {note.source.note_id}</small></div>)}{profile.activity.entries.map((entry) => <div className="note-item" key={`${entry.call_id}-${entry.note_id}`}><p>Nota vinculada a llamada {entry.call_id}</p><small>{dateLabel(entry.occurred_at)} · Fuente: {entry.source.document_path} · nota {entry.source.note_id}</small></div>)}{profile.activity.status !== "loaded" && profile.activity.status !== "empty" && profile.activity.reason && <p className="limitation-note">Actividad {profile.activity.status === "partial" ? "parcial" : "no disponible"}: {profile.activity.reason}</p>}</div>}
               {quotes && <div className="result-card"><div className="result-card-title"><span className={`source-dot ${quotes.quotes_status === "empty" ? "empty-dot" : ""}`} /> Cotizaciones {quotes.quotes_status === "empty" ? "no encontradas" : "registradas"}</div>{quotes.quotes.length === 0 ? <p className="muted-copy">No hay coincidencias exactas para este cliente.</p> : quotes.quotes.map((quote) => <article className="quote-item" key={quote.id}><div className="quote-title"><strong>{quote.carrier || "Aseguradora no disponible"}</strong><small>{quote.product || "Producto no disponible"}</small></div><dl><div><dt>Valor nominal</dt><dd>{quote.face_amount_cents === null ? "No consta" : `$${(Number(quote.face_amount_cents) / 100).toLocaleString("es-CO")}`}</dd></div><div><dt>Prima mensual</dt><dd>{quote.monthly_premium_cents === null ? "No consta" : `$${(Number(quote.monthly_premium_cents) / 100).toLocaleString("es-CO")}`}</dd></div><div><dt>Prima anual</dt><dd>{quote.annual_premium_cents === null ? "No consta" : `$${(Number(quote.annual_premium_cents) / 100).toLocaleString("es-CO")}`}</dd></div></dl><div className="source-block"><strong>Fuente</strong><span>{quote.source.table} · {quote.source.record_id}</span><small>Registro {quote.source.client_record_id} · {dateLabel(quote.source.date)}</small></div></article>)}<div className="missing-block"><strong>Faltantes y limitaciones</strong><ul>{quotes.missing.map((item) => <li key={item}>{item}</li>)}</ul><span>{quotes.rules.reason}</span></div></div>}

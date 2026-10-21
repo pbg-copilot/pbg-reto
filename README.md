@@ -50,7 +50,9 @@ y su vínculo en `agencies.owner_account_id`. También se conservan `appeal_offi
 `data/test-users.json` enumera los 107 alias, correos, IDs sustituidos y roles.
 La interfaz autenticada ofrece conversaciones persistidas, búsqueda y selección
 de clientes, contexto activo y consultas deterministas de expediente y
-cotizaciones con fuentes y datos faltantes. Los dashboards de agencia y reportes
+cotizaciones con fuentes y datos faltantes. Los agentes pueden crear,
+reprogramar y cancelar citas desde el contexto activo, con revisión explícita de
+los valores exactos antes de confirmar. Los dashboards de agencia y reportes
 siguen fuera del flujo del chat.
 
 ## Datos y estructura

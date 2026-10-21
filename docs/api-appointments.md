@@ -1,5 +1,16 @@
 # API de disponibilidad de agenda
 
+## `GET /api/conversations/{conversationId}/appointments`
+
+Devuelve citas confirmadas de Chat PBG asociadas a la conversación y al cliente
+activo. La ruta vuelve a validar la conversación, el cliente y el alcance de cada
+agente responsable; no usa el ID de cita como prueba de acceso. Requiere sesión y
+un cliente seleccionado. Una conversación inexistente devuelve `404` y la falta
+de cliente activo devuelve `409 client_not_selected`.
+
+La interfaz usa este listado para permitir reprogramar o cancelar una cita. Solo
+se presentan citas cuyo agente responsable sigue dentro del alcance del usuario.
+
 ## `GET /api/appointments/availability`
 
 Consulta solapamientos con citas confirmadas del calendario propio de Chat PBG.

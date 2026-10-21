@@ -569,6 +569,32 @@ a {
 .quote-title strong { color: #3d5e65; font-size: 9px; }
 .quote-title small { color: #87999d; font-size: 8px; }
 .panel-foot { border-top: 1px solid #edf1f2; padding-top: 12px; color: #9aa8ab; font-size: 8px; line-height: 1.5; }
+.appointment-section h3 { margin: 6px 0 10px; color: #34575e; font-size: 12px; font-weight: 600; }
+.appointment-row { display: grid; gap: 8px; padding: 9px; margin: 8px 0; border: 1px solid #e5edef; border-radius: 6px; background: #fbfcfc; }
+.appointment-row.chosen { border-color: #92c4ca; background: #f2f9f9; }
+.appointment-row > div:first-child { display: grid; gap: 4px; }
+.appointment-row strong { color: #45666d; font-size: 9px; }
+.appointment-row small { color: #899da1; font-size: 8px; overflow-wrap: anywhere; }
+.appointment-row-actions, .appointment-review-actions { display: flex; gap: 7px; flex-wrap: wrap; }
+.appointment-row-actions button, .appointment-mode button { border: 1px solid #dce7e8; border-radius: 5px; padding: 6px 8px; background: #fff; color: #46777e; font-size: 8px; }
+.appointment-mode { margin: 9px 0; }
+.appointment-mode button.active { border-color: #6ba8b1; background: #eef8f8; color: #2c737e; }
+.appointment-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.appointment-fields label { display: grid; gap: 4px; color: #71888e; font-size: 8px; }
+.appointment-fields input, .appointment-fields select { min-width: 0; height: 32px; border: 1px solid #dce5e6; border-radius: 5px; padding: 5px 7px; background: #fff; color: #34565e; font: inherit; font-size: 9px; }
+.appointment-fields label:nth-child(3) { grid-column: 1 / -1; }
+.appointment-fields p { grid-column: 1 / -1; margin: 0; color: #91a1a4; font-size: 8px; }
+.appointment-fields p strong { color: #527a80; font-weight: 550; }
+.review-appointment { width: 100%; margin-top: 10px; border: 0; border-radius: 5px; padding: 9px; background: #287e8c; color: #fff; font-size: 9px; font-weight: 600; }
+.review-appointment:hover { background: #1e6c79; }
+.appointment-review, .appointment-result { display: grid; gap: 6px; margin-top: 10px; padding: 10px; border: 1px solid #d8e8e8; border-radius: 6px; background: #f5fafa; color: #55747a; font-size: 8px; overflow-wrap: anywhere; }
+.appointment-review > strong, .appointment-result > strong { color: #32636b; font-size: 9px; }
+.appointment-review > small { color: #8c9da0; line-height: 1.5; }
+.appointment-review-actions { margin-top: 4px; }
+.appointment-review-actions button { border: 1px solid #d0e0e1; border-radius: 5px; padding: 7px 9px; background: #fff; color: #397985; font-size: 8px; }
+.appointment-review-actions button:first-child { border-color: #287e8c; background: #287e8c; color: #fff; }
+.appointment-result { border-color: #d6ebdd; background: #f5fbf6; color: #698d75; }
+.appointment-result > strong { color: #3d8054; }
 .inline-error { color: #9d4b4f; background: #fff6f5; border: 1px solid #efdedd; border-radius: 6px; padding: 8px; font-size: 9px; line-height: 1.5; }
 .inline-error.wide { margin: 12px 22px 0; }
 .inline-error button { display: block; margin-top: 6px; border: 0; background: transparent; color: #8e383e; padding: 0; font-size: 9px; text-decoration: underline; }
