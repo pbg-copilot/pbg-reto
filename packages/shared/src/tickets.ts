@@ -190,6 +190,7 @@ export const ticketPermissionsSchema = z.object({
   can_reopen: z.boolean(),
   can_assign: z.boolean(),
   can_edit_attributes: z.boolean(),
+  can_request_info: z.boolean().describe("El equipo pide información a otra persona (no al propio solicitante admin)"),
 });
 export type TicketPermissions = z.infer<typeof ticketPermissionsSchema>;
 

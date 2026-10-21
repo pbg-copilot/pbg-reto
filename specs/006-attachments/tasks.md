@@ -24,3 +24,9 @@
 - [ ] **T006.10** UI: `Dropzone`, `AttachmentList`, chips en el chat y diálogo para
   retirar. → AC-006.9
 - [ ] **T006.11** Política de archivos en el README. → AC-006.10
+- [ ] **T006.12** *(Should)* Consentimiento por imagen en el compositor y
+  `shared_with_ai_at`. → AC-006.11
+- [ ] **T006.13** *(Should)* Bloque `image` solo en el turno con consentimiento y
+  marcador en el historial guardado.
+  Test con `fake`: sin consentimiento no hay bloque `image`; con consentimiento sí, y
+  el historial no guarda base64. → AC-006.12, AC-006.13

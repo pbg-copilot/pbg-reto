@@ -1,6 +1,6 @@
 import { useEffect, type ReactNode } from "react";
 import { Link, useNavigate, useOutletContext, useParams } from "react-router";
-import { ArrowLeftIcon, BookPlusIcon, BotIcon, CheckCircle2Icon, FileTextIcon, SirenIcon } from "lucide-react";
+import { ArrowLeftIcon, BookPlusIcon, BotIcon, CheckCircle2Icon, FileTextIcon, MessagesSquareIcon, SirenIcon } from "lucide-react";
 import { closureReasonLabel, impactLabel, incidentStatusLabel, isAdmin, type Agent, type TicketDetail } from "@reto/shared";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -135,8 +135,16 @@ export function TicketDetailPage() {
                 {t.requester.name} · {formatDateTime(t.created_at)} · {SOURCE_LABEL[t.source]}
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex flex-col gap-3">
               <p className="text-sm whitespace-pre-wrap">{t.original_description}</p>
+              {t.conversation_id && (
+                <Button variant="outline" size="sm" asChild className="self-start">
+                  <Link to={`/soporte/c/${t.conversation_id}`}>
+                    <MessagesSquareIcon data-icon="inline-start" aria-hidden="true" />
+                    {admin ? "Ver conversación de origen (solo lectura)" : "Ver la conversación con el asistente"}
+                  </Link>
+                </Button>
+              )}
             </CardContent>
           </Card>
 

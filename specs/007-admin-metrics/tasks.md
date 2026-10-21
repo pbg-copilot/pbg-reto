@@ -16,3 +16,18 @@
   fórmulas. → AC-007.5
 - [ ] **T007.7** UI `/admin/prioridades`.
 - [ ] **T007.8** Fórmulas en el README (sección "Métricas de atención").
+
+## Copiloto del equipo (Should)
+
+- [ ] **T007.9** Migración `ai_usage` y el costo del copiloto en las métricas.
+  → AC-007.12
+- [ ] **T007.10** `POST /tickets/:id/copilot/summary` y su panel con «Guardar como
+  nota interna».
+  Tests: incluye las notas internas; 403 para el solicitante. → AC-007.8, AC-007.13
+- [ ] **T007.11** `POST /tickets/:id/copilot/reply-draft` con el serializador del
+  solicitante, y su integración en el compositor.
+  Tests: el input al proveedor no contiene notas internas; no envía nada. → AC-007.9
+- [ ] **T007.12** `GET /tickets/:id/similar` y la sección «Posibles duplicados».
+  Test con dos tickets parecidos. → AC-007.10
+- [ ] **T007.13** Pruebas de inyección en el contenido del ticket y degradación con
+  `AI_FAKE_FAILURE`. → AC-007.11, AC-007.12

@@ -83,3 +83,21 @@ en el resto, 1 MB.
 | --- | --- |
 | Unitarios | `sanitizeFilename`; `detectType` con PNG real, PNG renombrado a `.pdf`, HTML disfrazado de `.png`, SVG, texto con bytes nulos y archivo vacío |
 | Integración (S3 real de compose) | Subida y descarga del dueño; un tercero recibe 404; el solicitante no ve los internos ni en el detalle ni por descarga directa; 413 y 415 no dejan objetos en el bucket; retirar deja la descarga en 404 para todos y crea el evento; los adjuntos del chat pasan al ticket al escalar; reintento con la misma clave no duplica |
+
+## Visión con consentimiento (AC-006.11 a AC-006.13)
+
+- **Datos:**
+  - `attachments.shared_with_ai_at timestamptz NULL`;
+  - `POST /support/conversations/:id/messages` acepta `attachment_ids` y
+    `share_images_with_ai: boolean`.
+- **Servidor:**
+  - solo imágenes de esa conversación, de quien envía y en estado `active`;
+  - se leen desde S3 y se agrega `{ type: "image", source: { type: "base64", media_type, data } }`
+    antes del texto, en el mensaje `user` de ese turno;
+  - en el historial guardado, el bloque se reemplaza por un marcador de texto
+    `[Imagen compartida con el asistente: nombre.png]`, para no reenviar el binario en
+    cada turno ni guardarlo en la base de datos.
+- **Proveedor `fake`:** si recibe un bloque `image`, responde «Recibí tu captura»
+  (test determinista).
+- **Costo:** con Haiku 5.5, una captura típica suma ~1.500 tokens de entrada
+  (≈ US$0.00015).

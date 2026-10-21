@@ -155,6 +155,8 @@ export function createTicketService(db: Database) {
           .returningAll()
           .executeTakeFirstOrThrow();
         const fromTeam = actor.id !== ticket.requester_id;
+        if (body.requests_info && !fromTeam)
+          throw new AppError(400, "invalid_request", "La solicitud de información es del equipo hacia la persona que abrió el ticket.");
         if (body.visibility === "public")
           await trx
             .updateTable("helpdesk.tickets")

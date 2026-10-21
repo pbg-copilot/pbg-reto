@@ -3,7 +3,7 @@
 - **Estado:** Borrador
 - **Prioridad:** Should (la bandeja y los filtros básicos ya son Must en 002)
 - **PDF:** §07
-- **Depende de:** 002, 004 (costos de IA)
+- **Depende de:** 002, 003, 004 (costos de IA)
 
 ## Problema
 
@@ -40,8 +40,24 @@ extremos, y también el promedio.
 | AC-007.6 | Ninguna vista del solicitante muestra objetivos, vencimientos ni plazos |
 | AC-007.7 | Las fórmulas se prueban con tickets fijados en el tiempo (fixtures con `created_at` y `closed_at` controlados) |
 
+## Copiloto del equipo · *Should*
+
+Decidido el 2026-10-21 (ver `docs/adr/0005-ai-capabilities-roadmap.md`). La IA ayuda
+al admin, pero **no decide ni envía nada**.
+
+| ID | Criterio |
+| --- | --- |
+| AC-007.8 | **Resumir caso.** En el detalle del ticket, el admin pulsa «Resumir caso» y recibe un resumen de 3 a 6 viñetas: problema, pasos ya intentados, último estado y qué falta. Usa la descripción, los comentarios públicos, las notas internas y el contexto del chat. Se muestra en un panel marcado «Borrador de IA · interno» y el admin puede guardarlo como nota interna |
+| AC-007.9 | **Sugerir respuesta.** «Sugerir respuesta» llena el compositor con un borrador **público** que el admin edita y envía con el botón normal. El borrador se genera **sin** notas internas ni adjuntos internos (no puede filtrarlos) y cita artículos publicados del catálogo cuando aplican. Nunca se envía solo |
+| AC-007.10 | **Posibles duplicados.** El detalle admin muestra hasta 5 tickets no cerrados de los últimos 30 días con título o descripción parecidos (pg_trgm, sin IA), con número, título, estado y enlace |
+| AC-007.11 | El contenido del ticket va al modelo como dato no confiable: una instrucción escrita en el ticket no cambia el formato, no agrega destinatarios y no revela notas internas en el borrador público |
+| AC-007.12 | Cada uso del copiloto registra en `helpdesk.ai_usage` (función, admin, ticket, tokens y costo) y suma al «Costo de IA» de las métricas. Si el modelo falla, se muestra «El copiloto no está disponible» y el ticket se gestiona igual (D6) |
+| AC-007.13 | Solo admin: el solicitante recibe 403 en los endpoints del copiloto y en duplicados, y no ve nada de esto en la UI |
+
 ## Fuera de alcance
 
 - Horario laboral y calendarios de feriados.
 - Alertas por vencimiento.
 - Exportar a CSV.
+- Fusionar duplicados (solo se muestran).
+- Clasificación o asignación automática con IA.

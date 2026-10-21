@@ -26,14 +26,28 @@ Specs del reto en formato Spec-Driven Development. El alcance lo define
 | 003 | [catalog](003-catalog/) | **Hecha** | Must | 21 oct, tarde |
 | 004 | [assistant](004-assistant/) | **Hecha** | Must | 21 oct, tarde |
 | 005 | [notifications](005-notifications/) | Borrador | Must | 22 oct, mañana |
-| 006 | [attachments](006-attachments/) | Borrador | Must | 22 oct, mañana |
-| 007 | [admin-metrics](007-admin-metrics/) | Borrador | Should | 22 oct, tarde |
+| 006 | [attachments](006-attachments/) | Borrador (+ visión aprobada) | Must · visión Should | 22 oct, mañana |
+| 009 | [assistant-skills](009-assistant-skills/) | **Aprobada** | Should | 22 oct, mediodía |
+| 007 | [admin-metrics](007-admin-metrics/) | Borrador (+ copiloto aprobado) | Should | 22 oct, tarde |
 | 008 | [delivery](008-delivery/) | Borrador | Must | 22 oct, tarde |
+
+Orden de implementación desde aquí, acordado el 2026-10-21:
+
+1. **005** · notificaciones.
+2. **006** · adjuntos, con la visión con consentimiento (A) y el diagnóstico de la
+   cuenta de la 009 (B).
+3. **009** · acciones confirmadas (C).
+4. **007** · métricas, con el copiloto del equipo (D).
+5. **008** · entrega.
+
+Las decisiones de MCP, Agent Skills y embeddings (E, F, G) están en
+`docs/adr/0005-ai-capabilities-roadmap.md`.
 
 El orden sigue las dependencias:
 - El asistente (004) necesita tickets (002) y catálogo (003).
 - Las notificaciones (005) se conectan al registro de eventos de 002.
 - Los adjuntos (006) se integran en tickets y chat ya existentes.
+- Las acciones confirmadas (009) reutilizan el servicio de tickets de 002 y el chat de 004.
 
 ## Identificadores
 
@@ -68,7 +82,7 @@ El orden sigue las dependencias:
 | 08 | Notificaciones | 005 |
 | 09 | Archivos e historial | 006, 002 |
 | 10 | Base técnica | 001 |
-| 11 | Modelo de IA y herramientas | 004 |
+| 11 | Modelo de IA y herramientas | 004, 009, 006 (visión), 007 (copiloto) |
 | 12 | Endpoints propuestos | 000/api-conventions y cada feature |
 | 13 | Repositorio e instalación | 001, 008 |
 | 14 | Casos mínimos de demostración | 008 |
@@ -82,7 +96,11 @@ Se recorta en este orden. Los casos D1–D6 no se tocan.
 2. Vista previa de imágenes dentro de la UI (queda la descarga).
 3. Edición de comentarios con revisiones (queda solo la creación).
 4. Prellenado con IA del artículo creado desde un ticket (queda el prellenado sin IA).
-5. Métricas por prioridad contra objetivos (quedan los tiempos globales).
+5. Copiloto del equipo: primero «Resumir caso» y luego «Sugerir respuesta» (quedan
+   los duplicados, que no usan IA).
+6. Visión con consentimiento (quedan los metadatos del adjunto).
+7. Acciones confirmadas de la 009 (queda el diagnóstico de cuenta).
+8. Métricas por prioridad contra objetivos (quedan los tiempos globales).
 
 ## Cuentas
 

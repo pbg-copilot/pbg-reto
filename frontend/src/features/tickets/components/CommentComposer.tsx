@@ -79,7 +79,7 @@ export function CommentComposer({ ticket }: { ticket: TicketDetail }) {
         </Alert>
       )}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        {canInternal && !internal ? (
+        {permissions.can_request_info && !internal ? (
           <div className="flex items-center gap-2">
             <Checkbox
               id="requests-info"

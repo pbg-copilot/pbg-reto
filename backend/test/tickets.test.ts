@@ -161,6 +161,12 @@ describe("AC-002.8 / AC-002.9 / AC-002.10 comments and internal notes", () => {
     expect((await get(admin, `/tickets/${ticket.id}`)).json().first_response_at).not.toBeNull();
   });
 
+  it("rejects an info request on the admin's own ticket", async () => {
+    const own = (await createTicket(admin)).json();
+    expect(own.permissions.can_request_info).toBe(false);
+    expect((await post(admin, `/tickets/${own.id}/comments`, { body: "¿Qué navegador?", requests_info: true })).statusCode).toBe(400);
+  });
+
   it("forbids internal notes and info requests from the requester", async () => {
     const ticket = (await createTicket(requester)).json();
     expect((await post(requester, `/tickets/${ticket.id}/comments`, { body: "x", visibility: "internal" })).statusCode).toBe(403);

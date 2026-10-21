@@ -58,6 +58,7 @@ describe("permission matrix", () => {
       can_reopen: false,
       can_assign: false,
       can_edit_attributes: false,
+      can_request_info: false,
     });
     expect(permissionsFor(owner, closed)).toMatchObject({ can_comment: false, can_reopen: true });
   });
@@ -67,7 +68,9 @@ describe("permission matrix", () => {
   });
 
   it("lets admins manage and leave internal notes on closed tickets", () => {
-    expect(permissionsFor(admin, open)).toMatchObject({ can_change_status: true, can_assign: true });
+    expect(permissionsFor(admin, open)).toMatchObject({ can_change_status: true, can_assign: true, can_request_info: true });
+    // Un admin que abre su propio ticket no se pide información a sí mismo.
+    expect(permissionsFor(admin, { requester_id: "a1", status: "open" })).toMatchObject({ can_request_info: false });
     expect(permissionsFor(admin, closed)).toMatchObject({
       can_comment: false,
       can_add_internal_note: true,

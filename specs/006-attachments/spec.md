@@ -39,3 +39,13 @@ de las notas internas.
 | AC-006.8 | Al modelo solo le llegan los metadatos del adjunto (nombre, tipo, tamaño), nunca el contenido |
 | AC-006.9 | La UI tiene una zona de arrastrar y soltar más botón, con validación previa en el cliente (tipo y tamaño), progreso, errores claros en español y vista previa de las imágenes ya subidas, a través del endpoint autorizado |
 | AC-006.10 | La política de archivos de esta spec queda documentada en el README |
+
+## Lectura de capturas por el asistente (visión) · *Should*
+
+Decidido el 2026-10-21 (ver `docs/adr/0005-ai-capabilities-roadmap.md`).
+
+| ID | Criterio |
+| --- | --- |
+| AC-006.11 | Al adjuntar una imagen en el chat, el compositor muestra la casilla **«Permitir que el asistente lea esta imagen»**, **desmarcada** por defecto. Sin consentimiento, el modelo solo recibe nombre, tipo y tamaño (AC-006.8) |
+| AC-006.12 | Con consentimiento, la imagen (PNG, JPEG, WEBP o GIF, hasta 5 MB) se envía como bloque `image` en base64 **solo en ese mensaje**, y se registra `shared_with_ai_at` en el adjunto. Nunca se envían PDFs, adjuntos internos ni imágenes de tickets |
+| AC-006.13 | El asistente puede citar lo que ve («en tu captura aparece el error 500») y sigue sin afirmar causas. El costo de la imagen queda en `usage` |

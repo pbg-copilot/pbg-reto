@@ -21,5 +21,7 @@ export function permissionsFor(actor: Agent, ticket: TicketLike): TicketPermissi
     can_reopen: participant && closed,
     can_assign: admin,
     can_edit_attributes: admin,
+    // Pedir información solo tiene sentido del equipo hacia otra persona.
+    can_request_info: admin && !isOwner(actor, ticket) && !closed,
   };
 }

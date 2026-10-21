@@ -58,9 +58,49 @@ En la bandeja, "Desde la última respuesta" se calcula en SQL como
 - **`/admin/prioridades`:** tabla editable con los objetivos en minutos, usando
   inputs de horas o minutos.
 
+## Copiloto del equipo (AC-007.8 a AC-007.13)
+
+**Migración `0008_ai_usage`:**
+
+```sql
+CREATE TABLE helpdesk.ai_usage (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  feature text NOT NULL CHECK (feature IN ('copilot_summary','copilot_reply')),
+  actor_id text NOT NULL REFERENCES onboarding.accounts(id),
+  ticket_id uuid REFERENCES helpdesk.tickets(id) ON DELETE SET NULL,
+  model text NOT NULL,
+  usage jsonb NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX ai_usage_created_idx ON helpdesk.ai_usage (created_at);
+```
+
+**Módulo `modules/copilot/`:** una sola llamada al modelo, sin herramientas, con el
+mismo `AssistantProvider` (y el mismo `fake` en tests).
+
+| Endpoint | Rol | Qué hace |
+| --- | --- | --- |
+| `POST /tickets/:id/copilot/summary` | admin | Arma el contexto con todo el ticket (incluidas las notas internas) envuelto en `<untrusted_content>`. Devuelve `{ markdown }` |
+| `POST /tickets/:id/copilot/reply-draft` | admin | El contexto **excluye** las notas internas por construcción: se usa el serializador del solicitante y no un filtro posterior. Suma los 3 artículos publicados más relevantes (`search.ts`). Devuelve `{ markdown, articles: [{slug, title}] }` |
+| `GET /tickets/:id/similar` | admin | `word_similarity` sobre `title \|\| ' ' \|\| description`, umbral 0.35, excluye el propio ticket y los cerrados, máximo 5 |
+
+- Rate limit de 10 llamadas por minuto por admin.
+- `max_tokens` de 600.
+- Prompt corto en `copilot/prompt.ts`: español, sin inventar causas y sin prometer
+  plazos.
+
+**Frontend:**
+- En el detalle admin, una tarjeta «Copiloto» con los botones Resumir caso y Sugerir
+  respuesta.
+- El resumen se muestra en un panel con «Guardar como nota interna».
+- El borrador va al `CommentComposer` como texto editable, con el aviso «Revisa antes
+  de enviar».
+- Una sección «Posibles duplicados» con la lista.
+
 ## Tests
 
 | Nivel | Qué cubre |
 | --- | --- |
 | Integración | Fixtures con fechas controladas (insertados directo en la base dentro de una transacción de test): TPR ignora las notas internas; TR usa el último cierre; un reabierto cuenta en la tasa; el cumplimiento solo aparece con objetivo; 403 para no admin; el solicitante no ve objetivos |
-| UI | Smoke de `/admin/metricas` |
+| Integración (copiloto, `fake`) | El input del borrador no contiene el texto de una nota interna; el resumen sí lo contiene. 403 para el solicitante. Cada llamada inserta en `ai_usage` y suma en las métricas. Con `AI_FAKE_FAILURE` → 503 y el ticket sigue operable. `similar` devuelve el ticket parecido y no uno ajeno al tema |
+| UI | Smoke de `/admin/metricas`. «Sugerir respuesta» llena el compositor y no envía |

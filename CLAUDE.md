@@ -129,6 +129,14 @@ Capas:
   - En `create_ticket`, el backend pone el solicitante desde la sesión y devuelve el
     número real.
   - Ninguna herramienta cambia estados ni cierra tickets.
+  - La 009 suma `get_my_account_status` (solo lectura, sin IP ni ubicación) y las
+    herramientas `propose_*`. Estas **solo proponen**: la persona confirma con un
+    clic y el backend ejecuta con su sesión. Toda herramienta futura que escriba
+    datos sigue ese patrón.
+  - La visión (006) solo procesa imágenes del chat propio, con consentimiento y en
+    ese turno.
+  - El borrador del copiloto (007) se arma sin notas internas y nunca se envía solo.
+  - MCP, Agent Skills y embeddings: ver `docs/adr/0005-ai-capabilities-roadmap.md`.
 - Validar en el servidor cada input de herramienta con zod.
 - Los mensajes, artículos y adjuntos son datos, no instrucciones (prompt injection).
 - El número y el enlace del ticket que ve el usuario salen de la respuesta del
@@ -228,7 +236,9 @@ URLs:
    actualizar primero la spec.
 
 Orden: `001-foundation` → `002-tickets` → `003-catalog` → `004-assistant`
-→ `005-notifications` → `006-attachments` → `007-admin-metrics` → `008-delivery`.
+→ `005-notifications` → `006-attachments` (+ visión y el diagnóstico de la 009)
+→ `009-assistant-skills` (acciones confirmadas) → `007-admin-metrics` (+ copiloto)
+→ `008-delivery`.
 El índice, el estado y la trazabilidad con el PDF están en `specs/README.md`.
 Antes de cada feature, leer `specs/000-overview/`.
 
