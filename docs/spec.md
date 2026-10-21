@@ -45,18 +45,19 @@ Esta especificación separa los requisitos de `Reto_Chat_PBG.pdf` de las decisio
 
 ## 2. Permisos y aislamiento
 
+- La matriz por recurso/acción, semántica de asignaciones vigentes, acceso a conversaciones y respuestas de error está definida en [`permissions.md`](./permissions.md).
+- Política: `agent` accede a expedientes propios; `agency_owner`, a expedientes de miembros activos de su agencia; `admin`, a lectura global solo del dominio de negocio del reto. `admin` no lee conversaciones ajenas ni realiza mutaciones de agenda/cotizaciones desde el chat.
 - Derivar identidad y rol de la sesión autenticada. El cliente activo del navegador y el modelo no otorgan permisos.
-- Autorizar cada endpoint y cada llamada a herramienta en backend antes de leer datos o ejecutar cambios.
-- `agent`: sus datos; `agency_owner`: datos autorizados de su agencia; `admin`: alcance definido para ese rol.
-- Resolver alcance desde relaciones de negocio vigentes. No confiar en `role`, `agency_id`, propietario o cliente enviados por navegador o modelo.
-- Incluir alcance explícito en consultas SQL y volver a validarlo dentro de la transacción para las escrituras.
-- Al recuperar conversación comprobar tanto su propietario como el acceso actual al cliente vinculado.
-- Rechazar accesos fuera de alcance sin revelar campos del registro ajeno.
-- Preservar en auditoría el actor y alcance aplicado, sin que el historial conceda acceso retroactivo.
+- Autorizar cada endpoint y cada llamada a herramienta en backend antes de leer datos o ejecutar cambios. Las consultas SQL incluyen alcance explícito; las escrituras vuelven a validarlo dentro de la transacción.
+- Los roles múltiples vigentes combinan permisos; las asignaciones vencidas/revocadas no dan acceso. El esquema actual conserva un rol/agencia actual, por lo que asignaciones con vigencia requieren una fuente autorizada antes de implementarse.
+- Los documentos de cliente, cotizaciones y citas solo son accesibles cuando la relación de negocio esté confirmada. El modelo local actual no establece un enlace verificable entre libros de leads y cotizaciones ni contiene una fuente confirmada de citas de seguros.
+- Las conversaciones y mensajes son privados por creador. Al recuperar el historial se comprueban propietario y acceso actual al cliente vinculado; el historial nunca concede acceso retroactivo.
+- Rechazar accesos fuera de alcance sin revelar campos del registro ajeno; usar 401, 404 o 403 según [`permissions.md`](./permissions.md).
+- Preservar en auditoría el actor y alcance aplicado.
 
 ### Pruebas de permisos
 
-- Un agente ve sus clientes, cotizaciones y citas; otro agente recibe rechazo sin datos.
+- Un agente ve sus expedientes con ownership confirmado; otro agente recibe rechazo sin datos. Las cotizaciones y citas solo se muestran cuando una fuente y su vínculo con el expediente estén confirmados. Mientras tanto, la aplicación las reporta como no disponibles y no expone filas de fuentes no validadas.
 - Un dueño solo ve recursos autorizados de su agencia.
 - Cambiar IDs de cliente, cotización, cita o agencia en URL, cuerpo o argumentos de herramienta no amplía acceso.
 - Asignaciones múltiples y vencidas se evalúan según la política vigente del proyecto.
@@ -126,7 +127,7 @@ La demo no se conecta a producción ni ejecuta llamadas, correos o cobros.
 - Confirmar formalmente si `leads-store/books` representa clientes activos de seguros y cómo se valida su `ownerKey`.
 - Definir el enlace aprobado entre documentos de leads y filas de `analytics.quotes`; no hay FK declarada.
 - Identificar una fuente autorizada para citas de agentes de seguros; `teamops.bookings` describe flujos internos de demo/consultoría y no cubre ese caso por sí sola.
-- Definir alcance exacto del administrador y política de acceso tras cambio de agencia.
+- Confirmar la fuente autorizada para asignaciones múltiples/vigentes; el esquema actual solo refleja un rol/agencia actual.
 - Confirmar reglas de opciones, responsable y vigencia. Sin reglas verificables no se emiten recomendaciones automáticas.
 - Confirmar horarios laborales, duración por tipo de cita y políticas de cancelación/modificación.
 - Declarar reglas no disponibles, semántica de campos no confirmada, medios binarios externos ausentes y funciones de IA no implementadas/validadas.
