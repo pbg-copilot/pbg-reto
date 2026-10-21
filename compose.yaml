@@ -9,7 +9,7 @@ services:
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-5439}:5432"
     volumes:
-      - postgres_replica_v2:/var/lib/postgresql/data
+      - postgres_replica_v4:/var/lib/postgresql/data
       - ./data/postgres:/seed:ro
       - ./database/init/10-restore.sh:/docker-entrypoint-initdb.d/10-restore.sh:ro
     healthcheck:
@@ -67,4 +67,4 @@ services:
       retries: 5
     restart: unless-stopped
 volumes:
-  postgres_replica_v2:
+  postgres_replica_v4:
