@@ -31,9 +31,14 @@ Si se cambia el puerto web o el host, actualizar también `APP_ORIGIN`.
 ## Organización del código
 
 - `frontend/` contiene la aplicación React y su configuración independiente.
-  `src/main.tsx` solo monta la aplicación; `src/App.tsx` contiene la pantalla,
-  `src/domain.tsx` los tipos y funciones puras de dominio, y `src/ui.tsx` los
-  iconos compartidos.
+  `src/main.tsx` solo monta la aplicación; `src/App.tsx` coordina el estado y
+  los flujos. `src/domain.ts` contiene tipos, `src/appointment-domain.ts` la
+  lógica pura de citas, `src/api-client.ts` y `src/auth-service.ts` aíslan el
+  acceso HTTP y la sesión. `src/LoginPage.tsx`, `src/ConversationRail.tsx`,
+  `src/presentation.tsx` y `src/ui.tsx` contienen presentación reutilizable.
+  `src/hooks/useAppointmentWorkflow.ts` concentra las operaciones y el diálogo
+  de agenda; `src/hooks/useClientContext.ts` gestiona búsqueda, selección y
+  carga de perfil/cotizaciones. `App.tsx` conecta estos hooks con la vista.
 - `backend/` contiene la API Fastify, su esquema y migraciones. `src/server.ts`
   inicializa el servidor y registra rutas; `src/appointment-routes.ts` agrupa
   los endpoints de agenda. `src/appointment-authorization.ts`,

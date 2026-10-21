@@ -1,17 +1,22 @@
 import React, { useEffect, useRef, useState } from "react";
 import "./styles.css";
-import { Agent, Appointment, AppointmentAction, AppointmentChatKind, AppointmentChatStage, AppointmentConfirmation, AppointmentMutationResult, ApiError, Client, ClientProfile, Conversation, Message, QuoteResponse, appointmentDateLabel, assistantDisplayText, dateLabel, formattedText, isAppointmentListRequest, isCreateAppointmentRequest, parseAppointmentDetails, textValue } from "./domain";
+import { Agent, Client, Conversation, Message } from "./domain";
+import { ApiError, apiRequest } from "./api-client";
+import { appointmentDateLabel } from "./appointment-domain";
+import { assistantDisplayText, dateLabel, formattedText, textValue } from "./presentation";
 import { Arrow, Chevron, LogoutIcon } from "./ui";
+import { LoginPage } from "./LoginPage";
+import { ConversationRail } from "./ConversationRail";
+import { AuthenticationError, getCurrentAgent, signIn, signOut } from "./auth-service";
+import { useAppointmentWorkflow } from "./hooks/useAppointmentWorkflow";
+import { useClientContext } from "./hooks/useClientContext";
 
 function App() {
   const [agent, setAgent] = useState<Agent | null>(null),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
-    [menu, setMenu] = useState(false),
-    [showPassword, setShowPassword] = useState(false);
-  const [username, setUsername] = useState(""),
-    [password, setPassword] = useState("");
+    [menu, setMenu] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState("");
   const [renamingConversationId, setRenamingConversationId] = useState("");
@@ -23,66 +28,35 @@ function App() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [conversationLoading, setConversationLoading] = useState(false);
   const [conversationError, setConversationError] = useState("");
-  const [clientQuery, setClientQuery] = useState("");
-  const [clientResults, setClientResults] = useState<Client[]>([]);
-  const [clientSearchLoading, setClientSearchLoading] = useState(false);
-  const [clientError, setClientError] = useState("");
-  const [activeClient, setActiveClient] = useState<Client | null>(null);
-  const [profile, setProfile] = useState<ClientProfile | null>(null);
-  const [quotes, setQuotes] = useState<QuoteResponse | null>(null);
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [appointmentsLoading, setAppointmentsLoading] = useState(false);
-  const [appointmentsError, setAppointmentsError] = useState("");
-  const [appointmentError, setAppointmentError] = useState("");
-  const [appointmentConflict, setAppointmentConflict] = useState(false);
-  const [appointmentBusy, setAppointmentBusy] = useState(false);
-  const [appointmentAction, setAppointmentAction] = useState<AppointmentAction>("create");
-  const [selectedAppointmentId, setSelectedAppointmentId] = useState("");
-  const [appointmentDate, setAppointmentDate] = useState("");
-  const [appointmentTime, setAppointmentTime] = useState("");
-  const [appointmentDuration, setAppointmentDuration] = useState(30);
-  const [pendingAppointment, setPendingAppointment] = useState<{ confirmation: AppointmentConfirmation; idempotencyKey: string } | null>(null);
-  const [appointmentResult, setAppointmentResult] = useState<AppointmentMutationResult | null>(null);
-  const [appointmentChatStage, setAppointmentChatStage] = useState<AppointmentChatStage>("idle");
-  const appointmentRequest = useRef(0);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [detailError, setDetailError] = useState("");
   const [messageDraft, setMessageDraft] = useState("");
   const [messageBusy, setMessageBusy] = useState(false);
   const [assistantEnabled, setAssistantEnabled] = useState(false);
   const [notice, setNotice] = useState("");
   const contextRequest = useRef(0);
-  const searchRequest = useRef(0);
   const activeConversationRef = useRef("");
   const menuRef = useRef<HTMLDivElement>(null),
     buttonRef = useRef<HTMLButtonElement>(null);
   function clearWorkspace() {
-    contextRequest.current += 1; searchRequest.current += 1;
-    appointmentRequest.current += 1;
+    contextRequest.current += 1;
     activeConversationRef.current = "";
     setConversations([]); setActiveConversationId(""); setRenamingConversationId(""); setConversationTitleDraft(""); setMessages([]);
-    setMessagesHasMore(false); setMessagesCursor(null); setActiveClient(null);
-    setProfile(null); setQuotes(null); setMessageDraft(""); setClientQuery("");
-    setAppointments([]); setAppointmentsLoading(false); setAppointmentsError(""); setAppointmentError(""); setAppointmentConflict(false); setAppointmentBusy(false); setPendingAppointment(null); setAppointmentResult(null); setAppointmentChatStage("idle");
-    setAppointmentAction("create"); setSelectedAppointmentId(""); setAppointmentDate(""); setAppointmentTime("");
-    setClientResults([]); setClientError(""); setConversationError("");
-    setDetailError(""); setNotice("");
-    setConversationLoading(false); setHistoryLoading(false); setClientSearchLoading(false);
-    setDetailLoading(false); setMessageBusy(false);
+    setMessagesHasMore(false); setMessagesCursor(null);
+    setMessageDraft("");
+    resetAppointmentWorkflow();
+    resetClientContext();
+    setConversationError(""); setNotice("");
+    setConversationLoading(false); setHistoryLoading(false); setMessageBusy(false);
   }
   async function restore() {
     try {
-      const r = await fetch("/auth/me", { credentials: "same-origin" });
-      if (r.ok) {
-        const restored = (await r.json()).agent as Agent;
+      const restored = await getCurrentAgent();
+      if (restored) {
         if (agent && agent.id !== restored.id) clearWorkspace();
         setAgent(restored);
         setError("");
-      } else if (r.status === 401) {
+      } else {
         setAgent(null);
         clearWorkspace();
-      } else {
-        setError("No pudimos conectar. Intenta de nuevo.");
       }
     } catch {
       setError("No pudimos conectar. Intenta de nuevo.");
@@ -135,23 +109,55 @@ function App() {
     return () => { current = false; };
   }, [agent?.id]);
   async function api<T>(path: string, init?: RequestInit): Promise<T> {
-    const headers = new Headers(init?.headers);
-    if (init?.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
-    const response = await fetch(path, {
-      ...init,
-      credentials: "same-origin",
-      headers,
-    });
-    const body = response.status === 204 ? null : await response.json().catch(() => ({}));
-    if (response.status === 401) {
+    return apiRequest<T>(path, init, () => {
       setAgent(null);
       clearWorkspace();
       setError("Tu sesión venció. Inicia sesión para continuar.");
-      throw new ApiError("Tu sesión venció. Inicia sesión para continuar.", 401, "unauthorized");
-    }
-    if (!response.ok) throw new ApiError(body?.message || "No pudimos completar la solicitud.", response.status, body?.error || "request_failed");
-    return body as T;
+    });
   }
+  const clientContext = useClientContext({
+    api,
+    agentId: agent?.id,
+    activeConversationId,
+    contextRequest,
+    activeConversationRef,
+    setConversations,
+    setMessages,
+    setMessagesHasMore,
+    setMessagesCursor,
+    setMessageDraft,
+  });
+  const {
+    clientQuery, setClientQuery, clientResults, clientSearchLoading, clientError,
+    activeClient, setActiveClient, profile, quotes,
+    detailLoading, detailError,
+    reset: resetClientContext, loadProfile, loadQuotes, selectClient: selectClientContext,
+  } = clientContext;
+  const appointmentWorkflow = useAppointmentWorkflow({
+    api,
+    agent,
+    activeConversationId,
+    activeClient,
+    contextRequest,
+    activeConversationRef,
+    setMessages,
+    setMessageDraft,
+    setMessageBusy,
+    setConversationError,
+    setNotice,
+    setConversations,
+  });
+  const {
+    appointments, appointmentsLoading, appointmentsError,
+    appointmentError, setAppointmentError, appointmentConflict, setAppointmentConflict,
+    appointmentBusy, setAppointmentBusy, appointmentAction, setAppointmentAction,
+    selectedAppointmentId, setSelectedAppointmentId, appointmentDate, setAppointmentDate,
+    appointmentTime, setAppointmentTime, appointmentDuration, setAppointmentDuration,
+    pendingAppointment, appointmentResult, reset: resetAppointmentWorkflow,
+    loadAppointments, restoreChatState: restoreAppointmentChatState,
+    handleChat: handleAppointmentChat, invalidateReview: invalidateAppointmentReview,
+    prepareAppointment, executeAppointment,
+  } = appointmentWorkflow;
   async function saveConversationTitle(event: React.FormEvent, conversationId: string) {
     event.preventDefault();
     const title = conversationTitleDraft.trim();
@@ -172,6 +178,28 @@ function App() {
       setRenamingConversationBusy(false);
     }
   }
+  async function createConversation() {
+    try {
+      const result = await api<{ conversation: Conversation }>("/api/conversations", {
+        method: "POST",
+        body: JSON.stringify({ title: "Nueva conversación" }),
+      });
+      setConversations((current) => [result.conversation, ...current]);
+      activateConversation(result.conversation.id);
+    } catch (e) {
+      if (!(e instanceof ApiError && e.status === 401))
+        setConversationError(e instanceof Error ? e.message : "No se pudo crear la conversación.");
+    }
+  }
+  function beginRenameConversation(conversation: Conversation) {
+    setRenamingConversationId(conversation.id);
+    setConversationTitleDraft(conversation.title || "");
+    setConversationError("");
+  }
+  function cancelRenameConversation() {
+    setRenamingConversationId("");
+    setConversationTitleDraft("");
+  }
   async function reloadConversationHistory(conversationId: string, requestId: number) {
     const history = await api<{ conversation: Conversation; messages: Message[]; pagination: { hasMore: boolean; nextBeforeSequence: string | null } }>(`/api/conversations/${conversationId}?limit=100`);
     if (requestId !== contextRequest.current || conversationId !== activeConversationRef.current) return;
@@ -179,161 +207,12 @@ function App() {
     setMessagesHasMore(history.pagination.hasMore);
     setMessagesCursor(history.pagination.nextBeforeSequence);
   }
-  async function sendAppointmentChatTurn(
-    conversationId: string,
-    requestId: number,
-    client: Client,
-    content: string,
-    kind: AppointmentChatKind,
-    extra: { confirmationId?: string; appointmentId?: string } = {},
-  ) {
-    const result = await api<{ messages: Message[] }>(`/api/conversations/${conversationId}/appointment-chat`, {
-      method: "POST",
-      body: JSON.stringify({ content, kind, expectedClientPath: client.document_path, expectedClientRecordId: client.client_record_id, ...extra }),
+  function selectClient(client: Client) {
+    return selectClientContext(client, {
+      resetAppointments: resetAppointmentWorkflow,
+      reloadHistory: reloadConversationHistory,
+      loadAppointments,
     });
-    if (requestId !== contextRequest.current || conversationId !== activeConversationRef.current) return;
-    setMessages((current) => [...current, ...result.messages]);
-    setMessageDraft("");
-    const updatedAt = result.messages[result.messages.length - 1]?.created_at;
-    if (updatedAt) setConversations((current) => current.map((item) => item.id === conversationId ? { ...item, updated_at: updatedAt } : item));
-  }
-  async function restoreAppointmentChatState(conversationId: string, requestId: number) {
-    try {
-      const state = await api<{ state: "idle" | "details" | "confirmation"; confirmation?: AppointmentConfirmation }>(`/api/conversations/${conversationId}/appointment-chat/state`);
-      if (requestId !== contextRequest.current || conversationId !== activeConversationRef.current) return;
-      if (state.state === "details") setAppointmentChatStage("details");
-      else if (state.state === "confirmation" && state.confirmation) {
-        setAppointmentChatStage("confirmation");
-        // The confirmation UUID is stable across reloads and unique per action.
-        setPendingAppointment({ confirmation: state.confirmation, idempotencyKey: state.confirmation.id });
-      }
-    } catch (error) {
-      if (requestId === contextRequest.current && conversationId === activeConversationRef.current && !(error instanceof ApiError && error.status === 401))
-        setConversationError(error instanceof Error ? error.message : "No se pudo recuperar la solicitud de cita pendiente.");
-    }
-  }
-  async function handleAppointmentChat(content: string) {
-    const starting = appointmentChatStage === "idle" && isCreateAppointmentRequest(content);
-    const listing = appointmentChatStage === "idle" && isAppointmentListRequest(content);
-    if (!starting && !listing && appointmentChatStage === "idle") return false;
-    const conversationId = activeConversationId;
-    const requestId = contextRequest.current;
-    const client = activeClient;
-    if (!conversationId || !client) return true;
-    if (starting && agent?.role !== "agent") {
-      setConversationError("La creación de citas por chat está disponible para cuentas de agente.");
-      return true;
-    }
-
-    setMessageBusy(true);
-    setConversationError("");
-    setNotice("");
-    try {
-      if (starting) {
-        await sendAppointmentChatTurn(conversationId, requestId, client, content, "request_details");
-        if (requestId === contextRequest.current) setAppointmentChatStage("details");
-        return true;
-      }
-
-      if (listing) {
-        await sendAppointmentChatTurn(conversationId, requestId, client, content, "appointments_list");
-        return true;
-      }
-
-      if (appointmentChatStage === "details") {
-        if (agent?.role !== "agent") {
-          setConversationError("La creación de citas por chat está disponible para cuentas de agente.");
-          setAppointmentChatStage("idle");
-          return true;
-        }
-        const appointmentAgentId = agent.id;
-        if (/^(cancelar|cancel|olvidalo|olvídalo)\b/i.test(content.trim())) {
-          await sendAppointmentChatTurn(conversationId, requestId, client, content, "cancelled");
-          if (requestId === contextRequest.current) setAppointmentChatStage("idle");
-          return true;
-        }
-        const details = parseAppointmentDetails(content);
-        if (!details) {
-          await sendAppointmentChatTurn(conversationId, requestId, client, content, "invalid_details");
-          return true;
-        }
-        setAppointmentBusy(true);
-        let prepared: { confirmation: AppointmentConfirmation };
-        try {
-          prepared = await api<{ confirmation: AppointmentConfirmation }>(`/api/conversations/${conversationId}/appointments/confirm`, {
-            method: "POST",
-            body: JSON.stringify({ action: "create", agentAccountId: appointmentAgentId, localStart: details.localStart, durationMinutes: details.durationMinutes, timeZone: details.timeZone }),
-          });
-        } catch (error) {
-          if (error instanceof ApiError && (error.status === 400 || error.status === 409) && error.code !== "context_changed") {
-            await sendAppointmentChatTurn(conversationId, requestId, client, content, "invalid_details");
-            return true;
-          }
-          throw error;
-        }
-        if (prepared.confirmation.client_document_path !== client.document_path || prepared.confirmation.client_record_id !== client.client_record_id)
-          throw new ApiError("Cambió el cliente activo. Vuelve a iniciar la solicitud de cita.", 409, "context_changed");
-        if (requestId !== contextRequest.current || conversationId !== activeConversationRef.current) return true;
-        const pending = { confirmation: prepared.confirmation, idempotencyKey: prepared.confirmation.id };
-        setPendingAppointment(pending);
-        setAppointmentChatStage("confirmation");
-        await sendAppointmentChatTurn(conversationId, requestId, client, content, "review", { confirmationId: prepared.confirmation.id });
-        return true;
-      }
-
-      if (appointmentChatStage === "confirmation") {
-        const pending = pendingAppointment;
-        if (/^(cancelar|cancel|no|descartar)\b/i.test(content.trim())) {
-          await sendAppointmentChatTurn(conversationId, requestId, client, content, "cancelled");
-          if (requestId === contextRequest.current) { setAppointmentChatStage("idle"); setPendingAppointment(null); }
-          return true;
-        }
-        if (!/^(confirmar|confirmo|si|sí|acepto|guardar)\b/i.test(content.trim())) {
-          if (pending) await sendAppointmentChatTurn(conversationId, requestId, client, content, "repeat_confirmation", { confirmationId: pending.confirmation.id });
-          else setConversationError("No hay una confirmación de cita vigente. Inicia una nueva solicitud.");
-          return true;
-        }
-        if (!pending) {
-          setConversationError("No hay una confirmación de cita vigente. Inicia una nueva solicitud.");
-          setAppointmentChatStage("idle");
-          return true;
-        }
-        setAppointmentBusy(true);
-        try {
-          const created = await api<AppointmentMutationResult>(`/api/conversations/${conversationId}/appointments`, {
-            method: "POST",
-            body: JSON.stringify({ confirmationId: pending.confirmation.id, idempotencyKey: pending.idempotencyKey }),
-          });
-          if (requestId !== contextRequest.current || conversationId !== activeConversationRef.current) return true;
-          setAppointmentResult(created);
-          setPendingAppointment(null);
-          setAppointmentChatStage("idle");
-          await loadAppointments(conversationId, requestId);
-          try {
-            await sendAppointmentChatTurn(conversationId, requestId, client, content, "created", { appointmentId: created.appointment.id });
-          } catch {
-            setConversationError("La cita quedó guardada y ya aparece en la agenda, pero no se pudo añadir el mensaje de confirmación al historial.");
-          }
-        } catch (error) {
-          if (error instanceof ApiError && error.status === 409 && error.code === "slot_taken") {
-            setPendingAppointment(null);
-            setAppointmentChatStage("details");
-            await sendAppointmentChatTurn(conversationId, requestId, client, content, "conflict");
-          } else throw error;
-        }
-        return true;
-      }
-    } catch (error) {
-      if (requestId === contextRequest.current && conversationId === activeConversationRef.current && !(error instanceof ApiError && error.status === 401)) {
-        setConversationError(error instanceof Error ? error.message : "No se pudo completar la solicitud de cita.");
-        if (error instanceof ApiError && error.code === "context_changed") setAppointmentChatStage("idle");
-      }
-      return true;
-    } finally {
-      setMessageBusy(false);
-      setAppointmentBusy(false);
-    }
-    return true;
   }
   async function askAssistant() {
     const content = messageDraft.trim();
@@ -356,94 +235,6 @@ function App() {
       if (conversationId === activeConversationRef.current && !(e instanceof ApiError && e.status === 401)) setConversationError(e instanceof Error ? e.message : "No se pudo redactar una respuesta.");
     } finally { setMessageBusy(false); }
   }
-  async function loadProfile(conversationId: string, requestId = contextRequest.current) {
-    setDetailLoading(true); setDetailError("");
-    setQuotes(null);
-    try {
-      const result = await api<ClientProfile>(`/api/conversations/${conversationId}/client`);
-      if (requestId === contextRequest.current) setProfile(result);
-    } catch (error) {
-      if (requestId !== contextRequest.current) return;
-      if (error instanceof ApiError && error.status === 409 && error.code === "client_not_selected") {
-        setProfile(null); return;
-      }
-      setDetailError(error instanceof Error ? error.message : "No se pudo cargar el expediente.");
-    } finally {
-      if (requestId === contextRequest.current) setDetailLoading(false);
-    }
-  }
-  async function loadAppointments(conversationId: string, requestId = contextRequest.current) {
-    setAppointmentsLoading(true); setAppointmentsError("");
-    try {
-      const result = await api<{ appointments: Appointment[] }>(`/api/conversations/${conversationId}/appointments`);
-      if (requestId === contextRequest.current && conversationId === activeConversationRef.current) setAppointments(result.appointments);
-    } catch (e) {
-      if (requestId === contextRequest.current && conversationId === activeConversationRef.current && !(e instanceof ApiError && e.status === 401)) setAppointmentsError(e instanceof Error ? e.message : "No se pudieron cargar las citas.");
-    } finally {
-      if (requestId === contextRequest.current && conversationId === activeConversationRef.current) setAppointmentsLoading(false);
-    }
-  }
-  function invalidateAppointmentReview() {
-    appointmentRequest.current += 1;
-    setPendingAppointment(null); setAppointmentResult(null); setAppointmentError(""); setAppointmentConflict(false);
-  }
-  async function prepareAppointment() {
-    if (!activeConversationId || !activeClient || agent?.role !== "agent" || appointmentBusy) return;
-    const conversationId = activeConversationId;
-    const requestId = contextRequest.current;
-    const appointment = appointments.find((item) => item.id === selectedAppointmentId);
-    if (appointmentAction !== "create" && !appointment) {
-      setAppointmentError("Selecciona una cita vigente para continuar.");
-      return;
-    }
-    if (appointmentAction !== "cancel" && (!appointmentDate || !appointmentTime)) {
-      setAppointmentError("Indica la fecha y la hora local de la cita.");
-      return;
-    }
-    const payload: Record<string, unknown> = { action: appointmentAction };
-    if (appointmentAction !== "create") payload.appointmentId = appointment!.id;
-    if (appointmentAction === "create") payload.agentAccountId = agent.id;
-    if (appointmentAction !== "cancel") {
-      payload.localStart = `${appointmentDate}T${appointmentTime}`;
-      payload.durationMinutes = appointmentDuration;
-      payload.timeZone = "America/Bogota";
-      if (appointmentAction === "reschedule") payload.agentAccountId = appointment!.agent_account_id;
-    }
-    const operationId = ++appointmentRequest.current;
-    setAppointmentBusy(true); setAppointmentError(""); setAppointmentConflict(false); setAppointmentResult(null); setPendingAppointment(null);
-    try {
-      const result = await api<{ confirmation: AppointmentConfirmation }>(`/api/conversations/${conversationId}/appointments/confirm`, { method: "POST", body: JSON.stringify(payload) });
-      if (operationId === appointmentRequest.current && requestId === contextRequest.current && conversationId === activeConversationRef.current) {
-        setPendingAppointment({ confirmation: result.confirmation, idempotencyKey: crypto.randomUUID() });
-      }
-    } catch (e) {
-      if (operationId === appointmentRequest.current && requestId === contextRequest.current && conversationId === activeConversationRef.current && !(e instanceof ApiError && e.status === 401)) setAppointmentError(e instanceof Error ? e.message : "No se pudo preparar la operación.");
-    } finally {
-      if (operationId === appointmentRequest.current) setAppointmentBusy(false);
-    }
-  }
-  async function executeAppointment() {
-    if (!activeConversationId || !pendingAppointment || appointmentBusy) return;
-    const conversationId = activeConversationId;
-    const requestId = contextRequest.current;
-    const operationId = appointmentRequest.current;
-    const pending = pendingAppointment;
-    setAppointmentBusy(true); setAppointmentError(""); setAppointmentConflict(false); setAppointmentResult(null);
-    try {
-      const result = await api<AppointmentMutationResult>(`/api/conversations/${conversationId}/appointments`, { method: "POST", body: JSON.stringify({ confirmationId: pending.confirmation.id, idempotencyKey: pending.idempotencyKey }) });
-      if (operationId === appointmentRequest.current && requestId === contextRequest.current && conversationId === activeConversationRef.current) {
-        setAppointmentResult(result); setPendingAppointment(null); setAppointmentAction("create"); setSelectedAppointmentId("");
-        await loadAppointments(conversationId, requestId);
-      }
-    } catch (e) {
-      if (operationId === appointmentRequest.current && requestId === contextRequest.current && conversationId === activeConversationRef.current && !(e instanceof ApiError && e.status === 401)) {
-        if (e instanceof ApiError && e.status === 409) { setPendingAppointment(null); setAppointmentConflict(e.code === "slot_taken"); }
-        setAppointmentError(e instanceof Error ? e.message : "No se pudo completar la operación.");
-      }
-    } finally {
-      if (operationId === appointmentRequest.current) setAppointmentBusy(false);
-    }
-  }
   useEffect(() => {
     if (!agent) return;
     let cancelled = false;
@@ -460,13 +251,13 @@ function App() {
   }, [agent?.id]);
   useEffect(() => {
     if (!activeConversationId) {
-      setMessages([]); setMessagesHasMore(false); setMessagesCursor(null); setActiveClient(null); setProfile(null); setQuotes(null); return;
+      setMessages([]); setMessagesHasMore(false); setMessagesCursor(null); resetClientContext(); return;
     }
     const requestId = ++contextRequest.current;
     let cancelled = false;
-    setConversationLoading(true); setConversationError(""); setDetailError("");
-    setMessages([]); setMessagesHasMore(false); setMessagesCursor(null); setActiveClient(null); setProfile(null); setQuotes(null);
-    setAppointments([]); setAppointmentsLoading(false); setAppointmentsError(""); setAppointmentError(""); setAppointmentConflict(false); setPendingAppointment(null); setAppointmentResult(null);
+    setConversationLoading(true); setConversationError("");
+    setMessages([]); setMessagesHasMore(false); setMessagesCursor(null); resetClientContext();
+    resetAppointmentWorkflow();
     setMessageDraft(""); setNotice("");
     api<{ conversation: Conversation; messages: Message[]; pagination: { hasMore: boolean; nextBeforeSequence: string | null } }>(`/api/conversations/${activeConversationId}?limit=100`).then(async (history) => {
       if (cancelled || requestId !== contextRequest.current) return;
@@ -488,20 +279,6 @@ function App() {
     }).finally(() => { if (!cancelled && requestId === contextRequest.current) setConversationLoading(false); });
     return () => { cancelled = true; };
   }, [activeConversationId, agent?.id]);
-  useEffect(() => {
-    const query = clientQuery.trim();
-    const requestId = ++searchRequest.current;
-    if (query.length < 2) { setClientResults([]); setClientSearchLoading(false); setClientError(""); return; }
-    setClientResults([]); setClientError("");
-    const timer = window.setTimeout(() => {
-      setClientSearchLoading(true); setClientError("");
-      api<{ clients: Client[] }>(`/api/clients?q=${encodeURIComponent(query)}&limit=20`).then((result) => {
-        if (requestId === searchRequest.current) setClientResults(result.clients);
-      }).catch((error) => { if (requestId === searchRequest.current && !(error instanceof ApiError && error.status === 401)) setClientError(error instanceof Error ? error.message : "No se pudo buscar."); })
-        .finally(() => { if (requestId === searchRequest.current) setClientSearchLoading(false); });
-    }, 250);
-    return () => window.clearTimeout(timer);
-  }, [clientQuery, agent?.id]);
   async function loadOlderMessages() {
     if (!activeConversationId || !messagesCursor || historyLoading) return;
     const conversationId = activeConversationId;
@@ -520,41 +297,23 @@ function App() {
   function activateConversation(conversationId: string) {
     setRenamingConversationId(""); setConversationTitleDraft("");
     contextRequest.current += 1;
-    searchRequest.current += 1;
-    appointmentRequest.current += 1;
+    resetAppointmentWorkflow();
     activeConversationRef.current = conversationId;
     setActiveConversationId(conversationId);
     setMessages([]); setMessagesHasMore(false); setMessagesCursor(null);
     setHistoryLoading(false);
-    setActiveClient(null); setProfile(null); setQuotes(null);
-    setAppointments([]); setAppointmentsLoading(false); setAppointmentsError(""); setAppointmentError(""); setAppointmentConflict(false); setAppointmentBusy(false); setPendingAppointment(null); setAppointmentResult(null);
-    setAppointmentAction("create"); setSelectedAppointmentId(""); setAppointmentDate(""); setAppointmentTime("");
-    setMessageDraft(""); setNotice(""); setClientQuery("");
-    setAppointmentChatStage("idle"); setPendingAppointment(null);
-    setClientResults([]); setDetailError(""); setConversationError("");
+    resetClientContext();
+    setMessageDraft(""); setNotice(""); setConversationError("");
   }
-  async function login(e: React.FormEvent) {
-    e.preventDefault();
+  async function login({ username, password }: { username: string; password: string }) {
     setBusy(true);
     setError("");
     try {
-      const r = await fetch("/auth/get-toke", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ usuario: username, contrasena: password }),
-      });
-      const body = await r.json();
-      if (!r.ok) {
-        setError(body.message || "No fue posible iniciar sesión.");
-        return;
-      }
-      setAgent(body.agent);
+      setAgent(await signIn(username, password));
       clearWorkspace();
-      setPassword("");
       setMenu(false);
-    } catch {
-      setError("No pudimos conectar. Intenta de nuevo.");
+    } catch (error) {
+      setError(error instanceof AuthenticationError ? error.message : "No pudimos conectar. Intenta de nuevo.");
     } finally {
       setBusy(false);
     }
@@ -563,15 +322,10 @@ function App() {
     setBusy(true);
     setError("");
     try {
-      const r = await fetch("/auth/logout", {
-        method: "POST",
-        credentials: "same-origin",
-      });
-      if (!r.ok) throw new Error();
+      await signOut();
       setAgent(null);
       clearWorkspace();
       setMenu(false);
-      setPassword("");
     } catch {
       setError("No fue posible cerrar sesión. Intenta de nuevo.");
     } finally {
@@ -631,21 +385,21 @@ function App() {
           </div>
         </header>
         <main className="chat-shell">
-          <aside className="conversation-rail" aria-label="Conversaciones">
-            <div className="rail-heading"><div><span className="eyebrow teal">RETO · ASISTENTE</span><h1>Conversaciones</h1></div><button className="new-chat" onClick={async () => { try { const result = await api<{ conversation: Conversation }>("/api/conversations", { method: "POST", body: JSON.stringify({ title: "Nueva conversación" }) }); setConversations((current) => [result.conversation, ...current]); activateConversation(result.conversation.id); } catch (e) { if (!(e instanceof ApiError && e.status === 401)) setConversationError(e instanceof Error ? e.message : "No se pudo crear la conversación."); } }} aria-label="Nueva conversación" title="Nueva conversación">+</button></div>
-            {conversationError && <div className="inline-error" role="alert">{conversationError}</div>}
-            {conversations.length === 0 && !conversationError ? <div className="rail-empty">Aún no tienes conversaciones. Crea una para empezar.</div> : <nav className="conversation-list">{conversations.map((conversation) => <div key={conversation.id} className={`conversation-entry ${activeConversationId === conversation.id ? "selected" : ""}`}>
-              {renamingConversationId === conversation.id ? <form className="conversation-rename-form" onSubmit={(event) => void saveConversationTitle(event, conversation.id)}>
-                <input aria-label="Nombre de la conversación" autoFocus maxLength={200} value={conversationTitleDraft} onChange={(event) => setConversationTitleDraft(event.target.value)} disabled={renamingConversationBusy} />
-                <button type="submit" aria-label="Guardar nombre" title="Guardar" disabled={!conversationTitleDraft.trim() || renamingConversationBusy}>✓</button>
-                <button type="button" aria-label="Cancelar cambio de nombre" title="Cancelar" disabled={renamingConversationBusy} onClick={() => { setRenamingConversationId(""); setConversationTitleDraft(""); }}>×</button>
-              </form> : <>
-                <button className="conversation-item" onClick={() => activateConversation(conversation.id)}><span className="conversation-mark" /><span className="conversation-copy"><strong>{conversation.title || "Conversación"}</strong><small>{conversation.active_client_record_id ? "Cliente seleccionado" : dateLabel(conversation.updated_at)}</small></span></button>
-                <button className="conversation-rename" aria-label={`Cambiar nombre: ${conversation.title || "Conversación"}`} title="Cambiar nombre" onClick={() => { setRenamingConversationId(conversation.id); setConversationTitleDraft(conversation.title || ""); setConversationError(""); }}>✎</button>
-              </>}
-            </div>)}</nav>}
-            <div className="rail-foot"><span className="status-square" /> Sesión de {agent.name.split(" ")[0]}</div>
-          </aside>
+          <ConversationRail
+            agent={agent}
+            conversations={conversations}
+            activeConversationId={activeConversationId}
+            error={conversationError}
+            renamingConversationId={renamingConversationId}
+            titleDraft={conversationTitleDraft}
+            renameBusy={renamingConversationBusy}
+            onCreate={() => void createConversation()}
+            onActivate={activateConversation}
+            onBeginRename={beginRenameConversation}
+            onCancelRename={cancelRenameConversation}
+            onTitleDraftChange={setConversationTitleDraft}
+            onSaveRename={(event, id) => void saveConversationTitle(event, id)}
+          />
           <section className="chat-main" aria-label="Chat y contexto">
             {!activeConversationId ? <div className="chat-welcome"><span className="welcome-icon">R</span><span className="eyebrow teal">TU ESPACIO DE TRABAJO</span><h2>Hola, {agent.name.split(" ")[0]}.</h2><p>Crea una conversación para consultar expedientes y cotizaciones autorizadas.</p></div> : <>
               <header className="chat-heading"><div><span className="eyebrow teal">CONVERSACIÓN ACTIVA</span><h2>{conversations.find((item) => item.id === activeConversationId)?.title || "Conversación"}</h2></div><span className={`state-pill ${conversationLoading ? "loading-state" : ""}`}>{conversationLoading ? "Cargando" : "Guardada"}</span></header>
@@ -664,9 +418,9 @@ function App() {
             <div className="panel-section"><span className="eyebrow teal">CONTEXTO DEL EXPEDIENTE</span><h2>Cliente activo</h2>
               {activeClient ? <div className="active-client"><span className="client-avatar">{(profile?.client.name || activeClient.name).split(" ").slice(0,2).map((part) => part[0]).join("")}</span><div><strong>{profile?.client.name || activeClient.name}</strong><small>Cliente activo</small></div></div> : <p className="muted-copy">Selecciona un cliente para consultar su perfil y sus cotizaciones.</p>}
               <label className="search-label" htmlFor="client-search">Buscar cliente</label><div className="search-box"><span aria-hidden="true">⌕</span><input id="client-search" value={clientQuery} onChange={(event) => setClientQuery(event.target.value)} placeholder="Nombre o correo" disabled={!activeConversationId} /></div>
-              {clientSearchLoading && <p className="search-hint">Buscando dentro de tu alcance…</p>}{clientError && <div className="inline-error" role="alert">{clientError}</div>}{clientQuery.trim().length > 0 && clientQuery.trim().length < 2 && <p className="search-hint">Escribe al menos 2 caracteres.</p>}{clientResults.length > 0 && <div className="client-results" role="listbox" aria-label="Resultados de clientes">{clientResults.map((client) => <button key={`${client.document_path}#${client.client_record_id}`} role="option" aria-selected={activeClient?.client_record_id === client.client_record_id && activeClient?.document_path === client.document_path} onClick={async () => { const conversationId = activeConversationId; if (!conversationId) return; const requestId = ++contextRequest.current; searchRequest.current += 1; appointmentRequest.current += 1; setDetailLoading(true); setClientError(""); setClientQuery(""); setClientResults([]); try { await api(`/api/conversations/${conversationId}/client`, { method: "POST", body: JSON.stringify({ documentPath: client.document_path, clientRecordId: client.client_record_id }) }); if (requestId === contextRequest.current && conversationId === activeConversationRef.current) { setDetailError(""); setAppointmentError(""); setAppointmentConflict(false); setAppointmentBusy(false); setAppointmentAction("create"); setSelectedAppointmentId(""); setAppointmentDate(""); setAppointmentTime(""); setAppointments([]); setPendingAppointment(null); setAppointmentChatStage("idle"); setAppointmentResult(null); setQuotes(null); setProfile(null); setMessageDraft(""); setActiveClient(client); setMessages([]); setMessagesHasMore(false); setMessagesCursor(null); await reloadConversationHistory(conversationId, requestId); setConversations((current) => current.map((item) => item.id === conversationId ? { ...item, active_client_path: client.document_path, active_client_record_id: client.client_record_id } : item)); await Promise.all([loadProfile(conversationId, requestId), loadAppointments(conversationId, requestId)]); } } catch (e) { if (requestId === contextRequest.current) { if (!(e instanceof ApiError && e.status === 401)) setClientError(e instanceof Error ? e.message : "No se pudo seleccionar el cliente."); } } finally { if (requestId === contextRequest.current) setDetailLoading(false); } }}><strong>{client.name || "Sin nombre"}</strong><small>{client.email || "Correo no disponible"}</small><span className="result-stage">{client.stage || "Etapa no disponible"}</span></button>)}</div>}{clientQuery.trim().length >= 2 && !clientSearchLoading && !clientError && clientResults.length === 0 && <p className="search-hint">No encontramos clientes dentro de tu alcance.</p>}
+              {clientSearchLoading && <p className="search-hint">Buscando dentro de tu alcance…</p>}{clientError && <div className="inline-error" role="alert">{clientError}</div>}{clientQuery.trim().length > 0 && clientQuery.trim().length < 2 && <p className="search-hint">Escribe al menos 2 caracteres.</p>}{clientResults.length > 0 && <div className="client-results" role="listbox" aria-label="Resultados de clientes">{clientResults.map((client) => <button key={`${client.document_path}#${client.client_record_id}`} role="option" aria-selected={activeClient?.client_record_id === client.client_record_id && activeClient?.document_path === client.document_path} onClick={() => void selectClient(client)}><strong>{client.name || "Sin nombre"}</strong><small>{client.email || "Correo no disponible"}</small><span className="result-stage">{client.stage || "Etapa no disponible"}</span></button>)}</div>}{clientQuery.trim().length >= 2 && !clientSearchLoading && !clientError && clientResults.length === 0 && <p className="search-hint">No encontramos clientes dentro de tu alcance.</p>}
             </div>
-              {activeClient && <div className="panel-section lookup-actions"><span className="eyebrow teal">CONSULTAS DETERMINISTAS</span><div className="action-buttons"><button onClick={() => activeConversationId && void loadProfile(activeConversationId)} disabled={detailLoading || !activeConversationId}>Ver expediente</button><button onClick={async () => { const conversationId = activeConversationId; if (!conversationId) return; const requestId = ++contextRequest.current; setDetailLoading(true); setDetailError(""); setProfile(null); setQuotes(null); try { const response = await api<QuoteResponse>(`/api/conversations/${conversationId}/quotes`); if (requestId === contextRequest.current && conversationId === activeConversationRef.current) setQuotes(response); } catch (e) { if (requestId === contextRequest.current && !(e instanceof ApiError && e.status === 401)) setDetailError(e instanceof Error ? e.message : "No se pudieron consultar las cotizaciones."); } finally { if (requestId === contextRequest.current) setDetailLoading(false); } }} disabled={detailLoading || !activeConversationId}>Ver cotizaciones</button></div><p className="search-hint">Solo se muestran los datos autorizados y la información faltante.</p></div>}
+              {activeClient && <div className="panel-section lookup-actions"><span className="eyebrow teal">CONSULTAS DETERMINISTAS</span><div className="action-buttons"><button onClick={() => activeConversationId && void loadProfile(activeConversationId)} disabled={detailLoading || !activeConversationId}>Ver expediente</button><button onClick={() => activeConversationId && void loadQuotes(activeConversationId)} disabled={detailLoading || !activeConversationId}>Ver cotizaciones</button></div><p className="search-hint">Solo se muestran los datos autorizados y la información faltante.</p></div>}
             {activeClient && agent?.role === "agent" && <div className="panel-section appointment-section">
               <span className="eyebrow teal">AGENDA</span><h3>Gestionar cita</h3>
               {appointmentsLoading && <p className="search-hint">Cargando citas de este cliente…</p>}
@@ -698,95 +452,6 @@ function App() {
         </main>
       </div>
     );
-  return (
-    <div className="login-layout">
-      <aside className="intro">
-        <div className="wordmark">
-          RETO
-          <span className="brand-dot" />
-        </div>
-        <div className="intro-body">
-          <span className="eyebrow">EL SIGUIENTE PASO EMPIEZA AQUÍ</span>
-          <h1>
-            Las buenas ideas
-            <br />
-            merecen un
-            <br />
-            <span>gran comienzo.</span>
-          </h1>
-          <p>
-            Un espacio para conectar información,
-            <br />
-            resolver y construir.
-          </p>
-          <div className="intro-line" />
-        </div>
-        <div className="intro-footer">
-          <span className="status-square" />
-          ENTORNO DE PRUEBA
-        </div>
-      </aside>
-      <main className="login-main">
-        <div className="mobile-brand wordmark">RETO</div>
-        <form className="login-form" onSubmit={(e) => void login(e)}>
-          <span className="eyebrow teal">BIENVENIDO A TU ESPACIO</span>
-          <h2>Inicia sesión</h2>
-          <p className="form-intro">Ingresa tus datos para continuar.</p>
-          <label htmlFor="username">Usuario</label>
-          <input
-            id="username"
-            name="username"
-            autoComplete="username"
-            required
-            maxLength={254}
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="Tu usuario o correo"
-            autoCapitalize="none"
-            spellCheck={false}
-          />
-          <label htmlFor="password">Contraseña</label>
-          <div className="password-field">
-            <input
-              id="password"
-              name="password"
-              autoComplete="current-password"
-              required
-              maxLength={256}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              type={showPassword ? "text" : "password"}
-              placeholder="Tu contraseña"
-            />
-            <button
-              type="button"
-              aria-label={
-                showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
-              }
-              onClick={() => setShowPassword(!showPassword)}
-            >
-              {showPassword ? "Ocultar" : "Mostrar"}
-            </button>
-          </div>
-          {error && (
-            <p className="error" role="alert">
-              {error}
-            </p>
-          )}
-          <button className="login-button" type="submit" disabled={busy}>
-            {busy ? "Ingresando…" : "Ingresar"}
-            {!busy && <Arrow />}
-          </button>
-          <p className="demo-hint">
-            <span className="small-square" />
-            Entorno local de prueba con contactos e IDs sustituidos.
-          </p>
-        </form>
-        <footer className="login-footer">
-          RETO <span>Un nuevo punto de partida.</span>
-        </footer>
-      </main>
-    </div>
-  );
+  return <LoginPage busy={busy} error={error} onSubmit={login} />;
 }
 export default App;
