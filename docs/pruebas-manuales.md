@@ -4,6 +4,7 @@ Pruebas para recorrer la app a mano, de la más básica a la más completa. Cada
 prueba indica con qué cuenta se hace, los pasos y qué debería pasar.
 
 > Se actualiza al terminar cada spec. Estado al 21 de octubre: 001 a 007 y 009 hechas; falta la 008 (entrega).
+> Lo pendiente y los problemas conocidos están en `specs/BACKLOG.md`.
 
 ## 1. Antes de empezar
 
@@ -102,6 +103,16 @@ automáticos. Si entras con ellas, los tests te cierran la sesión (y al revés)
 - [ ] **Incidente.** Catálogo → Incidentes: ya existe «Lentitud al cargar listados
   (ejemplo)». En el detalle de un ticket (admin), elige ese «Incidente conocido» → el
   solicitante ve el aviso del incidente en su ticket.
+- [ ] **Un solo borrador por ticket.**
+  - Cierra un ticket como «Resuelto» y pulsa «Crear artículo desde este ticket» → toast
+    «Borrador creado desde el ticket».
+  - Vuelve al ticket y púlsalo otra vez → toast «Ya había un artículo de este ticket» y
+    te lleva **al mismo** borrador. No se crea otro.
+- [ ] **Descartar borrador.**
+  - En un borrador que nunca se publicó aparece «Descartar borrador», con confirmación.
+    Al descartarlo vuelves a Catálogo → Borradores y ya no está.
+  - En un artículo publicado ese botón no aparece; se usa «Archivar».
+  - Usa esto para limpiar los 3 borradores repetidos de TCK-000430.
 
 ## 6. Asistente de soporte (spec 004)
 
@@ -216,11 +227,27 @@ notificación de otra persona da 404.
   - Al pulsarlo queda asignado a ti y en revisión.
   - Con `agente105` en otra ventana (bandeja sin recargar), pulsar «Tomar caso» en el
     mismo ticket → «Ya lo tomó…».
-- [ ] **Métricas.** Menú Métricas (`/admin/metricas`).
-  - Abiertos, sin atender, mediana de primera respuesta y de resolución, tasa de
-    reapertura y costo de IA.
-  - Cambia entre 7, 30 y 90 días.
-  - Abre «¿Cómo se calcula?».
+- [ ] **Panel de soporte: «Ahora mismo».** Menú Métricas (`/admin/metricas`). No
+  depende del rango y se actualiza cada minuto.
+  - **Sin atender:** abre un ticket con `agente099` y no le respondas. Aparece aquí,
+    con hace cuánto se creó.
+  - **Esperan al equipo:** responde como admin, luego como `agente099`. El ticket pasa
+    a esta lista.
+  - **Esperan al solicitante:** como admin, marca «Pedir información al solicitante».
+    El ticket aparece aquí hasta que `agente099` responda.
+  - **Antigüedad, carga y salud:** los tickets pendientes por edad, cuántos tiene cada
+    admin (y «Sin responsable», que lleva a la bandeja filtrada), los correos fallidos
+    y los incidentes activos.
+- [ ] **Panel de soporte: «En el rango».**
+  - Las tarjetas de siempre (abiertos, tiempos, reapertura, costo de IA).
+  - **Tendencia diaria:** barras de creados y cerrados por día; al pasar el mouse
+    sobre una barra se ve el día y los valores.
+  - **Asistente de IA:**
+    - % de conversaciones resueltas sin ticket y los motivos de escalamiento;
+    - los artículos más sugeridos;
+    - los que **no funcionaron**. Prueba: en el chat responde «No, sigue igual» a un
+      artículo y ese artículo aparece en la lista.
+  - Cambia entre 7, 30 y 90 días y abre «¿Cómo se calcula?».
 - [ ] **Objetivos.** «Prioridades y objetivos»: pon 1 hora de primera respuesta para
   «Media» y guarda. En Métricas, la fila «Media» muestra el % de cumplimiento; las
   demás, «Sin objetivo definido».
@@ -237,7 +264,39 @@ notificación de otra persona da 404.
   exportar el reporte» y «Error al exportar el reporte»). En el detalle de uno aparece
   el otro con su % de parecido.
 
-## 10. Dos casos para contar de punta a punta
+## 10. Paginación y rendimiento
+
+Hay pocos datos de demo, así que algunas listas tienen una sola página. Para ver la
+paginación:
+- crea registros de prueba;
+- o pide páginas chicas por la API desde Swagger (`/docs`), con `page_size=1`.
+
+| Dónde | Tamaño de página | Cómo probarlo |
+| --- | --- | --- |
+| Tickets (`/tickets`) | 20 | Hoy hay pocos tickets: crea 21 o más con el formulario (o por Swagger, `POST /tickets`). Abajo aparece «1–20 de N tickets» con Anterior/Siguiente |
+| Catálogo (`/admin/catalogo`) | 20 | Hay 12 publicados y algunos borradores: una página. En Swagger, `GET /support/articles?page_size=5` devuelve `total` y 5 ítems |
+| Notificaciones (`/notificaciones`) | 20 | Genera avisos (cambios de estado y respuestas) hasta pasar de 20 |
+| Incidentes (`/admin/incidentes`) | 10 | Crea 11 incidentes de prueba y aparece «Siguiente» |
+| Conversaciones del chat (Soporte) | 10 | Con 11 conversaciones aparece «Ver más conversaciones» debajo de la lista |
+
+- [ ] **La página anterior no desaparece.**
+  - En DevTools → Network elige «Slow 4G» y cambia de página.
+  - La lista actual sigue visible con un indicador de carga hasta que llega la nueva,
+    en lugar de quedar en blanco (`keepPreviousData`).
+- [ ] **Sin carga doble.** En el chat, pulsa varias veces seguidas «Ver más
+  conversaciones» → en Network hay una sola petición por página.
+- [ ] **Al filtrar vuelves a la página 1.** En el catálogo, ve a la página 2 y cambia
+  la categoría → la URL pierde `page` y estás en la 1.
+- [ ] **Carga por pantalla.** En DevTools → Network → JS, al entrar por primera vez a
+  Catálogo, Métricas o Soporte se descarga solo el archivo de esa pantalla (carga
+  diferida por ruta).
+- [ ] **Miniaturas diferidas.** Las imágenes adjuntas usan `loading="lazy"`: en un
+  ticket con muchas, solo se piden las que están a la vista.
+- [ ] **Consultas acotadas.** Todas las listas de la API tienen un máximo de 50 por
+  página. Las métricas se calculan en una sola consulta por bloque, con índices por
+  fecha de creación.
+
+## 11. Dos casos para contar de punta a punta
 
 **Caso 1 · Problema conocido, sin ticket (D1).**
 1. `agente099` escribe en Soporte «La tabla de clientes no muestra datos».
@@ -258,7 +317,7 @@ notificación de otra persona da 404.
 7. `agente099` lo reabre porque volvió a pasar: el historial se conserva y la nota
    interna sigue oculta.
 
-## 11. Problemas comunes
+## 12. Problemas comunes
 
 | Síntoma | Solución |
 | --- | --- |

@@ -1,5 +1,5 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
-import { apiErrorSchema, metricsQuerySchema, metricsSchema } from "@reto/shared";
+import { apiErrorSchema, metricsQuerySchema, metricsSchema, operationsSchema } from "@reto/shared";
 import { resolveRange, type MetricsService } from "./service.js";
 
 const security: Record<string, string[]>[] = [{ bearer: [] }, { cookie: [] }];
@@ -20,6 +20,22 @@ const metricsRoutes: FastifyPluginAsyncZod<{ service: MetricsService }> = async 
       },
     },
     async (request) => service.metrics(resolveRange(request.query.from, request.query.to)),
+  );
+
+  app.get(
+    "/support/metrics/operations",
+    {
+      preValidation: app.requireAdmin,
+      schema: {
+        tags: ["métricas"],
+        security,
+        summary: "Estado operativo en vivo (solo admin)",
+        description:
+          "Qué necesita atención ahora: sin atender, esperan al equipo, esperan al solicitante (5 más antiguos y el total), antigüedad de lo pendiente, carga por admin y salud de entregas e incidentes.",
+        response: { 200: operationsSchema, 401: apiErrorSchema, 403: apiErrorSchema },
+      },
+    },
+    async () => service.operations(),
   );
 };
 

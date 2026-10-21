@@ -45,9 +45,50 @@ export const metricsSchema = z.object({
     copilot_cost_usd: z.number(),
     conversations: z.number().int(),
     cost_per_conversation_usd: z.number().nullable(),
+    copilot_uses: z.number().int(),
+  }),
+  // Tickets creados y cerrados por día (UTC) dentro del rango.
+  trend: z.array(z.object({ day, created: z.number().int(), closed: z.number().int() })),
+  // Eficacia del asistente sobre las conversaciones iniciadas en el rango.
+  assistant: z.object({
+    conversations: z.number().int(),
+    resolved_without_ticket: z.number().int(),
+    escalated: z.number().int(),
+    deflection_rate: z.number().nullable().describe("% resueltas por el asistente sin ticket, sobre las que terminaron (resueltas + escaladas)"),
+    escalation_reasons: z.array(z.object({ reason: z.string(), count: z.number().int() })),
+    top_articles: z.array(z.object({ article_id: z.string(), title: z.string(), uses: z.number().int() })),
+    failed_articles: z.array(z.object({ article_id: z.string(), title: z.string(), failures: z.number().int() })),
   }),
 });
 export type Metrics = z.infer<typeof metricsSchema>;
+
+// Estado operativo en vivo (no depende del rango): qué necesita atención ahora.
+const attentionItem = z.object({
+  id: z.string(),
+  display_number: z.string(),
+  title: z.string(),
+  priority: z.string(),
+  since: z.string().describe("Desde cuándo espera (ISO 8601)"),
+  assignee: z.string().nullable(),
+});
+export type AttentionItem = z.infer<typeof attentionItem>;
+const attentionList = z.object({ count: z.number().int(), items: z.array(attentionItem) });
+
+export const operationsSchema = z.object({
+  unattended: attentionList.describe("Abiertos sin respuesta pública del equipo, del más antiguo al más nuevo"),
+  waiting_team: attentionList.describe("El solicitante respondió y el equipo todavía no"),
+  waiting_requester: attentionList.describe("El equipo pidió información y el solicitante no respondió"),
+  aging: z.object({ under_24h: z.number().int(), d1_3: z.number().int(), d3_7: z.number().int(), over_7d: z.number().int() }),
+  workload: z.array(z.object({ id: z.string(), name: z.string(), open: z.number().int(), in_review: z.number().int() })),
+  unassigned: z.number().int(),
+  health: z.object({
+    failed_deliveries_7d: z.number().int(),
+    pending_deliveries: z.number().int(),
+    active_incidents: z.number().int(),
+    tickets_in_active_incidents: z.number().int(),
+  }),
+});
+export type Operations = z.infer<typeof operationsSchema>;
 
 export const updatePriorityBodySchema = z
   .strictObject({

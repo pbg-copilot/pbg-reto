@@ -1,5 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Metrics, Priority, UpdatePriorityBody } from "@reto/shared";
+import type { Metrics, Operations, Priority, UpdatePriorityBody } from "@reto/shared";
 import { api } from "@/lib/api";
 import { supportKeys } from "@/features/tickets/api";
 
@@ -13,6 +13,16 @@ export function useMetrics(from: string, to: string) {
     queryFn: ({ signal }) => api<Metrics>(`/support/metrics?from=${from}&to=${to}`, { signal }),
     placeholderData: keepPreviousData,
     staleTime: 60_000,
+  });
+}
+
+// Estado en vivo: se refresca cada minuto y al volver a la pestaña.
+export function useOperations() {
+  return useQuery({
+    queryKey: ["metrics", "operations"],
+    queryFn: ({ signal }) => api<Operations>("/support/metrics/operations", { signal }),
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
   });
 }
 

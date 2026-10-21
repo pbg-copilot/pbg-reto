@@ -40,6 +40,13 @@ extremos, y también el promedio.
 | AC-007.6 | Ninguna vista del solicitante muestra objetivos, vencimientos ni plazos |
 | AC-007.7 | Las fórmulas se prueban con tickets fijados en el tiempo (fixtures con `created_at` y `closed_at` controlados) |
 
+## Panel de soporte · *Should* (agregado el 2026-10-21)
+
+| ID | Criterio |
+| --- | --- |
+| AC-007.14 | **Ahora mismo**, en vivo y sin depender del rango. `GET /support/metrics/operations` (solo admin) devuelve tres listas, cada una con el total y los 5 más antiguos con su enlace: **sin atender**, **esperan al equipo** (el solicitante respondió después que el equipo) y **esperan al solicitante** (hay una solicitud de información sin respuesta). También la antigüedad de lo pendiente (<24 h, 1–3 d, 3–7 d, >7 d), la carga por admin (abiertos y en revisión), los tickets sin responsable y la salud (correos fallidos en 7 días, correos pendientes, incidentes activos y tickets vinculados). Se refresca cada minuto |
+| AC-007.15 | **En el rango**, además de lo anterior: la tendencia diaria (creados y cerrados por día) y la eficacia del asistente. Esta incluye el % resuelto sin ticket sobre las conversaciones terminadas, los motivos de escalamiento, los artículos más sugeridos y los artículos que **no** funcionaron (candidatos a revisar en el catálogo) |
+
 ## Copiloto del equipo · *Should*
 
 Decidido el 2026-10-21 (ver `docs/adr/0005-ai-capabilities-roadmap.md`). La IA ayuda

@@ -24,6 +24,7 @@ let requester: Actor; // agente048
 let admin: Actor; // agente015
 const tag = uniqueKey("met");
 const tickets: string[] = [];
+let fTicket = "";
 let mediumTarget: { first_response_target_minutes: number | null; resolution_target_minutes: number | null };
 
 beforeAll(async () => {
@@ -57,6 +58,8 @@ async function fixture(values: {
   closedMin?: number;
   closure?: "resolved" | "invalid";
   reopened?: number;
+  teamReplyMin?: number;
+  requesterReplyMin?: number;
 }) {
   const created = new Date(values.createdAt);
   const at = (minutes?: number) => (minutes === undefined ? null : new Date(created.getTime() + minutes * 60_000));
@@ -77,8 +80,8 @@ async function fixture(values: {
       resolution_summary: values.closure ? "Fixture" : null,
       duplicate_of_ticket_id: null,
       first_response_at: at(values.firstResponseMin),
-      last_team_reply_at: at(values.firstResponseMin),
-      last_requester_reply_at: null,
+      last_team_reply_at: at(values.teamReplyMin ?? values.firstResponseMin),
+      last_requester_reply_at: at(values.requesterReplyMin),
       closed_at: at(values.closedMin),
       reopened_count: values.reopened ?? 0,
       attempted_steps: "[]",
@@ -101,6 +104,43 @@ describe("AC-007.4 / AC-007.7 formulas with fixed dates", () => {
     await fixture({ title: "C", priority: "high", status: "open", createdAt: "2001-03-03T10:00:00Z" });
     await fixture({ title: "D", priority: "high", status: "in_review", createdAt: "2001-03-04T10:00:00Z", firstResponseMin: 60 });
     await fixture({ title: "E", priority: "low", category: "other", status: "closed", createdAt: "2001-03-05T10:00:00Z", closedMin: 60, closure: "invalid" });
+    // F: el equipo respondió a los 20 min y el solicitante después (espera al equipo).
+    fTicket = await fixture({ title: "F", priority: "low", status: "in_review", createdAt: "2001-03-06T10:00:00Z", firstResponseMin: 20, requesterReplyMin: 300 });
+    // D espera al solicitante: el equipo le pidió información y no respondió.
+    await db
+      .insertInto("helpdesk.ticket_comments")
+      .values({ ticket_id: tickets[3]!, author_id: admin.id, visibility: "public", body: "¿Qué navegador usas?", requests_info: true, edited_at: null, created_at: new Date("2001-03-04T11:00:00Z") })
+      .execute();
+    // Eficacia del asistente: una conversación resuelta (con artículo) y una escalada.
+    const article = await db.selectFrom("helpdesk.articles").select("id").where("status", "=", "published").executeTakeFirstOrThrow();
+    const resolved = await db
+      .insertInto("helpdesk.conversations")
+      .values({ requester_id: requester.id, title: `${tag} resuelta`, status: "resolved", ticket_id: null, case_details: "{}", attempted_steps: "[]", failed_article_ids: [article.id], created_at: new Date("2001-03-12T00:00:00Z") })
+      .returning("id")
+      .executeTakeFirstOrThrow();
+    await db
+      .insertInto("helpdesk.conversation_messages")
+      .values({
+        conversation_id: resolved.id,
+        role: "assistant",
+        kind: "message",
+        content: "[]",
+        display_text: "ok",
+        client_message_id: null,
+        article_refs: JSON.stringify([{ article_id: article.id, version_id: article.id, version: 1, slug: "x", title: `${tag} Artículo`, url: "/x", is_example: true }]),
+        ticket_ref: null,
+        meta: "{}",
+        model: null,
+        usage: null,
+        created_at: new Date("2001-03-12T00:01:00Z"),
+      })
+      .execute();
+    const escalatedTicket = await fixture({ title: "G", priority: "low", status: "open", createdAt: "2001-03-13T10:00:00Z", firstResponseMin: 5 });
+    await db.updateTable("helpdesk.tickets").set({ ai_summary: JSON.stringify({ reason: "no_article" }) }).where("id", "=", escalatedTicket).execute();
+    await db
+      .insertInto("helpdesk.conversations")
+      .values({ requester_id: requester.id, title: `${tag} escalada`, status: "escalated", ticket_id: escalatedTicket, case_details: "{}", attempted_steps: "[]", created_at: new Date("2001-03-13T09:00:00Z") })
+      .execute();
 
     // Costo de IA del rango: 1M de tokens de entrada de Haiku = US$0.10 en el chat y otro tanto en el copiloto.
     const conversation = await db
@@ -137,23 +177,45 @@ describe("AC-007.4 / AC-007.7 formulas with fixed dates", () => {
     const m = res.json();
     expect(m).toMatchObject({
       range: { from: "2001-03-01", to: "2001-04-01" },
-      total: 5,
-      by_status: { open: 1, in_review: 1, closed: 3 },
+      total: 7,
+      by_status: { open: 2, in_review: 2, closed: 3 },
       unattended: 1,
       reopened: 1,
       reopen_rate: 50,
-      // TPR de A, B y D: 30, 90 y 60 minutos (la E no tuvo respuesta).
-      first_response: { count: 3, p50: 3600, p90: 5040, avg: 3600 },
+      // TPR de A, B, D, F y G: 30, 90, 60, 20 y 5 minutos (la E no tuvo respuesta).
+      first_response: { count: 5, p50: 1800, avg: 2460 },
       // TR solo de los resueltos (A y B): 2 h y 10 h. La E se cerró como inválida.
       resolution: { count: 2, p50: 21600, p90: 33120, avg: 21600 },
-      ai: { assistant_cost_usd: 0.1, copilot_cost_usd: 0.1, conversations: 1, cost_per_conversation_usd: 0.1 },
+      ai: { assistant_cost_usd: 0.1, copilot_cost_usd: 0.1, conversations: 1, cost_per_conversation_usd: 0.1, copilot_uses: 1 },
+      assistant: { conversations: 3, resolved_without_ticket: 1, escalated: 1, deflection_rate: 50, escalation_reasons: [{ reason: "no_article", count: 1 }] },
     });
+    // p90 interpolado de [300, 1200, 1800, 3600, 5400] s: 3600 + 0,6 × 1800.
+    expect(m.first_response.p90).toBe(4680);
+    expect(m.trend).toHaveLength(31);
+    expect(m.trend[0]).toEqual({ day: "2001-03-01", created: 1, closed: 1 });
+    expect(m.assistant.top_articles[0]).toMatchObject({ title: `${tag} Artículo`, uses: 1 });
+    expect(m.assistant.failed_articles[0]).toMatchObject({ failures: 1 });
     expect(m.by_category.find((c: { code: string }) => c.code === "other").count).toBe(1);
+  });
+
+  it("live operations: what needs attention now, oldest first", async () => {
+    const res = await get(admin, "/support/metrics/operations");
+    expect(res.statusCode).toBe(200);
+    const ops = res.json();
+    // Los fixtures de 2001 son los más antiguos: encabezan cada lista.
+    expect(ops.unattended.items[0].title).toBe(`${tag} C`);
+    expect(ops.waiting_team.items[0].id).toBe(fTicket);
+    expect(ops.waiting_requester.items[0].title).toBe(`${tag} D`);
+    expect(ops.aging.over_7d).toBeGreaterThanOrEqual(4);
+    expect(ops.workload.some((w: { id: string }) => w.id === admin.id)).toBe(true);
+    expect(ops.health).toMatchObject({ failed_deliveries_7d: expect.any(Number), active_incidents: expect.any(Number) });
+    expect((await get(requester, "/support/metrics/operations")).statusCode).toBe(403);
   });
 
   it("shows compliance only when the priority has a target", async () => {
     let m = (await get(admin, `/support/metrics?${range}`)).json();
     expect(m.by_priority.find((p: { code: string }) => p.code === "medium")).toMatchObject({ count: 2, first_response_compliance: null });
+    expect(m.by_priority.find((p: { code: string }) => p.code === "low")).toMatchObject({ count: 3 });
     const patched = await app.inject({ method: "PATCH", url: "/support/priorities/medium", headers: admin.headers, payload: { first_response_target_minutes: 60 } });
     expect(patched.statusCode).toBe(200);
     m = (await get(admin, `/support/metrics?${range}`)).json();

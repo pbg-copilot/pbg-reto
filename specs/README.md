@@ -49,6 +49,8 @@ El orden sigue las dependencias:
 - Los adjuntos (006) se integran en tickets y chat ya existentes.
 - Las acciones confirmadas (009) reutilizan el servicio de tickets de 002 y el chat de 004.
 
+Lo pendiente, lo que quedó fuera y los problemas conocidos están en [`BACKLOG.md`](BACKLOG.md).
+
 ## Identificadores
 
 - Criterio de aceptación: `AC-<feature>.<n>`, por ejemplo `AC-002.4`. El nombre de

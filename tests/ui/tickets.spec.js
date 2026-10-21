@@ -280,8 +280,11 @@ test("AC-007.5/7.9 metrics page with formulas; the copilot draft fills the compo
   test.setTimeout(90_000);
   const admin = await newContextPage(browser, "agente015");
   await admin.goto("/admin/metricas");
-  await expect(admin.getByRole("heading", { level: 1, name: "Métricas de atención" })).toBeVisible();
+  await expect(admin.getByRole("heading", { level: 1, name: "Panel de soporte" })).toBeVisible();
+  await expect(admin.getByTestId("attention")).toContainText("Sin atender");
+  await expect(admin.getByTestId("attention")).toContainText("Esperan al equipo");
   await expect(admin.getByTestId("kpis")).toContainText("Costo de IA");
+  await expect(admin.getByTestId("assistant-effectiveness")).toContainText("Resueltas sin ticket");
   await admin.getByText("¿Cómo se calcula?").click();
   await expect(admin.getByText(/Primer comentario/)).toBeVisible();
 

@@ -10,6 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
 import { formatDuration, formatMinutesTarget, useMetrics } from "./api";
+import { OperationsSection } from "./OperationsSection";
+import { AssistantCard, TrendCard } from "./RangeSections";
 
 const RANGES = [
   { value: "7", label: "7 días" },
@@ -44,8 +46,8 @@ export function MetricsPage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-1">
           <span className="eyebrow text-primary">Seguimiento</span>
-          <h1 className="text-3xl font-bold tracking-tight">Métricas de atención</h1>
-          <p className="text-muted-foreground">Tickets creados en el rango elegido. Tiempos en calendario (UTC).</p>
+          <h1 className="text-3xl font-bold tracking-tight">Panel de soporte</h1>
+          <p className="text-muted-foreground">Qué atender ahora y cómo va la atención en el rango elegido.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {metrics.isPlaceholderData && <Spinner aria-label="Actualizando" />}
@@ -63,6 +65,15 @@ export function MetricsPage() {
             </Link>
           </Button>
         </div>
+      </div>
+
+      <OperationsSection />
+
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-xl font-semibold tracking-tight">En el rango</h2>
+        <span className="text-xs text-muted-foreground">
+          Tickets creados del {range.from} al {range.to} (sin incluir) · tiempos en calendario (UTC)
+        </span>
       </div>
 
       {metrics.isError && (
@@ -106,7 +117,7 @@ export function MetricsPage() {
               icon={<BotIcon />}
               label="Costo de IA"
               value={usd(m.ai.assistant_cost_usd + m.ai.copilot_cost_usd)}
-              hint={`Chat ${usd(m.ai.assistant_cost_usd)} · copiloto ${usd(m.ai.copilot_cost_usd)}`}
+              hint={`Chat ${usd(m.ai.assistant_cost_usd)} · copiloto ${usd(m.ai.copilot_cost_usd)} (${m.ai.copilot_uses} usos)`}
             />
             <Kpi
               icon={<BotIcon />}
@@ -115,6 +126,9 @@ export function MetricsPage() {
               hint={`${m.ai.conversations} conversaciones con el asistente`}
             />
           </div>
+
+          <TrendCard trend={m.trend} />
+          <AssistantCard assistant={m.assistant} />
 
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
             <Card className="glass">
@@ -188,6 +202,10 @@ export function MetricsPage() {
               <Formula term="Cumplimiento">% de tickets con TPR (o TR) dentro del objetivo de su prioridad. Sin objetivo: «Sin objetivo definido». Nunca se muestran plazos al solicitante.</Formula>
               <Formula term="Mediana y p90">La mediana es el valor del medio; el p90 deja al 90 % de los tickets por debajo. Son más robustos que el promedio ante casos extremos.</Formula>
               <Formula term="Costo de IA">Tokens guardados de cada respuesta del asistente y de cada uso del copiloto × precio del modelo (docs/costos-ia.md).</Formula>
+              <Formula term="Esperan al equipo">El solicitante respondió después de la última respuesta del equipo y el ticket no está cerrado.</Formula>
+              <Formula term="Esperan al solicitante">Hay una solicitud de información del equipo más nueva que la última respuesta del solicitante.</Formula>
+              <Formula term="Resueltas sin ticket">Conversaciones que terminaron con «Sí, se resolvió» / (resueltas + escaladas a ticket). Las que siguen en curso no cuentan.</Formula>
+              <Formula term="Artículos que no funcionaron">Veces que la persona respondió «No, sigue igual» a un artículo. Ayuda a decidir qué revisar en el catálogo.</Formula>
             </dl>
           </details>
         </>

@@ -1,5 +1,5 @@
 import { sql } from "kysely";
-import type { Metrics } from "@reto/shared";
+import { displayNumber, type AttentionItem, type Metrics, type Operations } from "@reto/shared";
 import type { Database } from "../../db/kysely.js";
 import { AppError } from "../../lib/errors.js";
 import { costUsd } from "../assistant/pricing.js";
@@ -120,6 +120,46 @@ export function createMetricsService(db: Database) {
       // Costo de IA: chat (usage de cada respuesta) y copiloto (ai_usage), por modelo.
       const usageSum = (column: string) => sql.raw(`sum((usage->>'${column}')::bigint)`);
       const messageWindow = sql`created_at >= ${range.from}::date AND created_at < ${range.to}::date`;
+      // Tendencia diaria, eficacia del asistente y usos del copiloto en el mismo rango.
+      const [trend, assistant, escalations, topArticles, failedArticles, copilotUses] = await Promise.all([
+        sql<{ day: string; created: number; closed: number }>`
+          SELECT to_char(d, 'YYYY-MM-DD') AS day,
+            (SELECT count(*)::int FROM helpdesk.tickets t WHERE t.created_at >= d AND t.created_at < d + interval '1 day') AS created,
+            (SELECT count(*)::int FROM helpdesk.tickets t WHERE t.closed_at >= d AND t.closed_at < d + interval '1 day') AS closed
+          FROM generate_series(${range.from}::date, ${range.to}::date - interval '1 day', interval '1 day') AS d
+          ORDER BY d
+        `.execute(db),
+        sql<{ conversations: number; resolved: number; escalated: number }>`
+          SELECT count(*)::int AS conversations,
+                 count(*) FILTER (WHERE status = 'resolved')::int AS resolved,
+                 count(*) FILTER (WHERE status = 'escalated')::int AS escalated
+          FROM helpdesk.conversations WHERE ${messageWindow}
+        `.execute(db),
+        sql<{ reason: string; count: number }>`
+          SELECT coalesce(t.ai_summary->>'reason', 'other') AS reason, count(*)::int AS count
+          FROM helpdesk.conversations c JOIN helpdesk.tickets t ON t.id = c.ticket_id
+          WHERE c.created_at >= ${range.from}::date AND c.created_at < ${range.to}::date
+          GROUP BY 1 ORDER BY 2 DESC
+        `.execute(db),
+        sql<{ article_id: string; title: string; uses: number }>`
+          SELECT ref->>'article_id' AS article_id, max(ref->>'title') AS title, count(*)::int AS uses
+          FROM helpdesk.conversation_messages m, jsonb_array_elements(m.article_refs) AS ref
+          WHERE m.created_at >= ${range.from}::date AND m.created_at < ${range.to}::date
+          GROUP BY 1 ORDER BY 3 DESC LIMIT 5
+        `.execute(db),
+        sql<{ article_id: string; title: string; failures: number }>`
+          SELECT f.article_id::text AS article_id, coalesce(max(v.title), 'Artículo') AS title, count(*)::int AS failures
+          FROM helpdesk.conversations c, unnest(c.failed_article_ids) AS f(article_id)
+          LEFT JOIN helpdesk.articles a ON a.id = f.article_id
+          LEFT JOIN helpdesk.article_versions v ON v.id = a.published_version_id
+          WHERE c.created_at >= ${range.from}::date AND c.created_at < ${range.to}::date
+          GROUP BY 1 ORDER BY 3 DESC LIMIT 5
+        `.execute(db),
+        sql<{ n: number }>`SELECT count(*)::int AS n FROM helpdesk.ai_usage WHERE ${messageWindow}`.execute(db),
+      ]);
+      const a = assistant.rows[0]!;
+      const finished = a.resolved + a.escalated;
+
       const [chat, copilot, conversations] = await Promise.all([
         sql<UsageRow>`
           SELECT model, ${usageSum("input_tokens")} AS input, ${usageSum("output_tokens")} AS output,
@@ -169,7 +209,94 @@ export function createMetricsService(db: Database) {
           copilot_cost_usd: Number(toCost(copilot.rows).toFixed(6)),
           conversations: conversationCount,
           cost_per_conversation_usd: conversationCount ? Number((assistantCost / conversationCount).toFixed(6)) : null,
+          copilot_uses: copilotUses.rows[0]?.n ?? 0,
         },
+        trend: trend.rows,
+        assistant: {
+          conversations: a.conversations,
+          resolved_without_ticket: a.resolved,
+          escalated: a.escalated,
+          deflection_rate: finished > 0 ? round((100 * a.resolved) / finished) : null,
+          escalation_reasons: escalations.rows,
+          top_articles: topArticles.rows,
+          failed_articles: failedArticles.rows,
+        },
+      };
+    },
+
+    // Estado operativo en vivo (no depende del rango). Listas cortas (5) para actuar ya.
+    async operations(): Promise<Operations> {
+      const LIMIT = 5;
+      const list = async (where: ReturnType<typeof sql>, since: ReturnType<typeof sql>): Promise<{ count: number; items: AttentionItem[] }> => {
+        const { rows } = await sql<{ id: string; number: number; title: string; priority: string; since: Date; assignee: string | null; total: number }>`
+          SELECT t.id, t.number, t.title, p.name AS priority, ${since} AS since, a.name AS assignee, count(*) OVER ()::int AS total
+          FROM helpdesk.tickets t
+          JOIN helpdesk.priorities p ON p.code = t.priority_code
+          LEFT JOIN reto.agents a ON a.id = t.assignee_id
+          WHERE ${where}
+          ORDER BY ${since} ASC
+          LIMIT ${LIMIT}
+        `.execute(db);
+        return {
+          count: rows[0]?.total ?? 0,
+          items: rows.map((row) => ({
+            id: row.id,
+            display_number: displayNumber(row.number),
+            title: row.title,
+            priority: row.priority,
+            since: new Date(row.since).toISOString(),
+            assignee: row.assignee,
+          })),
+        };
+      };
+
+      const [unattended, waitingTeam, waitingRequester, aging, workload, unassigned, health] = await Promise.all([
+        list(sql`t.status = 'open' AND t.first_response_at IS NULL`, sql`t.created_at`),
+        // El solicitante escribió último y el equipo todavía no contestó.
+        list(
+          sql`t.status <> 'closed' AND t.last_requester_reply_at IS NOT NULL AND (t.last_team_reply_at IS NULL OR t.last_requester_reply_at > t.last_team_reply_at)`,
+          sql`t.last_requester_reply_at`,
+        ),
+        // Hay una solicitud de información más nueva que la última respuesta del solicitante.
+        list(
+          sql`t.status <> 'closed' AND EXISTS (SELECT 1 FROM helpdesk.ticket_comments c WHERE c.ticket_id = t.id AND c.requests_info AND c.visibility = 'public' AND c.created_at > coalesce(t.last_requester_reply_at, '-infinity'::timestamptz))`,
+          sql`(SELECT max(c.created_at) FROM helpdesk.ticket_comments c WHERE c.ticket_id = t.id AND c.requests_info)`,
+        ),
+        sql<Operations["aging"]>`
+          SELECT count(*) FILTER (WHERE now() - created_at < interval '24 hours')::int AS under_24h,
+                 count(*) FILTER (WHERE now() - created_at >= interval '24 hours' AND now() - created_at < interval '3 days')::int AS d1_3,
+                 count(*) FILTER (WHERE now() - created_at >= interval '3 days' AND now() - created_at < interval '7 days')::int AS d3_7,
+                 count(*) FILTER (WHERE now() - created_at >= interval '7 days')::int AS over_7d
+          FROM helpdesk.tickets WHERE status <> 'closed'
+        `.execute(db),
+        sql<Operations["workload"][number]>`
+          SELECT a.id, a.name,
+                 count(t.id) FILTER (WHERE t.status = 'open')::int AS open,
+                 count(t.id) FILTER (WHERE t.status = 'in_review')::int AS in_review
+          FROM reto.agents a
+          LEFT JOIN helpdesk.tickets t ON t.assignee_id = a.id AND t.status <> 'closed'
+          WHERE a.role = 'admin'
+          GROUP BY a.id, a.name
+          ORDER BY count(t.id) DESC, a.name
+        `.execute(db),
+        sql<{ n: number }>`SELECT count(*)::int AS n FROM helpdesk.tickets WHERE status <> 'closed' AND assignee_id IS NULL`.execute(db),
+        sql<Operations["health"]>`
+          SELECT
+            (SELECT count(*)::int FROM helpdesk.notification_deliveries WHERE status = 'failed' AND updated_at > now() - interval '7 days') AS failed_deliveries_7d,
+            (SELECT count(*)::int FROM helpdesk.notification_deliveries WHERE status = 'pending') AS pending_deliveries,
+            (SELECT count(*)::int FROM helpdesk.incidents WHERE status <> 'resolved') AS active_incidents,
+            (SELECT count(*)::int FROM helpdesk.tickets t JOIN helpdesk.incidents i ON i.id = t.incident_id WHERE i.status <> 'resolved' AND t.status <> 'closed') AS tickets_in_active_incidents
+        `.execute(db),
+      ]);
+
+      return {
+        unattended,
+        waiting_team: waitingTeam,
+        waiting_requester: waitingRequester,
+        aging: aging.rows[0]!,
+        workload: workload.rows,
+        unassigned: unassigned.rows[0]?.n ?? 0,
+        health: health.rows[0]!,
       };
     },
   };

@@ -31,6 +31,12 @@
   Test con dos tickets parecidos. → AC-007.10
 - [x] **T007.13** Pruebas de inyección en el contenido del ticket y degradación con
   `AI_FAKE_FAILURE`. → AC-007.11, AC-007.12
+- [x] **T007.14** `GET /support/metrics/operations` y la sección «Ahora mismo».
+  Test con fixtures: cada lista empieza por el más antiguo; 403 para el solicitante.
+  → AC-007.14
+- [x] **T007.15** Tendencia diaria y eficacia del asistente en `GET /support/metrics`.
+  Test con fixtures de conversaciones resueltas, escaladas, con artículo y con fallo.
+  → AC-007.15
 
 ## Notas de implementación
 

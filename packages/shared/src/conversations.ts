@@ -18,6 +18,12 @@ export const caseFieldLabel: Record<CaseField, string> = {
 };
 
 export const ESCALATION_REASONS = ["no_article", "solution_failed", "failure_reported", "human_requested"] as const;
+export const escalationReasonLabel: Record<(typeof ESCALATION_REASONS)[number], string> = {
+  no_article: "Sin artículo aplicable",
+  solution_failed: "La solución no funcionó",
+  failure_reported: "Falla reportada",
+  human_requested: "Pidió hablar con una persona",
+};
 export type EscalationReason = (typeof ESCALATION_REASONS)[number];
 
 const isoDate = z.string().describe("Fecha ISO 8601 (UTC)");
