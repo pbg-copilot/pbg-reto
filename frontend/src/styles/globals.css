@@ -1,6 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
+@import "./shadcn.css";
 /* Poppins alojada localmente: la CSP no permite fuentes de terceros. */
 @import "@fontsource/poppins/latin-300.css";
 @import "@fontsource/poppins/latin-400.css";

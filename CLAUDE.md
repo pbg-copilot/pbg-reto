@@ -221,6 +221,10 @@ URLs:
   existe un esquema `reto`.
 - Componentes de shadcn: `pnpm dlx shadcn@latest add -c frontend <componente>`. Los
   archivos de `components/ui/` no se editan a mano.
+  - El paquete `shadcn` (el CLI) **no** se instala como dependencia: arrastra
+    `braces` vulnerable (GHSA-vfj7-8cjw-p6xm).
+  - Su CSS está copiado en `frontend/src/styles/shadcn.css`. Si `add` vuelve a
+    escribir `@import "shadcn/tailwind.css"` o agrega la dependencia, se revierte.
 - La key de Anthropic debe estar asociada a un workspace. Una `sk-ant-usr-…` pide el
   header `anthropic-workspace-id`.
 
