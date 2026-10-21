@@ -696,7 +696,9 @@ app.get<{
           ? "empty"
           : notes.length > 0
             ? "loaded"
-            : "unavailable",
+            : beforeNoteIndex !== null
+              ? "empty"
+              : "unavailable",
       notes_pagination: {
         limit,
         hasMore,

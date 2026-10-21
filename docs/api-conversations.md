@@ -181,7 +181,9 @@ del cliente, ruta del documento, ID/índice de nota y fecha derivada de `at`
 cuando es un timestamp numérico válido. Se exponen las claves confirmadas
 `name`, `email`, `phone` y `stage`; `missing` enumera campos ausentes.
 `notes_status` indica `loaded`, `empty` o `unavailable` según la estructura
-observada y las notas que se pudieron leer.
+observada y la página solicitada: una página sin filas es `empty`, incluso si
+el cursor llegó al final; `unavailable` indica que hay notas pero no se pudo
+leer ninguna con texto verificable.
 
 `activity` solo expone notas vinculadas a una llamada mediante `callId` y con
 fecha verificable. Su paginación incluye el total de entradas verificables, de
