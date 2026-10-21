@@ -14,6 +14,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ApiError } from "@/lib/api";
 import { useIdempotencyKey } from "@/lib/idempotency";
 import { useCategories, useCreateTicket } from "./api";
+import { toast } from "@/components/feedback/toast-store";
 
 // Formulario manual: funciona aunque el asistente de IA no esté disponible.
 export function NewTicketPage() {
@@ -42,6 +43,7 @@ export function NewTicketPage() {
       {
         onSuccess: (ticket) => {
           key.reset();
+          toast.success(`Ticket ${ticket.display_number} creado`, { description: "Te avisaremos cada vez que cambie de estado." });
           navigate(`/tickets/${ticket.id}`);
         },
       },

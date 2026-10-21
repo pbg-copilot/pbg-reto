@@ -13,6 +13,7 @@ import { formatRelative } from "@/lib/format";
 import { useCatalogNames } from "@/features/tickets/useCatalogNames";
 import { useIncidents, useSaveIncident } from "./api";
 import { IncidentStatusBadge } from "./components";
+import { toast } from "@/components/feedback/toast-store";
 
 // Incidentes conocidos: el chat informa su estado público y vincula los tickets nuevos.
 export function IncidentsPage() {
@@ -35,6 +36,7 @@ export function IncidentsPage() {
         onSuccess: () => {
           setTitle("");
           setSummary("");
+          toast.success("Incidente creado", { description: "El chat ya informa su estado." });
         },
       },
     );
@@ -89,7 +91,12 @@ export function IncidentsPage() {
                   <FieldLabel htmlFor={`status-${incident.id}`}>Estado</FieldLabel>
                   <Select
                     value={incident.status}
-                    onValueChange={(status) => save.mutate({ id: incident.id, body: { status: status as IncidentStatus } })}
+                    onValueChange={(status) =>
+                      save.mutate(
+                        { id: incident.id, body: { status: status as IncidentStatus } },
+                        { onSuccess: () => toast.success(`Incidente: ${incidentStatusLabel[status as IncidentStatus]}`) },
+                      )
+                    }
                   >
                     <SelectTrigger id={`status-${incident.id}`} className="w-full">
                       <SelectValue />

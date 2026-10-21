@@ -57,12 +57,21 @@ const catalogRoutes: FastifyPluginAsyncZod = async (app) => {
       schema: {
         tags: ["support"],
         security,
-        summary: "Administradores asignables (solo admin)",
+        summary: "Administradores asignables con su carga (solo admin)",
         response: { 200: z.array(adminSchema), 401: apiErrorSchema, 403: apiErrorSchema },
       },
     },
-    async () =>
-      app.db.selectFrom("reto.agents").select(["id", "name", "email"]).where("role", "=", "admin").orderBy("name").execute(),
+    async () => {
+      const rows = await app.db
+        .selectFrom("reto.agents as a")
+        .leftJoin("helpdesk.tickets as t", (join) => join.onRef("t.assignee_id", "=", "a.id").on("t.status", "!=", "closed"))
+        .select((eb) => ["a.id", "a.name", "a.email", eb.fn.count<string>("t.id").as("open_tickets")])
+        .where("a.role", "=", "admin")
+        .groupBy(["a.id", "a.name", "a.email"])
+        .orderBy("a.name")
+        .execute();
+      return rows.map((row) => ({ ...row, open_tickets: Number(row.open_tickets) }));
+    },
   );
 };
 

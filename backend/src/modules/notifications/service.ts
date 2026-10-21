@@ -89,6 +89,7 @@ export function createNotificationService(db: Database) {
         .innerJoin("reto.agents as a", "a.id", "n.recipient_id")
         .select([
           "d.id",
+          "n.id as notification_id",
           "n.type",
           "a.id as recipient_id",
           "a.name as recipient_name",
@@ -106,6 +107,7 @@ export function createNotificationService(db: Database) {
         .execute();
       return rows.map((row) => ({
         id: row.id,
+        notification_id: row.notification_id,
         notification_type: row.type as NotificationType,
         recipient: { id: row.recipient_id, name: row.recipient_name },
         channel: row.channel,

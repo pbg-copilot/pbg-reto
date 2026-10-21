@@ -15,6 +15,7 @@ import { useArticleFromTicket } from "@/features/catalog/api";
 import { DeliveriesPanel } from "@/features/notifications/DeliveriesPanel";
 import { useTicket } from "./api";
 import { AdminAttributes } from "./components/AdminAttributes";
+import { AssigneePicker } from "./components/AssigneePicker";
 import { CommentComposer } from "./components/CommentComposer";
 import { CommentThread } from "./components/CommentThread";
 import { PriorityBadge, StatusBadge } from "./components/badges";
@@ -80,8 +81,29 @@ export function TicketDetailPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="flex min-w-0 flex-col gap-6">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:grid-rows-[auto_1fr]">
+        {/* Primero en el DOM: en móvil las acciones quedan arriba de la conversación. */}
+        <Card className="glass lg:col-start-2 lg:row-start-1">
+          <CardHeader>
+            <CardTitle className="text-base">Estado</CardTitle>
+            <CardDescription>
+              Actualizado {formatRelative(t.updated_at)}
+              {t.closed_at && ` · cerrado ${formatRelative(t.closed_at)}`}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <StatusBadge status={t.status} className="self-start" />
+            <StatusActions ticket={t} />
+            {t.permissions.can_assign && (
+              <>
+                <Separator />
+                <AssigneePicker ticket={t} meId={agent.id} />
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <div className="flex min-w-0 flex-col gap-6 lg:col-start-1 lg:row-span-2 lg:row-start-1">
           {t.incident && (
             <Alert className="border-gold/40 bg-gold-soft">
               <SirenIcon aria-hidden="true" />
@@ -203,21 +225,7 @@ export function TicketDetailPage() {
           </Card>
         </div>
 
-        <aside className="flex flex-col gap-6">
-          <Card className="glass">
-            <CardHeader>
-              <CardTitle className="text-base">Estado</CardTitle>
-              <CardDescription>
-                Actualizado {formatRelative(t.updated_at)}
-                {t.closed_at && ` · cerrado ${formatRelative(t.closed_at)}`}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4">
-              <StatusBadge status={t.status} className="self-start" />
-              <StatusActions ticket={t} />
-            </CardContent>
-          </Card>
-
+        <aside className="flex flex-col gap-6 lg:col-start-2 lg:row-start-2">
           <Card className="glass">
             <CardHeader>
               <CardTitle className="text-base">Detalles</CardTitle>

@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useMarkAllRead, useMarkRead, useNotifications } from "./api";
 import { NotificationRow } from "./components";
+import { toast } from "@/components/feedback/toast-store";
 
 const PAGE_SIZE = 20;
 
@@ -34,7 +35,7 @@ export function NotificationsPage() {
           <h1 className="text-3xl font-bold tracking-tight">Notificaciones</h1>
           <p className="text-muted-foreground">Cambios de estado y respuestas de tus tickets.</p>
         </div>
-        <Button variant="outline" disabled={unread === 0 || markAll.isPending} onClick={() => markAll.mutate()}>
+        <Button variant="outline" disabled={unread === 0 || markAll.isPending} onClick={() => markAll.mutate(undefined, { onSuccess: () => toast.success("Notificaciones marcadas como leídas") })}>
           <CheckCheckIcon data-icon="inline-start" aria-hidden="true" />
           Marcar todas como leídas
         </Button>

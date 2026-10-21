@@ -27,6 +27,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useIdempotencyKey } from "@/lib/idempotency";
 import { isVersionConflict, useChangeStatus, useReopen } from "../api";
 import { ConflictAlert } from "./ConflictAlert";
+import { toast } from "@/components/feedback/toast-store";
 
 type StatusChange = Omit<ChangeStatusBody, "version">;
 
@@ -39,7 +40,15 @@ export function StatusActions({ ticket }: { ticket: TicketDetail }) {
 
   function apply(change: StatusChange, version = ticket.version) {
     setLastChange(change);
-    return changeStatus.mutateAsync({ ...change, version });
+    return changeStatus.mutateAsync({ ...change, version }).then((result) => {
+      toast.success(
+        change.status === "closed"
+          ? `${ticket.display_number} cerrado · ${closureReasonLabel[change.closure_reason ?? "resolved"]}`
+          : `${ticket.display_number} pasó a En revisión`,
+        { description: "El solicitante recibe el aviso." },
+      );
+      return result;
+    });
   }
 
   return (
@@ -225,6 +234,7 @@ function ReopenDialog({ ticket }: { ticket: TicketDetail }) {
           key.reset();
           setReason("");
           setOpen(false);
+          toast.success(`${ticket.display_number} reabierto`, { description: "El historial se conserva y el equipo recibe el aviso." });
         },
         // Con otra versión la solicitud cambia: se necesita una clave nueva.
         // Ante un error de red se conserva la clave para que el reintento no duplique.

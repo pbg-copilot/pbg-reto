@@ -1,41 +1,44 @@
 import { useState, type FormEvent } from "react";
-import type { AssignBody, TicketDetail, UpdateTicketBody } from "@reto/shared";
+import type { TicketDetail, UpdateTicketBody } from "@reto/shared";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { isVersionConflict, useAdmins, useAssign, useUpdateTicket } from "../api";
+import { isVersionConflict, useUpdateTicket } from "../api";
 import { useIncidents } from "@/features/catalog/api";
 import { useCatalogNames } from "../useCatalogNames";
 import { ConflictAlert } from "./ConflictAlert";
+import { toast } from "@/components/feedback/toast-store";
 
 const UNASSIGNED = "__none";
 
-type Pending =
-  | { kind: "assign"; body: Omit<AssignBody, "version"> }
-  | { kind: "update"; body: Omit<UpdateTicketBody, "version"> };
+type Pending = Omit<UpdateTicketBody, "version">;
 
-// Responsable, categoría, prioridad y etiquetas (solo equipo). Cada cambio valida la versión.
+// Prioridad, categoría, incidente y etiquetas (solo equipo). El responsable va en
+// AssigneePicker. Cada cambio valida la versión.
 export function AdminAttributes({ ticket }: { ticket: TicketDetail }) {
-  const admins = useAdmins(true);
   const incidents = useIncidents(true);
   const names = useCatalogNames();
-  const assign = useAssign(ticket.id);
   const update = useUpdateTicket(ticket.id);
   const [pending, setPending] = useState<Pending | null>(null);
   const [tags, setTags] = useState((ticket.tags ?? []).join(", "));
 
-  const error = assign.error ?? update.error;
+  const error = update.error;
   const conflict = isVersionConflict(error) ? error.details.current : null;
 
   function run(change: Pending, version = ticket.version) {
     setPending(change);
-    assign.reset();
     update.reset();
-    if (change.kind === "assign") assign.mutate({ ...change.body, version });
-    else update.mutate({ ...change.body, version } as UpdateTicketBody);
+    update.mutate({ ...change, version } as UpdateTicketBody, { onSuccess: () => toast.success(successMessage(change)) });
+  }
+
+  function successMessage(change: Pending) {
+    if (change.priority) return `Prioridad: ${names.priorityName(change.priority)}`;
+    if (change.category) return `Categoría: ${names.categoryName(change.category)}`;
+    if (change.incident_id !== undefined) return change.incident_id ? "Incidente vinculado" : "Incidente desvinculado";
+    return "Etiquetas guardadas";
   }
 
   function saveTags(event: FormEvent) {
@@ -44,10 +47,10 @@ export function AdminAttributes({ ticket }: { ticket: TicketDetail }) {
       .split(",")
       .map((tag) => tag.trim())
       .filter(Boolean);
-    run({ kind: "update", body: { tags: list } });
+    run({ tags: list });
   }
 
-  const busy = assign.isPending || update.isPending;
+  const busy = update.isPending;
 
   return (
     <FieldGroup>
@@ -58,7 +61,6 @@ export function AdminAttributes({ ticket }: { ticket: TicketDetail }) {
           onRetry={() => run(pending, conflict.version)}
           onDiscard={() => {
             setPending(null);
-            assign.reset();
             update.reset();
             setTags((conflict.tags ?? []).join(", "));
           }}
@@ -70,30 +72,8 @@ export function AdminAttributes({ ticket }: { ticket: TicketDetail }) {
         </Alert>
       )}
       <Field>
-        <FieldLabel htmlFor="assignee">Responsable</FieldLabel>
-        <Select
-          value={ticket.assignee?.id ?? UNASSIGNED}
-          onValueChange={(value) => run({ kind: "assign", body: { assignee_id: value === UNASSIGNED ? null : value } })}
-          disabled={busy}
-        >
-          <SelectTrigger id="assignee" className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              <SelectItem value={UNASSIGNED}>Sin asignar</SelectItem>
-              {(admins.data ?? []).map((admin) => (
-                <SelectItem key={admin.id} value={admin.id}>
-                  {admin.name}
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
-      </Field>
-      <Field>
         <FieldLabel htmlFor="priority">Prioridad</FieldLabel>
-        <Select value={ticket.priority} onValueChange={(priority) => run({ kind: "update", body: { priority } })} disabled={busy}>
+        <Select value={ticket.priority} onValueChange={(priority) => run({ priority })} disabled={busy}>
           <SelectTrigger id="priority" className="w-full">
             <SelectValue />
           </SelectTrigger>
@@ -110,7 +90,7 @@ export function AdminAttributes({ ticket }: { ticket: TicketDetail }) {
       </Field>
       <Field>
         <FieldLabel htmlFor="category">Categoría</FieldLabel>
-        <Select value={ticket.category} onValueChange={(category) => run({ kind: "update", body: { category } })} disabled={busy}>
+        <Select value={ticket.category} onValueChange={(category) => run({ category })} disabled={busy}>
           <SelectTrigger id="category" className="w-full">
             <SelectValue />
           </SelectTrigger>
@@ -129,7 +109,7 @@ export function AdminAttributes({ ticket }: { ticket: TicketDetail }) {
         <FieldLabel htmlFor="incident">Incidente conocido</FieldLabel>
         <Select
           value={ticket.incident?.id ?? UNASSIGNED}
-          onValueChange={(value) => run({ kind: "update", body: { incident_id: value === UNASSIGNED ? null : value } })}
+          onValueChange={(value) => run({ incident_id: value === UNASSIGNED ? null : value })}
           disabled={busy}
         >
           <SelectTrigger id="incident" className="w-full">

@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useIdempotencyKey } from "@/lib/idempotency";
 import { useAddComment } from "../api";
+import { toast } from "@/components/feedback/toast-store";
 
 export function CommentComposer({ ticket }: { ticket: TicketDetail }) {
   const { permissions } = ticket;
@@ -39,6 +40,10 @@ export function CommentComposer({ ticket }: { ticket: TicketDetail }) {
           key.reset();
           setBody("");
           setRequestsInfo(false);
+          toast.success(
+            internal ? "Nota interna guardada" : requestsInfo ? "Solicitud de información enviada" : "Respuesta enviada",
+            { description: internal ? "Solo la ve el equipo." : undefined },
+          );
         },
       },
     );
@@ -53,9 +58,16 @@ export function CommentComposer({ ticket }: { ticket: TicketDetail }) {
           value={visibility}
           onValueChange={(value) => value && setVisibility(value as CommentVisibility)}
           aria-label="Visibilidad del comentario"
+          className="w-full sm:w-auto"
         >
-          {canPublic && <ToggleGroupItem value="public">Respuesta al solicitante</ToggleGroupItem>}
-          <ToggleGroupItem value="internal">
+          {canPublic && (
+            <ToggleGroupItem value="public" className="flex-1 sm:flex-none">
+              {/* En móvil, texto corto para que las dos opciones quepan en una fila. */}
+              <span className="sm:hidden">Respuesta pública</span>
+              <span className="hidden sm:inline">Respuesta al solicitante</span>
+            </ToggleGroupItem>
+          )}
+          <ToggleGroupItem value="internal" className="flex-1 sm:flex-none">
             <LockIcon data-icon="inline-start" aria-hidden="true" />
             Nota interna
           </ToggleGroupItem>

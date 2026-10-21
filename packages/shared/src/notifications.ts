@@ -78,6 +78,7 @@ export const unreadCountSchema = z.object({ count: z.number().int() });
 
 export const deliverySchema = z.object({
   id: z.string(),
+  notification_id: z.string(),
   notification_type: z.enum(NOTIFICATION_TYPES),
   recipient: z.object({ id: z.string(), name: z.string() }),
   channel: z.enum(DELIVERY_CHANNELS),

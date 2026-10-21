@@ -15,6 +15,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { useMarkAllRead, useMarkRead, useNotifications, useUnreadCount } from "./api";
 import { NotificationRow } from "./components";
+import { toast } from "@/components/feedback/toast-store";
 
 // Campana de la barra superior: contador con polling y las últimas 10 al abrir.
 export function NotificationBell() {
@@ -82,7 +83,7 @@ export function NotificationBell() {
               disabled={markAll.isPending}
               onSelect={(event) => {
                 event.preventDefault();
-                markAll.mutate();
+                markAll.mutate(undefined, { onSuccess: () => toast.success("Notificaciones marcadas como leídas") });
               }}
             >
               <CheckCheckIcon />

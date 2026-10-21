@@ -121,16 +121,17 @@ test("AC-002.14 two admins: the stale one sees the conflict and can reapply", as
   await adminB.goto(`/tickets/${id}`);
   await expect(adminB.getByLabel("Prioridad")).toBeVisible();
 
-  await adminA.getByLabel("Responsable").click();
+  await adminA.getByRole("button", { name: "Cambiar responsable" }).click();
   await adminA.getByRole("option").nth(1).click();
-  await expect(adminA.getByText(/Asignó el caso a/)).toBeVisible();
+  await expect(adminA.getByText(/asignó el caso a/i)).toBeVisible();
+  await expect(adminA.getByTestId("toast").filter({ hasText: "Asignado a" })).toBeVisible();
 
   // B todavía tiene la versión vieja en pantalla.
   await adminB.getByLabel("Prioridad").click();
   await adminB.getByRole("option", { name: "Urgente" }).click();
   await expect(adminB.getByText("Otro administrador actualizó este ticket")).toBeVisible();
   await adminB.getByRole("button", { name: "Aplicar mi cambio sobre la versión nueva" }).click();
-  await expect(adminB.getByText(/Cambió la prioridad de .* a Urgente/)).toBeVisible();
+  await expect(adminB.getByText(/cambió la prioridad de .* a Urgente/i)).toBeVisible();
   await expect(adminB.getByText("Otro administrador actualizó este ticket")).toHaveCount(0);
 });
 
@@ -169,10 +170,42 @@ test("AC-005.6/AC-005.10 the bell shows a status change; opening it marks it rea
   // Panel de entregas: solo admin, con el estado por canal.
   await admin.reload();
   await expect(admin.getByRole("list", { name: "Entregas de notificaciones" })).toBeVisible();
-  const statusDeliveries = admin.getByTestId("delivery").filter({ hasText: "Cambio de estado" });
-  // En la app queda entregada al confirmarse; el correo puede seguir pendiente un instante.
-  await expect(statusDeliveries.filter({ hasText: "En la app" })).toContainText("Entregada");
-  await expect(statusDeliveries.filter({ hasText: "Correo" })).toHaveCount(1);
+  // Una fila por aviso con el estado de cada canal. En la app queda entregada al
+  // confirmarse; el correo puede seguir pendiente un instante.
+  const statusDelivery = admin.getByTestId("delivery").filter({ hasText: "Cambio de estado" });
+  await expect(statusDelivery).toHaveCount(1);
+  await expect(statusDelivery).toContainText("En la app · Entregada");
+  await expect(statusDelivery).toContainText(/Correo · (Pendiente|Entregada)/);
   await requester.goto(`/tickets/${id}`);
   await expect(requester.getByRole("list", { name: "Entregas de notificaciones" })).toHaveCount(0);
+});
+
+test("assign to me shows a toast with undo; on mobile the actions come before the conversation", async ({ browser }) => {
+  const requester = await newContextPage(browser, "agente048");
+  const id = await createTicket(requester, `${PREFIX} asignarme`);
+
+  const admin = await newContextPage(browser, "agente015");
+  await admin.goto(`/tickets/${id}`);
+  await expect(admin.getByTestId("assignee-current")).toContainText("Sin asignar");
+  await admin.getByRole("button", { name: "Asignarme" }).click();
+  await expect(admin.getByTestId("toast").filter({ hasText: "Ahora eres responsable" })).toBeVisible();
+  await expect(admin.getByTestId("assignee-current")).toContainText("Tú");
+  await admin.getByTestId("toast").getByRole("button", { name: "Deshacer" }).click();
+  await expect(admin.getByTestId("toast").filter({ hasText: "Se quitó el responsable" })).toBeVisible();
+  await expect(admin.getByTestId("assignee-current")).toContainText("Sin asignar");
+
+  // Búsqueda dentro del selector.
+  await admin.getByRole("button", { name: "Cambiar responsable" }).click();
+  await admin.getByLabel("Buscar administrador").fill("zzzz");
+  await expect(admin.getByText("Sin resultados")).toBeVisible();
+  await admin.keyboard.press("Escape");
+
+  await admin.setViewportSize({ width: 390, height: 844 });
+  await admin.reload();
+  const actions = await admin.getByRole("button", { name: "Asignarme" }).boundingBox();
+  const conversation = await admin.getByText("Conversación con el equipo").boundingBox();
+  expect(actions.y).toBeLessThan(conversation.y);
+  await admin.getByRole("button", { name: "Cambiar responsable" }).click();
+  await expect(admin.getByLabel("Buscar administrador")).toBeVisible();
+  expect(await admin.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });

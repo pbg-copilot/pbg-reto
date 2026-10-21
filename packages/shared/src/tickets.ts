@@ -228,5 +228,10 @@ export const prioritySchema = z.object({
 });
 export type Priority = z.infer<typeof prioritySchema>;
 
-export const adminSchema = z.object({ id: z.string(), name: z.string(), email: z.string() });
+export const adminSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string(),
+  open_tickets: z.number().int().describe("Tickets no cerrados asignados: ayuda a repartir la carga"),
+});
 export type SupportAdmin = z.infer<typeof adminSchema>;

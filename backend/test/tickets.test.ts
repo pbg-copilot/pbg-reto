@@ -298,6 +298,8 @@ describe("support catalogs", () => {
     expect(priorities[0]).not.toHaveProperty("first_response_target_minutes");
     expect((await get(admin, "/support/priorities")).json()[0]).toHaveProperty("first_response_target_minutes");
     expect((await get(requester, "/support/admins")).statusCode).toBe(403);
-    expect((await get(admin, "/support/admins")).json().length).toBeGreaterThanOrEqual(2);
+    const admins = (await get(admin, "/support/admins")).json();
+    expect(admins.length).toBeGreaterThanOrEqual(2);
+    expect(admins.every((a: { open_tickets: unknown }) => Number.isInteger(a.open_tickets))).toBe(true);
   });
 });

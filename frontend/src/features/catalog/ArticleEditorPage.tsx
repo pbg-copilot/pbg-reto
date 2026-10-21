@@ -21,6 +21,7 @@ import { formatDateTime } from "@/lib/format";
 import { useCatalogNames } from "@/features/tickets/useCatalogNames";
 import { useArchive, useArticleManage, useCreateArticle, useNewVersion, usePublish } from "./api";
 import { ArticleStatusBadge } from "./components";
+import { toast } from "@/components/feedback/toast-store";
 
 type Form = Required<Omit<CreateArticleBody, "valid_until" | "tags" | "reviewed_at">> & {
   tags: string;
@@ -105,8 +106,18 @@ function Editor({ article }: { article?: ArticleManage }) {
       reviewed_at: form.reviewed_at || undefined,
       valid_until: form.valid_until || null,
     };
-    if (article) newVersion.mutate({ ...body, base_version: article.latest_version });
-    else create.mutate({ ...body, is_example: form.is_example }, { onSuccess: (created) => navigate(`/admin/catalogo/${created.id}`) });
+    if (article)
+      newVersion.mutate({ ...body, base_version: article.latest_version }, { onSuccess: () => toast.success("Nueva versión guardada como borrador") });
+    else
+      create.mutate(
+        { ...body, is_example: form.is_example },
+        {
+          onSuccess: (created) => {
+            toast.success("Borrador creado", { description: "Publícalo para que el asistente lo use." });
+            navigate(`/admin/catalogo/${created.id}`);
+          },
+        },
+      );
   }
 
   const conflict = error instanceof ApiError && error.code === "version_conflict";
@@ -275,7 +286,7 @@ function Editor({ article }: { article?: ArticleManage }) {
                           </span>
                         </div>
                         {!current && (
-                          <Button size="sm" variant="outline" disabled={publish.isPending} onClick={() => publish.mutate(version.id)}>
+                          <Button size="sm" variant="outline" disabled={publish.isPending} onClick={() => publish.mutate(version.id, { onSuccess: () => toast.success("Versión publicada", { description: "El asistente ya la usa." }) })}>
                             <SendIcon data-icon="inline-start" aria-hidden="true" />
                             Publicar
                           </Button>
@@ -297,7 +308,7 @@ function Editor({ article }: { article?: ArticleManage }) {
                   </Button>
                 )}
                 {article.status !== "archived" && (
-                  <Button variant="outline" disabled={archive.isPending} onClick={() => archive.mutate()}>
+                  <Button variant="outline" disabled={archive.isPending} onClick={() => archive.mutate(undefined, { onSuccess: () => toast.success("Artículo archivado") })}>
                     <ArchiveIcon data-icon="inline-start" aria-hidden="true" />
                     Archivar (el chat deja de usarlo)
                   </Button>
