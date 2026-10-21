@@ -1,9 +1,10 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { CircleAlertIcon, HourglassIcon, MailWarningIcon, MessageCircleReplyIcon, SirenIcon, UserRoundXIcon } from "lucide-react";
 import type { AttentionItem, Operations } from "@reto/shared";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDateTime, formatRelative } from "@/lib/format";
@@ -53,6 +54,7 @@ export function OperationsSection() {
               list={ops.waiting_team}
               sinceLabel="respondió"
               tone="warning"
+              filterUrl="/tickets?waiting=team"
             />
             <AttentionCard
               icon={<HourglassIcon />}
@@ -60,6 +62,7 @@ export function OperationsSection() {
               description="Se pidió información y no ha respondido"
               list={ops.waiting_requester}
               sinceLabel="se pidió"
+              filterUrl="/tickets?waiting=requester"
             />
           </div>
 
@@ -129,9 +132,10 @@ function AttentionCard({
             ))}
           </ul>
         )}
-        {filterUrl && list.count > list.items.length && (
+        {/* Con muchos tickets la tarjeta muestra los 5 más antiguos; el resto, en la bandeja paginada. */}
+        {filterUrl && list.count > 0 && (
           <Link to={filterUrl} className="text-sm font-medium text-primary hover:underline dark:text-brand">
-            Ver los {list.count}
+            {list.count > list.items.length ? `Ver los ${list.count} en la bandeja` : "Abrir en la bandeja"}
           </Link>
         )}
       </CardContent>
@@ -172,7 +176,12 @@ function AgingCard({ aging }: { aging: Operations["aging"] }) {
   );
 }
 
+const WORKLOAD_VISIBLE = 6;
+
 function WorkloadCard({ workload, unassigned }: { workload: Operations["workload"]; unassigned: number }) {
+  // Con muchos admins se muestran los de más carga (vienen ordenados) y el resto a pedido.
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? workload : workload.slice(0, WORKLOAD_VISIBLE);
   return (
     <Card className="glass">
       <CardHeader>
@@ -191,7 +200,7 @@ function WorkloadCard({ workload, unassigned }: { workload: Operations["workload
           <span className="font-semibold">{unassigned}</span>
         </Link>
         <ul className="flex flex-col gap-2 text-sm">
-          {workload.map((admin) => (
+          {visible.map((admin) => (
             <li key={admin.id} className="flex items-center justify-between gap-2">
               <span className="truncate">{admin.name}</span>
               <span className="flex shrink-0 gap-1">
@@ -205,6 +214,11 @@ function WorkloadCard({ workload, unassigned }: { workload: Operations["workload
             </li>
           ))}
         </ul>
+        {workload.length > WORKLOAD_VISIBLE && (
+          <Button variant="ghost" size="sm" className="self-start" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)}>
+            {expanded ? "Ver menos" : `Ver los ${workload.length} administradores`}
+          </Button>
+        )}
       </CardContent>
     </Card>
   );

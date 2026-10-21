@@ -54,6 +54,7 @@ export function TicketsPage() {
     assignee: admin ? (params.get("assignee") ?? undefined) : undefined,
     age: admin ? (params.get("age") ?? undefined) : undefined,
     unattended: admin && params.get("unattended") === "true" ? "true" : undefined,
+    waiting: admin ? (params.get("waiting") ?? undefined) : undefined,
     sort: params.get("sort") ?? "updated_at",
     order: params.get("order") ?? "desc",
     page: params.get("page") ?? "1",
@@ -209,6 +210,17 @@ export function TicketsPage() {
                 { value: "gt_24h", label: "Más de 24 h" },
                 { value: "gt_72h", label: "Más de 72 h" },
                 { value: "gt_7d", label: "Más de 7 días" },
+              ]}
+            />
+            <FilterSelect
+              id="filter-waiting"
+              label="En espera"
+              allLabel="Todos"
+              value={filters.waiting}
+              onChange={(waiting) => update({ waiting })}
+              options={[
+                { value: "team", label: "Esperan al equipo" },
+                { value: "requester", label: "Esperan al solicitante" },
               ]}
             />
             <div className="flex h-9 items-center gap-2">

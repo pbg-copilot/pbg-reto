@@ -121,6 +121,10 @@ export const listTicketsQuerySchema = paginationQuerySchema.extend({
   age: z.enum(AGE_FILTERS).optional(),
   unread: booleanQuery.optional(),
   unattended: booleanQuery.optional().describe("Abiertos sin primera respuesta del equipo (solo admin)"),
+  waiting: z
+    .enum(["team", "requester"])
+    .optional()
+    .describe("team: el solicitante respondió y el equipo no · requester: se pidió información sin respuesta (solo admin)"),
   sort: z.enum(TICKET_SORTS).default("updated_at"),
   order: z.enum(["asc", "desc"]).default("desc"),
 });

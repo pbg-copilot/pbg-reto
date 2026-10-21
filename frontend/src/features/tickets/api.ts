@@ -24,6 +24,7 @@ export type TicketFilters = {
   age?: string;
   unread?: string;
   unattended?: string;
+  waiting?: string;
   sort?: string;
   order?: string;
   page?: string;

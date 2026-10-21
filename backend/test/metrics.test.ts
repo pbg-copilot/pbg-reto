@@ -228,6 +228,13 @@ describe("AC-007.4 / AC-007.7 formulas with fixed dates", () => {
     expect((await get(admin, "/support/metrics?from=2001-04-01&to=2001-03-01")).statusCode).toBe(400);
   });
 
+  it("AC-007.14 the inbox filters match the dashboard lists (waiting for team / requester)", async () => {
+    const team = (await get(admin, `/tickets?waiting=team&q=${encodeURIComponent(tag)}&page_size=50`)).json();
+    expect(team.items.map((t: { id: string }) => t.id)).toEqual([fTicket]);
+    const requesterSide = (await get(admin, `/tickets?waiting=requester&q=${encodeURIComponent(tag)}&page_size=50`)).json();
+    expect(requesterSide.items.map((t: { title: string }) => t.title)).toEqual([`${tag} D`]);
+  });
+
   it("T007.1 the unattended filter finds the open ticket without a team reply", async () => {
     const list = (await get(admin, `/tickets?unattended=true&q=${encodeURIComponent(`${tag} C`)}`)).json();
     expect(list.items.map((t: { title: string }) => t.title)).toEqual([`${tag} C`]);

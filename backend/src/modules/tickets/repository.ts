@@ -69,6 +69,16 @@ function applyFilters(query: Scoped, actor: Agent, filters: ParsedQuery, include
     if (filters.requester) query = query.where("t.requester_id", "=", filters.requester);
     if (filters.unattended)
       query = query.where("t.status", "=", "open").where("t.first_response_at", "is", null);
+    // Mismas condiciones que el panel de soporte (metrics/service.ts → operations).
+    if (filters.waiting === "team")
+      query = query
+        .where("t.status", "<>", "closed")
+        .where("t.last_requester_reply_at", "is not", null)
+        .where((eb) => eb.or([eb("t.last_team_reply_at", "is", null), eb("t.last_requester_reply_at", ">", eb.ref("t.last_team_reply_at"))]));
+    if (filters.waiting === "requester")
+      query = query
+        .where("t.status", "<>", "closed")
+        .where(sql<boolean>`EXISTS (SELECT 1 FROM helpdesk.ticket_comments c WHERE c.ticket_id = t.id AND c.requests_info AND c.visibility = 'public' AND c.created_at > coalesce(t.last_requester_reply_at, '-infinity'::timestamptz))`);
   }
   return query;
 }
