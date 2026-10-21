@@ -69,6 +69,8 @@ Los documentos flexibles conservan su estructura original en columnas JSON/JSONB
 y texto; por ejemplo, los libros de clientes están en
 `public.pbg_state_documents`, como en la base AWS. No se trasladan a un modelo
 inventado ni se sustituye su contenido de negocio por datos simulados.
+La inspección estructural, relaciones confirmadas y límites de uso para el chat
+están documentados en [`docs/data-model.md`](docs/data-model.md).
 
 Por instrucción expresa de Abel se sustituyen **correos, IDs de negocio y teléfonos**.
 El mapeo consistente mantiene sus referencias entre tablas, documentos JSON, claves

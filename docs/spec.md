@@ -86,7 +86,7 @@ Esta especificación separa los requisitos de `Reto_Chat_PBG.pdf` de las decisio
 - Reutilizar login/sesión/logout existentes (`POST /auth/get-toke`, `GET /auth/me`, `POST /auth/logout`).
 - Añadir servicios/endpoints para conversaciones, búsqueda/detalle de clientes, cotizaciones y agenda.
 - Conservar estructura de negocio original y relaciones; añadir tablas mediante migraciones, sin sustituir documentos originales por modelos ficticios.
-- Confirmar campos y estructura real de clientes/cotizaciones antes de definir consultas: el README local indica documentos flexibles en `public.pbg_state_documents`.
+- El modelo inspeccionado de expedientes, cotizaciones, agencia y bookings, con sus relaciones y límites, está documentado en [`data-model.md`](./data-model.md). Las APIs deben conservar esas distinciones.
 
 ## 4. Criterios de aceptación
 
@@ -123,7 +123,9 @@ La demo no se conecta a producción ni ejecuta llamadas, correos o cobros.
 ## 7. Pendientes y limitaciones a documentar
 
 - Confirmar cuentas, roles y relaciones en README/base local. La guía adjunta indica 350.217 registros; el README local también indica 350.217 distribuidos y 351.429 en el respaldo. Para el estado local usar la base y README; para los requisitos usar la guía.
-- Inspeccionar esquema de clientes, cotizaciones y citas, incluidas columnas JSON/JSONB y relaciones.
+- Confirmar formalmente si `leads-store/books` representa clientes activos de seguros y cómo se valida su `ownerKey`.
+- Definir el enlace aprobado entre documentos de leads y filas de `analytics.quotes`; no hay FK declarada.
+- Identificar una fuente autorizada para citas de agentes de seguros; `teamops.bookings` describe flujos internos de demo/consultoría y no cubre ese caso por sí sola.
 - Definir alcance exacto del administrador y política de acceso tras cambio de agencia.
 - Confirmar reglas de opciones, responsable y vigencia. Sin reglas verificables no se emiten recomendaciones automáticas.
 - Confirmar horarios laborales, duración por tipo de cita y políticas de cancelación/modificación.
