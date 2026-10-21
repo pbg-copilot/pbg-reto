@@ -1,6 +1,18 @@
 import { createHash } from "node:crypto";
 import type { AppointmentRow } from "./appointment-model.js";
 
+export function formatAppointmentLocalStart(
+  localDate: string,
+  localTime: string,
+  offsetMinutes: number,
+): string {
+  const absoluteOffset = Math.abs(offsetMinutes);
+  const sign = offsetMinutes < 0 ? "-" : "+";
+  const offsetHours = String(Math.floor(absoluteOffset / 60)).padStart(2, "0");
+  const offsetRemainder = String(absoluteOffset % 60).padStart(2, "0");
+  return `${localDate} a las ${localTime} UTC${sign}${offsetHours}:${offsetRemainder}`;
+}
+
 export function appointmentTargetFingerprint(row: AppointmentRow): string {
   const snapshot = {
     id: row.id,

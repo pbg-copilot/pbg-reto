@@ -13,9 +13,7 @@ export function isCreateAppointmentRequest(value: string): boolean {
 }
 
 export function isAppointmentListRequest(value: string): boolean {
-  return /\b(?:lista|listar|liste|muestra|mostrar|mu[eé]strame|ver|consulta|consultar|dime|indica)\b.{0,60}\b(?:citas?|agenda)\b/i.test(value) ||
-    /\b(?:citas?|agenda)\b.{0,50}\b(?:tengo|hay|existe|agendada|programada|confirmada|confirmadas)\b/i.test(value) ||
-    /\b(?:tengo|hay|existe)\b.{0,40}\b(?:citas?|agenda)\b/i.test(value);
+  return /\b(?:citas?|agenda)\b/i.test(value);
 }
 
 export function parseAppointmentDetails(value: string) {

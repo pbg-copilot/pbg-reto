@@ -770,6 +770,7 @@ a {
 .modal-close:hover { background: #f0f4f4; }
 .workspace-modal-body { display: flex; flex: 1; min-height: 0; }
 .workspace-modal-body > .chat-shell { display: grid; flex: 1; min-height: 0; height: 100%; grid-template-columns: 280px minmax(320px, 1fr) 300px; overflow: hidden; }
+.workspace-modal-body > .chat-shell.no-active-conversation { grid-template-columns: 280px minmax(0, 1fr); }
 .workspace-modal-body .conversation-sidebar { display: flex; flex-direction: column; grid-column: 1; grid-row: 1; min-height: 0; overflow: hidden; border-right: 1px solid #e1e8e9; background: #fff; }
 .workspace-modal-body .conversation-sidebar .conversation-rail { display: flex; flex: 1; flex-direction: column; grid-column: auto; grid-row: auto; min-height: 0; padding: 17px 12px; overflow: hidden; border: 0; }
 .workspace-modal-body .conversation-sidebar .conversation-list { min-height: 0; overflow-y: auto; }

@@ -415,7 +415,7 @@ function App() {
         </main>
         <button className="chat-launcher" type="button" onClick={() => setChatOpen(true)}><span className="launcher-icon">P</span><span>Chat PBG</span></button>
         <WorkspaceModal open={chatOpen} activeModule={workspaceModule} onModuleChange={changeWorkspaceModule} onClose={() => setChatOpen(false)} title={conversations.find((item) => item.id === activeConversationId)?.title || "Tu asistente de trabajo"} canManageAppointments={agent.role === "agent"}>
-        <main className="chat-shell">
+        <main className={`chat-shell${activeConversationId ? "" : " no-active-conversation"}`}>
           <div className="conversation-sidebar">
           <ConversationRail
             agent={agent}
@@ -450,7 +450,7 @@ function App() {
             </>}
             </>}
           </section>
-                    <aside className="context-panel" aria-label="Cliente activo y búsqueda">
+          {activeConversationId && <aside className="context-panel" aria-label="Cliente activo y búsqueda">
             <section className="panel-section client-context-section">
               <h2>Cliente activo</h2>
               {activeClient ? <div className="active-client"><span className="client-avatar">{(profile?.client.name || activeClient.name).split(" ").slice(0, 2).map((part) => part[0]).join("")}</span><div><strong>{profile?.client.name || activeClient.name}</strong><small>Cliente activo</small></div></div> : <p className="muted-copy">Selecciona un cliente para comenzar.</p>}
@@ -462,7 +462,7 @@ function App() {
               {clientResults.length > 0 && <div className="client-results" role="listbox" aria-label="Resultados de clientes">{clientResults.map((client) => <button key={`${client.document_path}#${client.client_record_id}`} role="option" aria-selected={activeClient?.client_record_id === client.client_record_id && activeClient?.document_path === client.document_path} onClick={() => void selectClient(client)}><strong>{client.name || "Sin nombre"}</strong><small>{client.email || "Correo no disponible"}</small><span className="result-stage">{client.stage || "Etapa no disponible"}</span></button>)}</div>}
               {clientQuery.trim().length >= 2 && !clientSearchLoading && !clientError && clientResults.length === 0 && <p className="search-hint">No encontramos clientes dentro de tu alcance.</p>}
             </section>
-          </aside>
+          </aside>}
         </main>
         </WorkspaceModal>
       </div>

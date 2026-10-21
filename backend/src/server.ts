@@ -10,6 +10,7 @@ import { PostgresAssistantEvidenceRepository } from "./assistant-evidence-reposi
 import { AssistantService } from "./assistant-service.js";
 import { registerAppointmentRoutes } from "./appointment-routes.js";
 import { isAuthorizedAppointmentAgent } from "./appointment-authorization.js";
+import { formatAppointmentLocalStart } from "./appointment-presenter.js";
 import {
   listAuthorizedConversations,
   getAuthorizedAccount,
@@ -1341,7 +1342,10 @@ app.post<{
           response = "Ese horario se cruzó con otra cita y no se guardó. Envíame otra fecha y hora para preparar una nueva confirmación.";
         } else if (needsConfirmation) {
           const { rows } = await client.query(
-            `SELECT action, agent_account_id, local_start, time_zone,
+            `SELECT action, agent_account_id,
+                    to_char(local_start, 'DD/MM/YYYY') AS local_date,
+                    to_char(local_start, 'HH24:MI') AS local_time,
+                    time_zone,
                     start_utc_offset_minutes,
                     extract(epoch FROM (end_at - start_at))::int / 60 AS duration_minutes
                FROM reto.chat_appointment_confirmations
@@ -1355,10 +1359,12 @@ app.post<{
           if (!confirmation || confirmation.action !== "create" ||
               !(await isAuthorizedAppointmentAgent(client, principal, confirmation.agent_account_id)))
             return { state: "confirmation_not_found" as const };
-          response = `Confirma la creación de esta cita:\nCliente: ${profile.name || "Cliente activo"}\nAgente: ${agentName}\nFecha y hora: ${String(confirmation.local_start).replace("T", " ")}\nDuración: ${confirmation.duration_minutes} minutos\nZona horaria: ${confirmation.time_zone}\n\nResponde “Confirmar” para guardarla o “Cancelar” para descartarla.`;
+          response = `Confirma la creación de esta cita:\nCliente: ${profile.name || "Cliente activo"}\nAgente: ${agentName}\nFecha y hora: ${formatAppointmentLocalStart(confirmation.local_date, confirmation.local_time, Number(confirmation.start_utc_offset_minutes))}\nDuración: ${confirmation.duration_minutes} minutos\nZona horaria: ${confirmation.time_zone}\n\nResponde “Confirmar” para guardarla o “Cancelar” para descartarla.`;
         } else if (req.body.kind === "created") {
           const { rows } = await client.query(
-            `SELECT a.local_start, a.time_zone, a.agent_account_id,
+            `SELECT to_char(a.local_start, 'DD/MM/YYYY') AS local_date,
+                    to_char(a.local_start, 'HH24:MI') AS local_time,
+                    a.start_utc_offset_minutes, a.time_zone, a.agent_account_id,
                     extract(epoch FROM (a.end_at - a.start_at))::int / 60 AS duration_minutes
                FROM reto.chat_appointments AS a
                JOIN reto.chat_actions AS action
@@ -1376,10 +1382,13 @@ app.post<{
           const appointment = rows[0];
           if (!appointment || !(await isAuthorizedAppointmentAgent(client, principal, appointment.agent_account_id)))
             return { state: "appointment_not_found" as const };
-          response = `La cita quedó guardada en la agenda.\nCliente: ${profile.name || "Cliente activo"}\nAgente: ${agentName}\nFecha y hora: ${String(appointment.local_start).replace("T", " ")}\nDuración: ${appointment.duration_minutes} minutos\nZona horaria: ${appointment.time_zone}.`;
+          response = `La cita quedó guardada en la agenda.\nCliente: ${profile.name || "Cliente activo"}\nAgente: ${agentName}\nFecha y hora: ${formatAppointmentLocalStart(appointment.local_date, appointment.local_time, Number(appointment.start_utc_offset_minutes))}\nDuración: ${appointment.duration_minutes} minutos\nZona horaria: ${appointment.time_zone}.`;
         } else if (req.body.kind === "appointments_list") {
           const { rows } = await client.query(
-            `SELECT id, agent_account_id, local_start, time_zone,
+            `SELECT id, agent_account_id,
+                    to_char(local_start, 'DD/MM/YYYY') AS local_date,
+                    to_char(local_start, 'HH24:MI') AS local_time,
+                    start_utc_offset_minutes, time_zone,
                     extract(epoch FROM (end_at - start_at))::int / 60 AS duration_minutes
                FROM reto.chat_appointments
               WHERE client_document_path = $1
@@ -1394,7 +1403,7 @@ app.post<{
               appointments.push(appointment);
           }
           response = appointments.length
-            ? `Estas son las citas confirmadas del cliente activo:\n${appointments.map((appointment: { local_start: string; duration_minutes: number; time_zone: string }) => `• ${String(appointment.local_start).replace("T", " ")} · ${appointment.duration_minutes} minutos · ${appointment.time_zone}`).join("\n")}`
+            ? `Estas son las citas confirmadas del cliente activo:\n${appointments.map((appointment: { local_date: string; local_time: string; start_utc_offset_minutes: number; duration_minutes: number; time_zone: string }) => `• ${formatAppointmentLocalStart(appointment.local_date, appointment.local_time, Number(appointment.start_utc_offset_minutes))} · ${appointment.duration_minutes} minutos · ${appointment.time_zone}`).join("\n")}`
             : "No hay citas confirmadas para el cliente activo.";
         }
 
