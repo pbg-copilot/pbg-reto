@@ -53,11 +53,11 @@ export async function resolvePrincipal(
 }
 
 /** Resource queries scope by the authenticated principal before returning rows. */
-export async function getAuthorizedConversation(
+async function queryAuthorizedConversation(
   db: Database,
   principal: Principal,
   conversationId: string,
-  lock = false,
+  lock: boolean,
 ): Promise<AuthorizedConversation | null> {
   const { rows } = await db.query(
     `SELECT c.id, c.owner_account_id, c.title, c.status,
@@ -72,6 +72,63 @@ export async function getAuthorizedConversation(
     [conversationId, principal.accountId],
   );
   return rows[0] ?? null;
+}
+
+export function getAuthorizedConversation(
+  db: Database,
+  principal: Principal,
+  conversationId: string,
+): Promise<AuthorizedConversation | null> {
+  return queryAuthorizedConversation(db, principal, conversationId, false);
+}
+
+export async function withAuthorizedConversationTransaction<T>(
+  pool: Pool,
+  principal: Principal,
+  conversationId: string,
+  mutate: (
+    client: PoolClient,
+    conversation: AuthorizedConversation,
+  ) => Promise<T>,
+): Promise<{ authorized: false } | { authorized: true; result: T }> {
+  const client = await pool.connect();
+  let transactionStarted = false;
+  let releaseError: Error | undefined;
+  try {
+    await client.query("BEGIN");
+    transactionStarted = true;
+
+    const conversation = await queryAuthorizedConversation(
+      client,
+      principal,
+      conversationId,
+      true,
+    );
+    if (!conversation) {
+      await client.query("ROLLBACK");
+      transactionStarted = false;
+      return { authorized: false };
+    }
+
+    const result = await mutate(client, conversation);
+    await client.query("COMMIT");
+    transactionStarted = false;
+    return { authorized: true, result };
+  } catch (error) {
+    if (transactionStarted) {
+      try {
+        await client.query("ROLLBACK");
+      } catch (rollbackError) {
+        releaseError =
+          rollbackError instanceof Error
+            ? rollbackError
+            : new Error("Failed to roll back the authorized conversation transaction");
+      }
+    }
+    throw error;
+  } finally {
+    client.release(releaseError);
+  }
 }
 
 export async function listAuthorizedConversations(
