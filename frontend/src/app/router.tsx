@@ -27,15 +27,18 @@ export const router = createBrowserRouter([
           />
         ),
       },
+      // Carga diferida por ruta: cada pantalla se descarga al visitarla.
       {
         path: "tickets",
-        element: (
-          <ComingSoon
-            title="Mis tickets"
-            spec="spec 002"
-            description="Aquí verás tus tickets abiertos, en revisión y cerrados."
-          />
-        ),
+        lazy: async () => ({ Component: (await import("@/features/tickets/TicketsPage")).TicketsPage }),
+      },
+      {
+        path: "tickets/nuevo",
+        lazy: async () => ({ Component: (await import("@/features/tickets/NewTicketPage")).NewTicketPage }),
+      },
+      {
+        path: "tickets/:id",
+        lazy: async () => ({ Component: (await import("@/features/tickets/TicketDetailPage")).TicketDetailPage }),
       },
       {
         path: "admin",

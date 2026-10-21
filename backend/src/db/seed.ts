@@ -1,4 +1,5 @@
 import type { Database } from "./kysely.js";
+import { ticketCatalogsSeeder } from "./seeds/ticket-catalogs.js";
 
 export type Seeder = {
   name: string;
@@ -7,7 +8,7 @@ export type Seeder = {
 };
 
 // Cada spec agrega sus seeders aquí (catálogo demo en 003, categorías en 002…).
-export const seeders: Seeder[] = [];
+export const seeders: Seeder[] = [ticketCatalogsSeeder];
 
 export async function runSeeds(db: Database, log: { info: (msg: string) => void }) {
   for (const seeder of seeders) {

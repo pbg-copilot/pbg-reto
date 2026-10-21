@@ -53,10 +53,12 @@ stateDiagram-v2
 Reglas:
 
 1. Si el estado pedido es el actual, la API responde 200 sin cambios, sin evento y sin
-   notificación.
+   notificación, aunque la `version` enviada esté desactualizada (un doble clic no es
+   un conflicto).
 2. Cerrar exige `closure_reason`:
    - `resolved` exige además `resolution_summary`.
-   - `duplicate` exige `duplicate_of_ticket_id`.
+   - `duplicate` exige el ticket original: la API recibe `duplicate_of_number` y guarda
+     `duplicate_of_ticket_id`.
    - `invalid`, `no_response` y `other` exigen `resolution_summary` como texto del
      motivo.
 3. Cualquier otra transición (`in_review → open`, `closed → in_review`) responde 422
@@ -86,7 +88,7 @@ visible.
 | Listar tickets | solo los suyos | — | todos |
 | Ver detalle, historial y resolución | ✔ (sin notas internas) | 404 | ✔ |
 | Comentario público | ✔ (Abierto o En revisión) | 404 | ✔ |
-| Nota interna (crear o ver) | ✖403 al crear; nunca se listan | 404 | ✔ |
+| Nota interna (crear o ver) | ✖403 al crear; nunca se listan | 404 | ✔ (también con el ticket cerrado) |
 | Subir adjunto | ✔ (siempre público) | 404 | ✔ (público o interno) |
 | Descargar adjunto público | ✔ | 404 | ✔ |
 | Descargar adjunto interno | 404 | 404 | ✔ |

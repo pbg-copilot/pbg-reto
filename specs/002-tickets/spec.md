@@ -1,6 +1,6 @@
 # 002 · Tickets
 
-- **Estado:** Borrador
+- **Estado:** Hecha (2026-10-20)
 - **Prioridad:** Must
 - **PDF:** §04, §05, §06, §07 (gestión básica), §09 (historial)
 - **Depende de:** 001

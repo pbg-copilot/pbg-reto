@@ -15,6 +15,9 @@ import idempotencyPlugin from "./plugins/idempotency.js";
 import swaggerPlugin from "./plugins/swagger.js";
 import healthRoutes from "./modules/health/routes.js";
 import authRoutes from "./modules/auth/routes.js";
+import ticketRoutes from "./modules/tickets/routes.js";
+import catalogRoutes from "./modules/tickets/catalog-routes.js";
+import { createTicketService } from "./modules/tickets/service.js";
 
 export type BuildAppOptions = {
   env: Env;
@@ -50,6 +53,8 @@ export async function buildApp({ env, db, logger = false }: BuildAppOptions) {
     ttlHours: env.SESSION_TTL_HOURS,
     secureCookie: env.PUBLIC_APP_URL.startsWith("https:"),
   });
+  await app.register(catalogRoutes);
+  await app.register(ticketRoutes, { service: createTicketService(db) });
 
   return app;
 }

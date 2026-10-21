@@ -22,7 +22,7 @@ Specs del reto en formato Spec-Driven Development. El alcance lo define
 | --- | --- | --- | --- | --- |
 | 000 | [overview](000-overview/) | Borrador | — | — |
 | 001 | [foundation](001-foundation/) | **Hecha** | Must | 20 oct, noche |
-| 002 | [tickets](002-tickets/) | Borrador | Must | 21 oct, mañana |
+| 002 | [tickets](002-tickets/) | **Hecha** | Must | 21 oct, mañana |
 | 003 | [catalog](003-catalog/) | Borrador | Must | 21 oct, tarde |
 | 004 | [assistant](004-assistant/) | Borrador | Must | 21 oct, tarde |
 | 005 | [notifications](005-notifications/) | Borrador | Must | 22 oct, mañana |
