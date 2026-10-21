@@ -22,6 +22,7 @@ export function HomePage() {
         <p className="text-muted-foreground">¿En qué te ayudamos hoy?</p>
       </div>
 
+      {/* mt-auto: los pies quedan alineados abajo aunque una descripción sea más corta. */}
       <div className="grid gap-4 md:grid-cols-2">
         <Card className="glass">
           <CardHeader>
@@ -31,7 +32,7 @@ export function HomePage() {
               Describe tu problema al asistente. Si no hay una solución conocida, crea un ticket por ti.
             </CardDescription>
           </CardHeader>
-          <CardFooter>
+          <CardFooter className="mt-auto">
             <Button asChild>
               <Link to="/soporte">
                 Ir a soporte
@@ -46,7 +47,7 @@ export function HomePage() {
             <CardTitle>Mis tickets</CardTitle>
             <CardDescription>Revisa el estado de tus casos, responde al equipo o reabre un ticket.</CardDescription>
           </CardHeader>
-          <CardFooter>
+          <CardFooter className="mt-auto">
             <Button variant="outline" asChild>
               <Link to="/tickets">Ver mis tickets</Link>
             </Button>
