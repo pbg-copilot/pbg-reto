@@ -10,13 +10,19 @@ import { ConversationRail } from "./ConversationRail";
 import { AuthenticationError, getCurrentAgent, signIn, signOut } from "./auth-service";
 import { useAppointmentWorkflow } from "./hooks/useAppointmentWorkflow";
 import { useClientContext } from "./hooks/useClientContext";
+import { WorkspaceModal, type WorkspaceModule } from "./WorkspaceModal";
+import { AppointmentModule } from "./AppointmentModule";
+import { ConsultationModule, type ConsultationSelection } from "./ConsultationModule";
 
 function App() {
   const [agent, setAgent] = useState<Agent | null>(null),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
-    [menu, setMenu] = useState(false);
+    [menu, setMenu] = useState(false),
+    [chatOpen, setChatOpen] = useState(false),
+    [workspaceModule, setWorkspaceModule] = useState<WorkspaceModule>("chat");
+  const [consultationSelection, setConsultationSelection] = useState<ConsultationSelection>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState("");
   const [renamingConversationId, setRenamingConversationId] = useState("");
@@ -38,6 +44,8 @@ function App() {
     buttonRef = useRef<HTMLButtonElement>(null);
   function clearWorkspace() {
     contextRequest.current += 1;
+    setChatOpen(false); setWorkspaceModule("chat");
+    setConsultationSelection(null);
     activeConversationRef.current = "";
     setConversations([]); setActiveConversationId(""); setRenamingConversationId(""); setConversationTitleDraft(""); setMessages([]);
     setMessagesHasMore(false); setMessagesCursor(null);
@@ -68,6 +76,14 @@ function App() {
     void restore();
   }, []);
   useEffect(() => {
+    if (!chatOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") setChatOpen(false); };
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", closeOnEscape);
+    return () => { document.body.style.overflow = previousOverflow; document.removeEventListener("keydown", closeOnEscape); };
+  }, [chatOpen]);
+  useEffect(() => {
     document.title = agent ? "RETO · Chat" : "RETO · Iniciar sesión";
   }, [agent]);
   useEffect(() => {
@@ -75,19 +91,16 @@ function App() {
       if (menuRef.current && !menuRef.current.contains(e.target as Node))
         setMenu(false);
     };
-    const esc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setMenu(false);
-        buttonRef.current?.focus();
-      }
+    const closeMenuOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !chatOpen) { setMenu(false); buttonRef.current?.focus(); }
     };
     document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", esc);
+    document.addEventListener("keydown", closeMenuOnEscape);
     return () => {
       document.removeEventListener("mousedown", close);
-      document.removeEventListener("keydown", esc);
+      document.removeEventListener("keydown", closeMenuOnEscape);
     };
-  }, []);
+  }, [chatOpen]);
   useEffect(() => {
     if (!agent) return;
     const check = () => {
@@ -208,11 +221,22 @@ function App() {
     setMessagesCursor(history.pagination.nextBeforeSequence);
   }
   function selectClient(client: Client) {
+    setConsultationSelection(null);
     return selectClientContext(client, {
       resetAppointments: resetAppointmentWorkflow,
       reloadHistory: reloadConversationHistory,
       loadAppointments,
     });
+  }
+  function changeWorkspaceModule(module: WorkspaceModule) {
+    if (module === "consultas") setConsultationSelection(null);
+    setWorkspaceModule(module);
+  }
+  function selectConsultation(selection: Exclude<ConsultationSelection, null>) {
+    setConsultationSelection(selection);
+    if (!activeConversationId) return;
+    if (selection === "profile") void loadProfile(activeConversationId);
+    else void loadQuotes(activeConversationId);
   }
   async function askAssistant() {
     const content = messageDraft.trim();
@@ -303,6 +327,7 @@ function App() {
     setMessages([]); setMessagesHasMore(false); setMessagesCursor(null);
     setHistoryLoading(false);
     resetClientContext();
+    setConsultationSelection(null);
     setMessageDraft(""); setNotice(""); setConversationError("");
   }
   async function login({ username, password }: { username: string; password: string }) {
@@ -384,7 +409,14 @@ function App() {
             )}
           </div>
         </header>
+        <main className="home-screen">
+          <section className="home-welcome-card"><span className="home-icon">P</span><span className="eyebrow teal">TU ESPACIO DE TRABAJO</span><h1>Hola, {agent.name.split(" ")[0]}.</h1><p>Abre Chat PBG para conversar, revisar información de clientes y gestionar citas desde un solo lugar.</p><button type="button" onClick={() => setChatOpen(true)}>Abrir Chat PBG <Arrow /></button></section>
+          <section className="home-feature-grid" aria-label="Funciones de Chat PBG"><article><span>01</span><strong>Conversaciones</strong><p>Retoma el historial de cada cliente con su propio contexto.</p></article><article><span>02</span><strong>Consultas deterministas</strong><p>Revisa perfiles y cotizaciones que constan en los registros.</p></article><article><span>03</span><strong>Agenda</strong><p>Programa citas y revisa cada cambio antes de confirmarlo.</p></article></section>
+        </main>
+        <button className="chat-launcher" type="button" onClick={() => setChatOpen(true)}><span className="launcher-icon">P</span><span>Chat PBG</span></button>
+        <WorkspaceModal open={chatOpen} activeModule={workspaceModule} onModuleChange={changeWorkspaceModule} onClose={() => setChatOpen(false)} title={conversations.find((item) => item.id === activeConversationId)?.title || "Tu asistente de trabajo"} canManageAppointments={agent.role === "agent"}>
         <main className="chat-shell">
+          <div className="conversation-sidebar">
           <ConversationRail
             agent={agent}
             conversations={conversations}
@@ -400,7 +432,10 @@ function App() {
             onTitleDraftChange={setConversationTitleDraft}
             onSaveRename={(event, id) => void saveConversationTitle(event, id)}
           />
-          <section className="chat-main" aria-label="Chat y contexto">
+          {workspaceModule === "consultas" && consultationSelection && <nav className="consultation-sidebar" aria-label="Tipos de consulta"><span className="eyebrow teal">CONSULTAS</span><button type="button" className={consultationSelection === "profile" ? "active" : ""} onClick={() => selectConsultation("profile")}>Expediente</button><button type="button" className={consultationSelection === "quotes" ? "active" : ""} onClick={() => selectConsultation("quotes")}>Cotizaciones</button></nav>}
+          </div>
+          <section className="chat-main" aria-label="Chat PBG">
+            {workspaceModule === "agenda" ? <AppointmentModule appointments={appointments} loading={appointmentsLoading} loadError={appointmentsError} error={appointmentError} conflict={appointmentConflict} busy={appointmentBusy} action={appointmentAction} selectedId={selectedAppointmentId} date={appointmentDate} time={appointmentTime} duration={appointmentDuration} pending={pendingAppointment} result={appointmentResult} activeClientName={profile?.client.name || activeClient?.name || ""} activeConversationId={activeConversationId} onLoad={(id) => void loadAppointments(id)} onPrepare={() => void prepareAppointment()} onExecute={() => void executeAppointment()} onInvalidate={invalidateAppointmentReview} onErrorChange={setAppointmentError} onConflictChange={setAppointmentConflict} onBusyChange={setAppointmentBusy} onActionChange={setAppointmentAction} onSelectedIdChange={setSelectedAppointmentId} onDateChange={setAppointmentDate} onTimeChange={setAppointmentTime} onDurationChange={setAppointmentDuration} /> : workspaceModule === "consultas" ? <ConsultationModule selection={consultationSelection} activeClient={activeClient} profile={profile} quotes={quotes} loading={detailLoading} error={detailError} onSelect={selectConsultation} onRetry={() => { if (!activeConversationId) return; if (consultationSelection === "quotes") void loadQuotes(activeConversationId); else void loadProfile(activeConversationId); }} /> : <>
             {!activeConversationId ? <div className="chat-welcome"><span className="welcome-icon">R</span><span className="eyebrow teal">TU ESPACIO DE TRABAJO</span><h2>Hola, {agent.name.split(" ")[0]}.</h2><p>Crea una conversación para consultar expedientes y cotizaciones autorizadas.</p></div> : <>
               <header className="chat-heading"><div><span className="eyebrow teal">CONVERSACIÓN ACTIVA</span><h2>{conversations.find((item) => item.id === activeConversationId)?.title || "Conversación"}</h2></div><span className={`state-pill ${conversationLoading ? "loading-state" : ""}`}>{conversationLoading ? "Cargando" : "Guardada"}</span></header>
               {conversationError && <div className="inline-error wide" role="alert">{conversationError}</div>}
@@ -413,43 +448,23 @@ function App() {
               </div>
               <form className="composer" onSubmit={(event) => { event.preventDefault(); void askAssistant(); }}><label htmlFor="message-draft" className="sr-only">Escribe una pregunta o solicitud de cita</label><textarea id="message-draft" value={messageDraft} onChange={(event) => setMessageDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void askAssistant(); } }} placeholder="Pregunta algo o escribe “Agendar cita”…" maxLength={4000} rows={2} disabled={conversationLoading || !activeConversationId} /><div className="composer-bottom"><span>{assistantEnabled ? "Puedes consultar al asistente o escribir “Agendar cita”." : "IA deshabilitada; puedes escribir “Agendar cita”."} Enter para enviar · Shift+Enter para nueva línea.</span><button className="composer-submit" type="submit" disabled={!messageDraft.trim() || !activeClient || messageBusy || conversationLoading}>{messageBusy ? "Procesando…" : "Enviar"}<Arrow /></button></div></form>
             </>}
+            </>}
           </section>
-          <aside className="context-panel" aria-label="Cliente y consultas">
-            <div className="panel-section"><span className="eyebrow teal">CONTEXTO DEL EXPEDIENTE</span><h2>Cliente activo</h2>
-              {activeClient ? <div className="active-client"><span className="client-avatar">{(profile?.client.name || activeClient.name).split(" ").slice(0,2).map((part) => part[0]).join("")}</span><div><strong>{profile?.client.name || activeClient.name}</strong><small>Cliente activo</small></div></div> : <p className="muted-copy">Selecciona un cliente para consultar su perfil y sus cotizaciones.</p>}
-              <label className="search-label" htmlFor="client-search">Buscar cliente</label><div className="search-box"><span aria-hidden="true">⌕</span><input id="client-search" value={clientQuery} onChange={(event) => setClientQuery(event.target.value)} placeholder="Nombre o correo" disabled={!activeConversationId} /></div>
-              {clientSearchLoading && <p className="search-hint">Buscando dentro de tu alcance…</p>}{clientError && <div className="inline-error" role="alert">{clientError}</div>}{clientQuery.trim().length > 0 && clientQuery.trim().length < 2 && <p className="search-hint">Escribe al menos 2 caracteres.</p>}{clientResults.length > 0 && <div className="client-results" role="listbox" aria-label="Resultados de clientes">{clientResults.map((client) => <button key={`${client.document_path}#${client.client_record_id}`} role="option" aria-selected={activeClient?.client_record_id === client.client_record_id && activeClient?.document_path === client.document_path} onClick={() => void selectClient(client)}><strong>{client.name || "Sin nombre"}</strong><small>{client.email || "Correo no disponible"}</small><span className="result-stage">{client.stage || "Etapa no disponible"}</span></button>)}</div>}{clientQuery.trim().length >= 2 && !clientSearchLoading && !clientError && clientResults.length === 0 && <p className="search-hint">No encontramos clientes dentro de tu alcance.</p>}
-            </div>
-              {activeClient && <div className="panel-section lookup-actions"><span className="eyebrow teal">CONSULTAS DETERMINISTAS</span><div className="action-buttons"><button onClick={() => activeConversationId && void loadProfile(activeConversationId)} disabled={detailLoading || !activeConversationId}>Ver expediente</button><button onClick={() => activeConversationId && void loadQuotes(activeConversationId)} disabled={detailLoading || !activeConversationId}>Ver cotizaciones</button></div><p className="search-hint">Solo se muestran los datos autorizados y la información faltante.</p></div>}
-            {activeClient && agent?.role === "agent" && <div className="panel-section appointment-section">
-              <span className="eyebrow teal">AGENDA</span><h3>Gestionar cita</h3>
-              {appointmentsLoading && <p className="search-hint">Cargando citas de este cliente…</p>}
-              {appointmentsError && <div className="inline-error" role="alert">{appointmentsError}<button onClick={() => activeConversationId && void loadAppointments(activeConversationId)}>Volver a cargar citas</button></div>}
-              {appointmentError && <div className="inline-error" role="alert">{appointmentError}{pendingAppointment ? <button onClick={() => void executeAppointment()}>Reintentar con la misma clave</button> : appointmentConflict ? <button onClick={() => { setAppointmentError(""); setAppointmentConflict(false); document.getElementById("appointment-date")?.focus(); }}>Cambiar horario para reintentar</button> : <button onClick={() => void prepareAppointment()}>Reintentar</button>}</div>}
-              {!appointmentsLoading && !appointmentsError && appointments.length === 0 && <p className="search-hint">No hay citas confirmadas de Chat PBG para este cliente.</p>}
-              {appointments.map((appointment) => <div className={`appointment-row ${selectedAppointmentId === appointment.id ? "chosen" : ""}`} key={appointment.id}>
-                <div><strong>{appointmentDateLabel(appointment)}</strong><small>{appointment.local_start.slice(11, 16)} · {appointment.time_zone}</small></div>
-                <div className="appointment-row-actions"><button disabled={appointmentBusy} onClick={() => { invalidateAppointmentReview(); setAppointmentAction("reschedule"); setSelectedAppointmentId(appointment.id); setAppointmentDate(appointment.local_start.slice(0, 10)); setAppointmentTime(appointment.local_start.slice(11, 16)); setAppointmentDuration(Math.max(1, Math.round((new Date(appointment.end_at).getTime() - new Date(appointment.start_at).getTime()) / 60000))); }}>Reprogramar</button><button disabled={appointmentBusy} onClick={() => { invalidateAppointmentReview(); setAppointmentAction("cancel"); setSelectedAppointmentId(appointment.id); }}>Cancelar cita</button></div>
-              </div>)}
-              <div className="appointment-mode"><button disabled={appointmentBusy} className={appointmentAction === "create" ? "active" : ""} onClick={() => { invalidateAppointmentReview(); setAppointmentAction("create"); setSelectedAppointmentId(""); }}>Nueva cita</button></div>
-              {appointmentAction !== "cancel" && <div className="appointment-fields">
-                <label>Fecha local<input id="appointment-date" type="date" value={appointmentDate} disabled={appointmentBusy} onChange={(event) => { invalidateAppointmentReview(); setAppointmentDate(event.target.value); }} /></label>
-                <label>Hora local<input type="time" value={appointmentTime} disabled={appointmentBusy} onChange={(event) => { invalidateAppointmentReview(); setAppointmentTime(event.target.value); }} /></label>
-                <label>Duración<select value={appointmentDuration} disabled={appointmentBusy} onChange={(event) => { invalidateAppointmentReview(); setAppointmentDuration(Number(event.target.value)); }}><option value={15}>15 minutos</option><option value={30}>30 minutos</option><option value={45}>45 minutos</option><option value={60}>1 hora</option><option value={90}>1 hora 30 minutos</option><option value={120}>2 horas</option></select></label>
-                <p>Zona horaria: <strong>America/Bogota</strong></p>
-              </div>}
-              <button className="review-appointment" onClick={() => void prepareAppointment()} disabled={appointmentBusy || appointmentsLoading || !activeConversationId || (appointmentAction !== "create" && !selectedAppointmentId)}>{appointmentBusy ? "Preparando…" : appointmentAction === "cancel" ? "Revisar cancelación" : appointmentAction === "reschedule" ? "Revisar reprogramación" : "Revisar cita"}</button>
-              {pendingAppointment && <div className="appointment-review" aria-live="polite"><strong>Revisa antes de confirmar</strong><span>Acción · {pendingAppointment.confirmation.action === "create" ? "Crear cita" : pendingAppointment.confirmation.action === "reschedule" ? "Reprogramar cita" : "Cancelar cita"}</span><span>Cliente · {activeClient.name}</span><span>Inicio · {pendingAppointment.confirmation.interval.start_local}</span><span>Fin · {pendingAppointment.confirmation.interval.end_local}</span><span>Zona · {pendingAppointment.confirmation.interval.time_zone} (UTC{pendingAppointment.confirmation.interval.start_utc_offset_minutes / 60})</span><small>Confirmación vence {dateLabel(pendingAppointment.confirmation.expires_at)}. La disponibilidad se valida de nuevo al guardar.</small><div className="appointment-review-actions"><button onClick={() => void executeAppointment()} disabled={appointmentBusy}>{appointmentBusy ? "Guardando…" : "Confirmar operación"}</button><button disabled={appointmentBusy} onClick={() => { invalidateAppointmentReview(); setAppointmentBusy(false); }}>Cancelar revisión</button></div></div>}
-              {appointmentResult && <div className="appointment-result" role="status"><strong>{appointmentResult.action === "create" ? "Cita creada" : appointmentResult.action === "reschedule" ? "Cita reprogramada" : "Cita cancelada"}{appointmentResult.idempotent_replay ? " · resultado recuperado" : ""}</strong><span>{appointmentResult.appointment.local_start} · {appointmentResult.appointment.time_zone}</span></div>}
-              <p className="search-hint">El conflicto de horario se valida al confirmar. Si otro guardado ocupa el intervalo, revisa un nuevo horario y confirma otra vez.</p>
-            </div>}
-            <div className="panel-section results-section"><div className="result-heading"><span className="eyebrow teal">INFORMACIÓN DEL CLIENTE</span>{detailLoading && <span className="mini-loader" aria-label="Cargando" />}</div>{detailError && <div className="inline-error" role="alert">{detailError}<button onClick={() => activeConversationId && activeClient && void loadProfile(activeConversationId)}>Reintentar</button></div>}{!activeClient && <div className="panel-empty">Elige un cliente para consultar su información.</div>}{activeClient && !profile && !quotes && !detailLoading && !detailError && <div className="panel-empty">Usa “Ver expediente” o “Ver cotizaciones”.</div>}
-              {profile && <div className="result-card"><div className="result-card-title"><span className="source-dot" /> Expediente encontrado</div><dl className="profile-fields">{[["Nombre", profile.client.name], ["Correo", profile.client.email], ["Teléfono", profile.client.phone], ["Etapa", profile.client.stage]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value ? formattedText(value) : <span className="missing-value">No consta</span>}</dd></div>)}</dl><div className="missing-block"><strong>Datos faltantes</strong>{profile.missing.length ? <ul>{profile.missing.map((item) => <li key={item}>{formattedText(item)}</li>)}</ul> : <span>No se reportan campos faltantes.</span>}</div><div className="notes-heading"><strong>Notas del expediente</strong><span>{profile.notes_status === "loaded" ? `${profile.notes.length} encontradas` : profile.notes_status === "empty" ? "Sin notas" : "No disponibles"}</span></div>{profile.notes.map((note) => <div className="note-item" key={`${note.id}-${note.index}`}><p>{formattedText(textValue(note.text))}</p><small>{dateLabel(note.occurred_at)}</small></div>)}{profile.activity.entries.map((entry) => <div className="note-item" key={`${entry.call_id}-${entry.note_id}`}><p>Nota de llamada</p><small>{dateLabel(entry.occurred_at)}</small></div>)}{profile.activity.status !== "loaded" && profile.activity.status !== "empty" && profile.activity.reason && <p className="limitation-note">Actividad {profile.activity.status === "partial" ? "parcial" : "no disponible"}: {profile.activity.reason}</p>}</div>}
-              {quotes && <div className="result-card"><div className="result-card-title"><span className={`source-dot ${quotes.quotes_status === "empty" ? "empty-dot" : ""}`} /> Cotizaciones {quotes.quotes_status === "empty" ? "no encontradas" : "registradas"}</div>{quotes.quotes.length === 0 ? <p className="muted-copy">No hay coincidencias exactas para este cliente.</p> : quotes.quotes.map((quote) => <article className="quote-item" key={quote.id}><div className="quote-title"><strong>{formattedText(quote.carrier || "Aseguradora no disponible")}</strong><small>{formattedText(quote.product || "Producto no disponible")}</small></div><dl><div><dt>Valor nominal</dt><dd>{quote.face_amount_cents === null ? "No consta" : `$${(Number(quote.face_amount_cents) / 100).toLocaleString("es-CO")}`}</dd></div><div><dt>Prima mensual</dt><dd>{quote.monthly_premium_cents === null ? "No consta" : `$${(Number(quote.monthly_premium_cents) / 100).toLocaleString("es-CO")}`}</dd></div><div><dt>Prima anual</dt><dd>{quote.annual_premium_cents === null ? "No consta" : `$${(Number(quote.annual_premium_cents) / 100).toLocaleString("es-CO")}`}</dd></div></dl></article>)}<div className="missing-block"><strong>Faltantes y limitaciones</strong><ul>{quotes.missing.map((item) => <li key={item}>{formattedText(item)}</li>)}</ul><span>{formattedText(quotes.rules.reason)}</span></div></div>}
-            </div>
-            <div className="panel-foot">Las cotizaciones son instantáneas analíticas; no confirman ofertas vigentes, cobertura ni aprobación.</div>
+                    <aside className="context-panel" aria-label="Cliente activo y búsqueda">
+            <section className="panel-section client-context-section">
+              <h2>Cliente activo</h2>
+              {activeClient ? <div className="active-client"><span className="client-avatar">{(profile?.client.name || activeClient.name).split(" ").slice(0, 2).map((part) => part[0]).join("")}</span><div><strong>{profile?.client.name || activeClient.name}</strong><small>Cliente activo</small></div></div> : <p className="muted-copy">Selecciona un cliente para comenzar.</p>}
+              <label className="search-label" htmlFor="client-search">Buscar cliente</label>
+              <div className="search-box"><span aria-hidden="true">⌕</span><input id="client-search" value={clientQuery} onChange={(event) => setClientQuery(event.target.value)} placeholder="Nombre o correo" disabled={!activeConversationId} /></div>
+              {clientSearchLoading && <p className="search-hint">Buscando dentro de tu alcance…</p>}
+              {clientError && <div className="inline-error" role="alert">{clientError}</div>}
+              {clientQuery.trim().length > 0 && clientQuery.trim().length < 2 && <p className="search-hint">Escribe al menos 2 caracteres.</p>}
+              {clientResults.length > 0 && <div className="client-results" role="listbox" aria-label="Resultados de clientes">{clientResults.map((client) => <button key={`${client.document_path}#${client.client_record_id}`} role="option" aria-selected={activeClient?.client_record_id === client.client_record_id && activeClient?.document_path === client.document_path} onClick={() => void selectClient(client)}><strong>{client.name || "Sin nombre"}</strong><small>{client.email || "Correo no disponible"}</small><span className="result-stage">{client.stage || "Etapa no disponible"}</span></button>)}</div>}
+              {clientQuery.trim().length >= 2 && !clientSearchLoading && !clientError && clientResults.length === 0 && <p className="search-hint">No encontramos clientes dentro de tu alcance.</p>}
+            </section>
           </aside>
         </main>
+        </WorkspaceModal>
       </div>
     );
   return <LoginPage busy={busy} error={error} onSubmit={login} />;
