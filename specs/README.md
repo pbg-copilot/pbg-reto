@@ -28,7 +28,7 @@ Specs del reto en formato Spec-Driven Development. El alcance lo define
 | 005 | [notifications](005-notifications/) | **Hecha** | Must | 21 oct, noche |
 | 006 | [attachments](006-attachments/) | **Hecha** (+ visión) | Must · visión Should | 21 oct, noche |
 | 009 | [assistant-skills](009-assistant-skills/) | **Hecha** | Should | 21 oct, noche |
-| 007 | [admin-metrics](007-admin-metrics/) | Borrador (+ copiloto aprobado) | Should | 22 oct, tarde |
+| 007 | [admin-metrics](007-admin-metrics/) | **Hecha** (+ copiloto) | Should | 21 oct, noche |
 | 008 | [delivery](008-delivery/) | Borrador | Must | 22 oct, tarde |
 
 Orden de implementación desde aquí, acordado el 2026-10-21:

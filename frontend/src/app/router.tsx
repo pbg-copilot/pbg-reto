@@ -2,7 +2,6 @@ import { createBrowserRouter, Outlet, useOutletContext } from "react-router";
 import { isAdmin, type Agent } from "@reto/shared";
 import { AppShell } from "./layout/AppShell";
 import { HomePage } from "@/features/home/HomePage";
-import { ComingSoon } from "@/features/placeholder/ComingSoon";
 import { NotFoundPage } from "@/features/errors/NotFoundPage";
 
 // La API vuelve a verificar el rol; esto solo evita mostrar pantallas que no aplican.
@@ -68,13 +67,11 @@ export const router = createBrowserRouter([
           },
           {
             path: "metricas",
-            element: (
-              <ComingSoon
-                title="Métricas"
-                spec="spec 007"
-                description="Tiempos de primera respuesta, resolución y costo del asistente."
-              />
-            ),
+            lazy: async () => ({ Component: (await import("@/features/metrics/MetricsPage")).MetricsPage }),
+          },
+          {
+            path: "prioridades",
+            lazy: async () => ({ Component: (await import("@/features/metrics/PrioritiesPage")).PrioritiesPage }),
           },
         ],
       },

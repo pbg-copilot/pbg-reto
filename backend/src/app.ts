@@ -30,6 +30,10 @@ import { createNotificationService } from "./modules/notifications/service.js";
 import { createNotificationListener } from "./modules/notifications/listener.js";
 import { onTicketEvent } from "./modules/tickets/events.js";
 import attachmentRoutes from "./modules/attachments/routes.js";
+import metricsRoutes from "./modules/metrics/routes.js";
+import { createMetricsService } from "./modules/metrics/service.js";
+import copilotRoutes from "./modules/copilot/routes.js";
+import { createCopilotService } from "./modules/copilot/service.js";
 import { createAttachmentService } from "./modules/attachments/service.js";
 import { createS3Storage, type AttachmentStorage } from "./modules/attachments/storage.js";
 import { createS3Client } from "./infra/s3.js";
@@ -84,9 +88,13 @@ export async function buildApp({ env, db, logger = false, provider, storage }: B
   await app.register(ticketRoutes, { service: tickets });
   await app.register(articleRoutes, { service: createArticleService(db) });
   const files = storage ?? createS3Storage(createS3Client(env), env.S3_BUCKET);
+  // Un solo proveedor para el chat y el copiloto.
+  const assistantProvider = provider ?? createProvider(env);
   await app.register(conversationRoutes, {
-    service: createConversationService({ db, env, tickets, provider: provider ?? createProvider(env), storage: files }),
+    service: createConversationService({ db, env, tickets, provider: assistantProvider, storage: files }),
   });
+  await app.register(metricsRoutes, { service: createMetricsService(db) });
+  await app.register(copilotRoutes, { service: createCopilotService({ db, env, tickets, provider: assistantProvider }) });
   await app.register(attachmentRoutes, {
     service: createAttachmentService({ db, storage: files }),
     maxBytes: env.UPLOAD_MAX_BYTES,

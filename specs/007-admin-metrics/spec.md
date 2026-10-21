@@ -1,6 +1,6 @@
 # 007 · Gestión administrativa y métricas
 
-- **Estado:** Borrador
+- **Estado:** Hecha (2026-10-21)
 - **Prioridad:** Should (la bandeja y los filtros básicos ya son Must en 002)
 - **PDF:** §07
 - **Depende de:** 002, 003, 004 (costos de IA)

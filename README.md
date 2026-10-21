@@ -88,6 +88,23 @@ inicia y cierra sesión con `agente099`, `agente009` y `agente016`.
 Las pruebas manuales paso a paso, con las cuentas para cada una, están en
 [`docs/pruebas-manuales.md`](docs/pruebas-manuales.md).
 
+### Métricas de atención
+
+En `/admin/metricas` (solo admin) se ven los tickets **creados** en el rango (7, 30 o 90
+días), en tiempo calendario y en UTC. Los objetivos se configuran en `/admin/prioridades`.
+
+| Métrica | Fórmula |
+| --- | --- |
+| Primera respuesta (TPR) | Primer comentario **público** de un admin − creación. Las notas internas, la asignación y los cambios de estado no cuentan. No se recalcula al reabrir |
+| Resolución (TR) | Último cierre como «Resuelto» − creación. Reabrir alarga el TR; los cierres por otros motivos no cuentan |
+| Sin atender | Abiertos sin respuesta pública del equipo |
+| Tasa de reapertura | Tickets reabiertos al menos una vez / tickets resueltos |
+| Cumplimiento | % de tickets con TPR (o TR) dentro del objetivo de su prioridad. Sin objetivo: «Sin objetivo definido». El solicitante nunca ve objetivos ni plazos |
+| Costo de IA | Tokens guardados del chat y del copiloto × precio del modelo |
+
+Los tiempos se muestran como mediana y p90, que son robustos ante casos extremos, y
+también como promedio.
+
 ### Adjuntos y evidencias
 
 | Regla | Valor |

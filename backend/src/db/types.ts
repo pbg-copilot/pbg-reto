@@ -263,6 +263,16 @@ export interface AssistantActionsTable {
   expires_at: DefaultTimestamp;
 }
 
+export interface AiUsageTable {
+  id: Generated<string>;
+  feature: "copilot_summary" | "copilot_reply";
+  actor_id: string;
+  ticket_id: string | null;
+  model: string;
+  usage: JsonObject;
+  created_at: DefaultTimestamp;
+}
+
 // Tablas del repo base (solo lectura). Se declaran solo las columnas que se usan.
 export interface OnboardingAccountsTable {
   id: string;
@@ -302,6 +312,7 @@ export interface DB {
   "helpdesk.notifications": NotificationsTable;
   "helpdesk.attachments": AttachmentsTable;
   "helpdesk.assistant_actions": AssistantActionsTable;
+  "helpdesk.ai_usage": AiUsageTable;
   "helpdesk.notification_deliveries": NotificationDeliveriesTable;
   "reto.agents": AgentsView;
   "reto.sessions": RetoSessionsTable;

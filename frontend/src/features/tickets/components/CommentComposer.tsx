@@ -16,7 +16,8 @@ import { toast } from "@/components/feedback/toast-store";
 import { FilePicker, UploadProgress } from "@/features/attachments/FilePicker";
 import { useUploadTicketAttachments } from "@/features/attachments/api";
 
-export function CommentComposer({ ticket }: { ticket: TicketDetail }) {
+// `draft`: borrador del copiloto (007). Se carga en el texto para editarlo; nunca se envía solo.
+export function CommentComposer({ ticket, draft }: { ticket: TicketDetail; draft?: { id: number; text: string } | null }) {
   const { permissions } = ticket;
   const canPublic = permissions.can_comment;
   const canInternal = permissions.can_add_internal_note;
@@ -29,6 +30,15 @@ export function CommentComposer({ ticket }: { ticket: TicketDetail }) {
   const upload = useUploadTicketAttachments(ticket.id);
   const [files, setFiles] = useState<File[]>([]);
   const [pendingCommentId, setPendingCommentId] = useState<string | null>(null);
+  // Ajuste de estado durante el render (patrón de React) cuando llega un borrador nuevo.
+  const [appliedDraft, setAppliedDraft] = useState<number | null>(null);
+  const [fromCopilot, setFromCopilot] = useState(false);
+  if (draft && draft.id !== appliedDraft) {
+    setAppliedDraft(draft.id);
+    setBody(draft.text);
+    setVisibility("public");
+    setFromCopilot(true);
+  }
 
   if (!canPublic && !canInternal) return null;
   const internal = visibility === "internal";
@@ -50,6 +60,7 @@ export function CommentComposer({ ticket }: { ticket: TicketDetail }) {
         key.reset();
         setBody("");
         setRequestsInfo(false);
+        setFromCopilot(false);
         commentId = created.id;
       }
       const count = files.length;
@@ -112,6 +123,11 @@ export function CommentComposer({ ticket }: { ticket: TicketDetail }) {
           className={internal ? "border-gold/50 bg-gold-soft/50" : undefined}
         />
       </Field>
+      {fromCopilot && body.trim() && !internal && (
+        <p className="flex items-center gap-1 text-xs text-gold-foreground" role="status">
+          Borrador del copiloto (IA): revísalo y edítalo antes de enviar.
+        </p>
+      )}
       {(permissions.can_attach || canInternal) && (
         <FilePicker files={files} onChange={setFiles} disabled={busy} label={internal ? "Adjuntar (interno)" : "Adjuntar archivos"} />
       )}

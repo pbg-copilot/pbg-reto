@@ -254,3 +254,44 @@ test("AC-006.1/4/5/7/9 evidence on a reply: preview, authorized download, client
   await expect(requester.getByText("Motivo: Contiene datos personales")).toBeVisible();
   expect((await requester.request.get(href)).status()).toBe(404);
 });
+
+test("AC-007.2 two admins take the same case: the second one is told and nothing is reassigned", async ({ browser }) => {
+  const requester = await newContextPage(browser, "agente048");
+  const title = `${PREFIX} tomar caso`;
+  const id = await createTicket(requester, title);
+
+  const adminA = await newContextPage(browser, "agente015");
+  const adminB = await newContextPage(browser, "agente104");
+  await adminA.goto(`/tickets?q=${encodeURIComponent(title)}`);
+  await adminB.goto(`/tickets?q=${encodeURIComponent(title)}`);
+  await adminA.getByRole("button", { name: "Tomar caso" }).first().click();
+  await expect(adminA.getByTestId("toast").filter({ hasText: "Tomaste" })).toBeVisible();
+
+  // B todavía ve el botón (bandeja vieja): al pulsarlo se le avisa y no se reasigna.
+  await adminB.getByRole("button", { name: "Tomar caso" }).first().click();
+  await expect(adminB.getByTestId("toast").filter({ hasText: "No se pudo tomar el caso" })).toContainText("Ya lo tomó");
+  const detail = await (await adminA.request.get(`/api/tickets/${id}`)).json();
+  expect(detail.status).toBe("in_review");
+  const me = await (await adminA.request.get("/auth/me")).json();
+  expect(detail.assignee.id).toBe(me.agent.id);
+});
+
+test("AC-007.5/7.9 metrics page with formulas; the copilot draft fills the composer and is never sent", async ({ browser }) => {
+  test.setTimeout(90_000);
+  const admin = await newContextPage(browser, "agente015");
+  await admin.goto("/admin/metricas");
+  await expect(admin.getByRole("heading", { level: 1, name: "Métricas de atención" })).toBeVisible();
+  await expect(admin.getByTestId("kpis")).toContainText("Costo de IA");
+  await admin.getByText("¿Cómo se calcula?").click();
+  await expect(admin.getByText(/Primer comentario/)).toBeVisible();
+
+  const requester = await newContextPage(browser, "agente048");
+  const id = await createTicket(requester, `${PREFIX} copiloto`);
+  await admin.goto(`/tickets/${id}`);
+  await expect(admin.getByTestId("similar-tickets")).toBeVisible();
+  await admin.getByRole("button", { name: "Sugerir respuesta" }).click();
+  await expect(admin.getByLabel("Escribe una respuesta")).not.toHaveValue("", { timeout: 60_000 });
+  await expect(admin.getByText("Borrador del copiloto (IA): revísalo y edítalo antes de enviar.")).toBeVisible();
+  // Nada se envió: el ticket sigue sin comentarios.
+  expect((await (await admin.request.get(`/api/tickets/${id}`)).json()).comments).toHaveLength(0);
+});

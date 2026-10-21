@@ -1,6 +1,8 @@
 import { z } from "zod";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
-import { adminSchema, apiErrorSchema, categorySchema, isAdmin, prioritySchema } from "@reto/shared";
+import { adminSchema, apiErrorSchema, categorySchema, isAdmin, prioritySchema, updatePriorityBodySchema } from "@reto/shared";
+import { notFound } from "../../lib/errors.js";
+import { mutationRateLimit } from "../../lib/rate-limit.js";
 
 const security: Record<string, string[]>[] = [{ bearer: [] }, { cookie: [] }];
 
@@ -47,6 +49,35 @@ const catalogRoutes: FastifyPluginAsyncZod = async (app) => {
         .execute();
       if (isAdmin(request.actor)) return rows;
       return rows.map(({ code, name, rank }) => ({ code, name, rank }));
+    },
+  );
+
+  // Objetivos de atención configurables (AC-007.3). Cambiarlos no reescribe tickets anteriores:
+  // las métricas siempre comparan contra el objetivo vigente.
+  app.patch(
+    "/support/priorities/:code",
+    {
+      preValidation: app.requireAdmin,
+      config: { rateLimit: mutationRateLimit },
+      schema: {
+        tags: ["support"],
+        security,
+        summary: "Configurar una prioridad (solo admin)",
+        description: "Objetivos en minutos; null quita el objetivo. El solicitante nunca ve objetivos ni plazos.",
+        params: z.object({ code: z.string().min(1).max(20) }),
+        body: updatePriorityBodySchema,
+        response: { 200: prioritySchema, 400: apiErrorSchema, 401: apiErrorSchema, 403: apiErrorSchema, 404: apiErrorSchema },
+      },
+    },
+    async (request) => {
+      const row = await app.db
+        .updateTable("helpdesk.priorities")
+        .set(request.body)
+        .where("code", "=", request.params.code)
+        .returning(["code", "name", "rank", "first_response_target_minutes", "resolution_target_minutes"])
+        .executeTakeFirst();
+      if (!row) throw notFound("No existe esa prioridad.");
+      return row;
     },
   );
 

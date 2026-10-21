@@ -41,8 +41,14 @@ export function createFakeProvider(env: Env): AssistantProvider {
 
   return {
     name: "fake",
-    async complete({ messages }) {
+    async complete({ messages, tools }) {
       if (env.AI_FAKE_FAILURE) throw new AssistantUnavailableError("provider_error", "AI_FAKE_FAILURE");
+      // Llamadas sin herramientas (copiloto del equipo, 007): texto determinista.
+      if (tools.length === 0) {
+        const input = textOf(messages.at(-1)!);
+        const status = /Estado: ([^·\n]+)/.exec(input)?.[1]?.trim() ?? "sin estado";
+        return reply([textBlock(`- Caso simulado (${status}).\n- Revisa el reporte original y los pasos ya intentados.\n- Falta confirmar con la persona si el problema sigue.`)]);
+      }
       const userTexts = messages.filter((m) => m.role === "user" && !isToolResultMessage(m)).map(textOf);
       const lastText = userTexts.at(-1) ?? "";
       const last = messages.at(-1)!;

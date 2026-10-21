@@ -127,14 +127,23 @@ mensaje**. La estimación de las secciones 3 y 4 es conservadora: el costo real 
 menos un tercio, porque el prompt caching funciona desde la segunda llamada y el esfuerzo
 `low` produce respuestas breves.
 
+**Funciones agregadas después (specs 006, 007 y 009):**
+
+| Función | Costo aproximado | Cuándo se paga |
+| --- | --- | --- |
+| Captura compartida con el asistente (visión) | ~1.500 tokens de entrada ≈ US$0.00015 por turno | Solo si la persona marca el consentimiento; se reenvía en los turnos siguientes de esa conversación |
+| Diagnóstico de cuenta y propuestas de acción | Unos cientos de tokens por uso | Cuando el asistente usa la herramienta |
+| Copiloto: «Resumir caso» o «Sugerir respuesta» | ≈ US$0.0002 por uso (medido) | Solo cuando un admin pulsa el botón |
+| Posibles duplicados | US$0 | Es una búsqueda en la base, sin IA |
+
 ## 9. Cómo se mide en la práctica
 
 - Cada respuesta del asistente guarda los tokens reales que informa la API
   (`usage`): entrada, salida y caché.
-- La vista de administración (`/admin/metricas`) muestra el costo real acumulado y el
-  promedio por conversación.
-- Cuando la funcionalidad esté terminada, los supuestos de la sección 2 se reemplazan
-  por promedios medidos.
+- Cada uso del copiloto queda en `helpdesk.ai_usage`.
+- La vista de administración (`/admin/metricas`) muestra:
+  - el costo real del rango, separado entre chat y copiloto;
+  - el promedio por conversación.
 - La Console de Anthropic (Usage) muestra el gasto facturado.
 
 ## 10. Qué no incluye

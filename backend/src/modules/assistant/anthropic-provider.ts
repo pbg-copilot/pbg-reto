@@ -39,8 +39,8 @@ export function createAnthropicProvider(env: Env, injected?: MessagesClient): As
             model: env.AI_MODEL,
             max_tokens: 4096,
             system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
-            tools,
-            tool_choice: { type: "auto" },
+            // El copiloto (007) no usa herramientas: sin tools no se envía tool_choice (daría 400).
+            ...(tools.length ? { tools, tool_choice: { type: "auto" as const } } : {}),
             output_config: { effort: "low" },
             messages: history,
           },

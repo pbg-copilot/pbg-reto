@@ -1,6 +1,6 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate, useOutletContext, useParams } from "react-router";
-import { ArrowLeftIcon, BookPlusIcon, BotIcon, CheckCircle2Icon, FileTextIcon, MessagesSquareIcon, PaperclipIcon, SirenIcon } from "lucide-react";
+import { ArrowLeftIcon, BookPlusIcon, BotIcon, CheckCircle2Icon, FileTextIcon, MessagesSquareIcon, PaperclipIcon, SirenIcon, SparklesIcon } from "lucide-react";
 import { closureReasonLabel, impactLabel, incidentStatusLabel, isAdmin, type Agent, type TicketDetail } from "@reto/shared";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,7 @@ import { AttachmentList } from "@/features/attachments/AttachmentList";
 import { useTicket } from "./api";
 import { AdminAttributes } from "./components/AdminAttributes";
 import { AssigneePicker } from "./components/AssigneePicker";
+import { CopilotPanel } from "./components/CopilotPanel";
 import { CommentComposer } from "./components/CommentComposer";
 import { CommentThread } from "./components/CommentThread";
 import { PriorityBadge, StatusBadge } from "./components/badges";
@@ -38,6 +39,12 @@ export function TicketDetailPage() {
   const names = useCatalogNames();
   const navigate = useNavigate();
   const fromTicket = useArticleFromTicket();
+  const [copilotDraft, setCopilotDraft] = useState<{ id: number; text: string } | null>(null);
+  function applyDraft(text: string) {
+    setCopilotDraft({ id: Date.now(), text });
+    // Lleva al compositor para revisar el borrador.
+    window.requestAnimationFrame(() => document.getElementById("comment-body")?.focus());
+  }
 
   useEffect(() => {
     if (ticket.data) document.title = `RETO · ${ticket.data.display_number}`;
@@ -248,7 +255,7 @@ export function TicketDetailPage() {
               ) : (
                 <>
                   <Separator />
-                  <CommentComposer ticket={t} />
+                  <CommentComposer ticket={t} draft={copilotDraft} />
                 </>
               )}
             </CardContent>
@@ -256,6 +263,20 @@ export function TicketDetailPage() {
         </div>
 
         <aside className="flex flex-col gap-6 lg:col-start-2 lg:row-start-2">
+          {admin && (
+            <Card className="glass">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <SparklesIcon aria-hidden="true" className="size-4 text-brand" />
+                  Copiloto
+                </CardTitle>
+                <CardDescription>Sugerencias de IA para el equipo. Tú decides qué guardar o enviar.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <CopilotPanel ticket={t} onUseDraft={applyDraft} />
+              </CardContent>
+            </Card>
+          )}
           <Card className="glass">
             <CardHeader>
               <CardTitle className="text-base">Detalles</CardTitle>

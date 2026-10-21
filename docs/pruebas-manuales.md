@@ -3,7 +3,7 @@
 Pruebas para recorrer la app a mano, de la más básica a la más completa. Cada
 prueba indica con qué cuenta se hace, los pasos y qué debería pasar.
 
-> Se actualiza al terminar cada spec. Estado al 21 de octubre: 001 a 006 hechas.
+> Se actualiza al terminar cada spec. Estado al 21 de octubre: 001 a 007 y 009 hechas; falta la 008 (entrega).
 
 ## 1. Antes de empezar
 
@@ -209,7 +209,35 @@ notificación de otra persona da 404.
 - [ ] **Al escalar.** Pulsa «Hablar con una persona» → el ticket nuevo tiene la
   captura en «Evidencias» con la marca «Desde el chat».
 
-## 9. Dos casos para contar de punta a punta
+## 9. Métricas y copiloto (spec 007)
+
+- [ ] **Tomar caso.** Con `agente009`, en Tickets, un ticket abierto sin responsable
+  muestra «Tomar caso».
+  - Al pulsarlo queda asignado a ti y en revisión.
+  - Con `agente105` en otra ventana (bandeja sin recargar), pulsar «Tomar caso» en el
+    mismo ticket → «Ya lo tomó…».
+- [ ] **Métricas.** Menú Métricas (`/admin/metricas`).
+  - Abiertos, sin atender, mediana de primera respuesta y de resolución, tasa de
+    reapertura y costo de IA.
+  - Cambia entre 7, 30 y 90 días.
+  - Abre «¿Cómo se calcula?».
+- [ ] **Objetivos.** «Prioridades y objetivos»: pon 1 hora de primera respuesta para
+  «Media» y guarda. En Métricas, la fila «Media» muestra el % de cumplimiento; las
+  demás, «Sin objetivo definido».
+- [ ] **El solicitante no ve plazos.** Con `agente099` no aparece ningún objetivo en
+  ninguna pantalla.
+- [ ] **Resumir caso.** En el detalle de un ticket, tarjeta «Copiloto» → «Resumir caso».
+  - Muestra viñetas marcadas «Borrador de IA · interno».
+  - «Guardar como nota interna» lo deja como nota.
+- [ ] **Sugerir respuesta.** Llena el compositor con un borrador y el aviso «revísalo y
+  edítalo».
+  - **No se envía** hasta que pulses «Enviar».
+  - Deja antes una nota interna: el borrador nunca la menciona.
+- [ ] **Posibles duplicados.** Crea dos tickets con títulos parecidos («No puedo
+  exportar el reporte» y «Error al exportar el reporte»). En el detalle de uno aparece
+  el otro con su % de parecido.
+
+## 10. Dos casos para contar de punta a punta
 
 **Caso 1 · Problema conocido, sin ticket (D1).**
 1. `agente099` escribe en Soporte «La tabla de clientes no muestra datos».
@@ -230,7 +258,7 @@ notificación de otra persona da 404.
 7. `agente099` lo reabre porque volvió a pasar: el historial se conserva y la nota
    interna sigue oculta.
 
-## 10. Problemas comunes
+## 11. Problemas comunes
 
 | Síntoma | Solución |
 | --- | --- |

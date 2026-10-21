@@ -148,3 +148,28 @@ export function useCreateTicket() {
     },
   });
 }
+
+// "Tomar caso" desde la bandeja (AC-007.2): asignarme y pasar a En revisión, cada paso con
+// su versión. Si otro admin lo cambió antes, el servidor responde 409 y se avisa.
+export function useTakeCase() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, meId }: { id: string; meId: string }) => {
+      const current = await api<TicketDetail>(`/tickets/${id}`);
+      // Nunca le quita el caso a otro admin: si ya tiene responsable, se avisa.
+      if (current.assignee && current.assignee.id !== meId)
+        throw new ApiError(409, "version_conflict", `Ya lo tomó ${current.assignee.name}.`);
+      const assigned =
+        current.assignee?.id === meId
+          ? current
+          : await api<TicketDetail>(`/tickets/${id}/assignee`, { method: "PATCH", body: { assignee_id: meId, version: current.version } });
+      if (assigned.status !== "open") return assigned;
+      return api<TicketDetail>(`/tickets/${id}/status`, { method: "PATCH", body: { status: "in_review", version: assigned.version } });
+    },
+    onSettled: (_data, _error, { id }) => {
+      void client.invalidateQueries({ queryKey: ticketKeys.lists() });
+      void client.invalidateQueries({ queryKey: ticketKeys.detail(id) });
+      void client.invalidateQueries({ queryKey: supportKeys.admins });
+    },
+  });
+}

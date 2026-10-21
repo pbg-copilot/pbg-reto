@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useOutletContext, useSearchParams } from "react-router";
-import { BellDotIcon, InboxIcon, PlusIcon, SearchIcon } from "lucide-react";
+import { BellDotIcon, InboxIcon, PlusIcon, SearchIcon, UserCheckIcon } from "lucide-react";
 import { isAdmin, type Agent, type TicketStatus, type TicketSummary } from "@reto/shared";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +16,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDateTime, formatRelative } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { useAdmins, useTicketList, type TicketFilters } from "./api";
+import { useAdmins, useTakeCase, useTicketList, type TicketFilters } from "./api";
+import { ApiError } from "@/lib/api";
+import { toast } from "@/components/feedback/toast-store";
 import { PriorityBadge, StatusBadge } from "./components/badges";
 import { useCatalogNames } from "./useCatalogNames";
 import { Pager } from "@/components/pagination/Pager";
@@ -338,6 +340,22 @@ type Names = ReturnType<typeof useCatalogNames>;
 
 function TicketTable({ items, admin, names }: { items: TicketSummary[]; admin: boolean; names: Names }) {
   const navigate = useNavigate();
+  const agent = useOutletContext<Agent>();
+  const take = useTakeCase();
+  // Tomar caso: abiertos y sin responsable (reasignar se hace desde el detalle).
+  const canTake = (ticket: TicketSummary) => admin && ticket.status === "open" && !ticket.assignee;
+  function takeCase(ticket: TicketSummary) {
+    take.mutate(
+      { id: ticket.id, meId: agent.id },
+      {
+        onSuccess: () => toast.success(`Tomaste ${ticket.display_number}`, { description: "Quedó asignado a ti y en revisión." }),
+        onError: (error) =>
+          toast.error("No se pudo tomar el caso", {
+            description: error instanceof ApiError && error.status === 409 ? `${error.message} La bandeja se actualizó.` : error.message,
+          }),
+      },
+    );
+  }
   return (
     <>
       {/* Escritorio: tabla. */}
@@ -390,7 +408,26 @@ function TicketTable({ items, admin, names }: { items: TicketSummary[]; admin: b
                 </TableCell>
                 {admin && <TableCell className="text-sm">{ticket.requester.name}</TableCell>}
                 {admin && (
-                  <TableCell className="text-sm text-muted-foreground">{ticket.assignee?.name ?? "Sin asignar"}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    <div className="flex flex-col items-start gap-1">
+                      {ticket.assignee?.name ?? "Sin asignar"}
+                      {canTake(ticket) && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7"
+                          disabled={take.isPending && take.variables?.id === ticket.id}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            takeCase(ticket);
+                          }}
+                        >
+                          <UserCheckIcon data-icon="inline-start" aria-hidden="true" />
+                          Tomar caso
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
                 )}
                 <TableCell className="text-right text-xs text-muted-foreground">
                   <span title={formatDateTime(ticket.updated_at)}>{formatRelative(ticket.updated_at)}</span>
@@ -410,8 +447,8 @@ function TicketTable({ items, admin, names }: { items: TicketSummary[]; admin: b
       {/* Móvil: tarjetas. */}
       <ul className="flex flex-col gap-3 md:hidden">
         {items.map((ticket) => (
-          <li key={ticket.id}>
-            <Link to={`/tickets/${ticket.id}`} className="glass flex flex-col gap-2 rounded-xl p-4">
+          <li key={ticket.id} className="glass flex flex-col gap-2 rounded-xl">
+            <Link to={`/tickets/${ticket.id}`} className="flex flex-col gap-2 rounded-xl p-4 pb-2">
               <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
                 <span className="flex items-center gap-2 font-mono">
                   {ticket.unread && <UnreadDot />}
@@ -430,6 +467,12 @@ function TicketTable({ items, admin, names }: { items: TicketSummary[]; admin: b
                 )}
               </div>
             </Link>
+            {canTake(ticket) && (
+              <Button size="sm" variant="outline" className="mx-4 mb-3 self-start" disabled={take.isPending && take.variables?.id === ticket.id} onClick={() => takeCase(ticket)}>
+                <UserCheckIcon data-icon="inline-start" aria-hidden="true" />
+                Tomar caso
+              </Button>
+            )}
           </li>
         ))}
       </ul>

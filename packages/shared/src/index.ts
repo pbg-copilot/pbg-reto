@@ -8,3 +8,4 @@ export * from "./articles.js";
 export * from "./conversations.js";
 export * from "./notifications.js";
 export * from "./attachments.js";
+export * from "./metrics.js";
