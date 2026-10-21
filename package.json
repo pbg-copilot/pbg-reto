@@ -18,6 +18,7 @@
     "test:unit": "pnpm -r --if-present test",
     "test:ui": "node tests/e2e/run.mjs --ui",
     "test:e2e": "node tests/e2e/run.mjs",
+    "eval:assistant": "pnpm --filter @reto/backend eval:assistant",
     "check:data": "node --test tests/data.test.mjs"
   },
   "devDependencies": {

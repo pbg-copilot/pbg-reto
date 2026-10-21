@@ -70,8 +70,9 @@
 
 ## Evaluación y documentación
 
-- [ ] **T004.19** *(Should)* `pnpm eval:assistant` con 10 escenarios y su
-  reporte. → AC-004.20
+- [x] **T004.19** *(Should)* `pnpm eval:assistant` con 10 escenarios y su
+  reporte. → AC-004.20. Con `claude-haiku-5-5`: 10/10 correctos, US$0.0063
+  (`docs/eval-asistente.md`).
 - [x] **T004.20** ADR 0003 con costos medidos de un turno real y documentación del
   tratamiento de datos. → AC-004.19
 
@@ -110,3 +111,13 @@
 **Pendiente (*Should*):**
 - T004.19 `pnpm eval:assistant` (la corrida manual del ADR cubre 4 escenarios).
 - Adjuntos en el chat: llegan con la spec 006.
+- **T004.19 (2026-10-21).**
+  - `backend/scripts/eval-assistant.ts` usa la API en proceso (`app.inject`) con la cuenta
+    de test `agente002`, así recorre las mismas validaciones y herramientas que la app.
+  - Además del criterio de cada escenario, revisa que ninguna respuesta afirme haber
+    revisado logs, servidores o producción, ni haber reiniciado, reparado o cerrado algo.
+    Leer la propia cuenta con su herramienta sí es legítimo.
+  - Corta si el costo pasa de US$0.05 y borra lo que crea.
+  - El reporte no guarda los textos de las respuestas.
+  - Con `AI_PROVIDER=fake` sirve para probar el script, aunque falla en lo que el
+    simulado no cubre (consultar «mi ticket»).

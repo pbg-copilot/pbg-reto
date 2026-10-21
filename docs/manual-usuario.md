@@ -230,6 +230,7 @@ Más detalle en [`asistente.md`](asistente.md) y en el ADR 0003.
 | --- | --- |
 | Tests de integración con tres actores por endpoint (dueño, otro usuario y admin) | `backend/test/`, `pnpm test:unit` |
 | Los seis casos del PDF de punta a punta | `tests/e2e/`, `pnpm test:e2e` |
+| El asistente con el modelo real: 10 escenarios, 10/10 por US$0.0063 | `pnpm eval:assistant`, [`eval-asistente.md`](eval-asistente.md) |
 | Matriz de permisos con el test de cada fila | [`permisos.md`](permisos.md) |
 | Contratos de la API | Swagger en `/docs`, guía en [`api.md`](api.md) |
 | Decisiones | `docs/adr/0001` a `0005` |

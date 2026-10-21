@@ -1,6 +1,6 @@
 # 004 · Asistente de soporte (chat con IA)
 
-- **Estado:** Hecha (2026-10-20) · T004.19 pendiente
+- **Estado:** Hecha (2026-10-20). T004.19 hecha el 2026-10-21 (`docs/eval-asistente.md`)
 - **Prioridad:** Must
 - **PDF:** §01, §02, §11
 - **Depende de:** 001, 002, 003

@@ -91,6 +91,14 @@ dentro de un workspace en la Console.
 - Cada uso queda en `helpdesk.ai_usage` y el panel `/admin/metricas` muestra el costo
   real del rango, separado entre chat y copiloto.
 
+## Evaluación con el modelo real (`pnpm eval:assistant`)
+
+El 2026-10-21, 10 escenarios con `claude-haiku-5-5` dieron **10/10 correctos por
+US$0.0063**. Los escenarios fueron: conocido, desconocido, solución que no funcionó, pedir
+una persona, inyección, contraseña compartida, «¿revisaste producción?», estado de la
+cuenta, «¿cómo va mi ticket?» y comentario propuesto. Ninguna respuesta afirmó haber
+revisado sistemas ni reparado nada. Detalle en `docs/eval-asistente.md`.
+
 ## Límites encontrados durante la implementación
 
 - **Thinking ligado a la conversación.** Haiku 5.5 valida que los bloques `thinking`

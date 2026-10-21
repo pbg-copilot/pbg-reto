@@ -12,7 +12,8 @@
     "dev:worker": "tsx watch --env-file-if-exists=../.env src/worker.ts",
     "db:migrate": "tsx --env-file-if-exists=../.env src/db/migrate-cli.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "eval:assistant": "tsx scripts/eval-assistant.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "~0.135.0",
