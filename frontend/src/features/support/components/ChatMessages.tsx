@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
 import { MessageAttachments } from "./ChatAttachments";
+import { ActionCard } from "./ActionCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Marker, MarkerContent, MarkerIcon } from "@/components/ui/marker";
@@ -66,10 +67,14 @@ export function TicketCard({ ticket }: { ticket: TicketRef }) {
 export function ChatMessageView({
   message,
   resolution,
+  conversationId,
+  readOnly,
 }: {
   message: ChatMessage;
   // Botones "¿Se resolvió?" para el último mensaje con artículo.
   resolution?: { articleId: string; pending: boolean; onAnswer: (resolved: boolean) => void };
+  conversationId?: string;
+  readOnly?: boolean;
 }) {
   if (message.notice === "assistant_unavailable")
     return (
@@ -110,6 +115,8 @@ export function ChatMessageView({
           <ArticleCard key={article.version_id} article={article} />
         ))}
         {message.ticket_ref && <TicketCard ticket={message.ticket_ref} />}
+        {conversationId &&
+          message.actions.map((action) => <ActionCard key={action.id} action={action} conversationId={conversationId} readOnly={readOnly ?? false} />)}
         {resolution && (
           <div className="flex flex-wrap items-center gap-2" role="group" aria-label="¿Se resolvió tu problema?">
             <span className="text-sm font-medium">¿Se resolvió tu problema?</span>

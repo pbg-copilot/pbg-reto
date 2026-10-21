@@ -15,6 +15,7 @@ import {
   type CaseDetails,
   type ChatMessage,
   type Conversation,
+  type AssistantAction,
   type ConversationList,
   type ConversationState,
   type PaginationQuery,
@@ -36,6 +37,7 @@ import type { EscalationInput, TurnState } from "../assistant/tools.js";
 import { attachmentsByMessage, toChatAttachment } from "../attachments/repository.js";
 import type { AttachmentStorage } from "../attachments/storage.js";
 import { recordEvent } from "../tickets/events.js";
+import { actionsByMessage, actionsQuery, toAssistantAction } from "./actions.js";
 
 const conversationNotFound = () => notFound("No encontramos esta conversación.");
 const iso = (value: Date | string) => new Date(value).toISOString();
@@ -101,8 +103,9 @@ export function createConversationService({ db, env, provider, tickets, storage 
       .where("visible", "=", true)
       .orderBy("seq")
       .execute();
-    const attachments = await attachmentsByMessage(db, rows.map((row) => row.id));
-    return rows.map((row) => toChatMessage(row, attachments.get(row.id)));
+    const ids = rows.map((row) => row.id);
+    const [attachments, actions] = await Promise.all([attachmentsByMessage(db, ids), actionsByMessage(db, ids)]);
+    return rows.map((row) => toChatMessage(row, attachments.get(row.id), actions.get(row.id)));
   }
 
   // Historial para el modelo: append-only, tal cual se guardó (incluye thinking y tool_result).
@@ -301,7 +304,7 @@ export function createConversationService({ db, env, provider, tickets, storage 
   // Ejecuta un turno del asistente y persiste el resultado. Si el modelo falla, deja un aviso
   // visible y responde 503: el mensaje del usuario ya quedó guardado.
   async function assistantTurn(actor: Agent, conversation: ConversationRow): Promise<{ message: ChatMessage; askResolution: boolean }> {
-    const state: TurnState = { articleRefs: [], ticketRef: null, incidents: [], evidence: [] };
+    const state: TurnState = { articleRefs: [], ticketRef: null, incidents: [], evidence: [], actions: [] };
     const ctx = {
       db,
       actor,
@@ -365,10 +368,14 @@ export function createConversationService({ db, env, provider, tickets, storage 
           meta: final && state.evidence.length ? { evidence: state.evidence } : undefined,
         });
       }
+      // Las propuestas del turno quedan en el mensaje que las muestra (tarjeta con Confirmar).
+      if (state.actions.length)
+        await trx.updateTable("helpdesk.assistant_actions").set({ message_id: last!.id }).where("id", "in", state.actions).execute();
       await touch(trx, conversation.id);
       return last!;
     });
-    return { message: toChatMessage(saved), askResolution: state.articleRefs.length > 0 && !state.ticketRef };
+    const actions = (await actionsByMessage(db, [saved.id])).get(saved.id);
+    return { message: toChatMessage(saved, [], actions), askResolution: state.articleRefs.length > 0 && !state.ticketRef && !actions?.length };
   }
 
   async function saveTicketConfirmation(conversationId: string, ticket: TicketRef) {
@@ -511,6 +518,79 @@ export function createConversationService({ db, env, provider, tickets, storage 
       return response(actor, id, toChatMessage(feedback), turn);
     },
 
+    // Confirmar una propuesta del asistente (AC-009.5/6/7). Solo el clic de la persona llega aquí:
+    // ninguna herramienta del modelo puede confirmar. Se ejecuta con el servicio de tickets y la
+    // sesión del actor (permisos, versión y eventos normales, con via: "assistant").
+    async confirmAction(actor: Agent, conversationId: string, actionId: string): Promise<AssistantAction> {
+      await findOwned(actor, conversationId);
+      const outcome = await db.transaction().execute(async (trx) => {
+        const row = await actionsQuery(trx)
+          .where("x.id", "=", actionId)
+          .where("x.conversation_id", "=", conversationId)
+          .where("x.requester_id", "=", actor.id)
+          .forUpdate("x")
+          .executeTakeFirst();
+        if (!row) throw notFound("No encontramos esa propuesta.");
+        // Confirmar dos veces devuelve el mismo resultado.
+        if (row.status === "confirmed") return { action: toAssistantAction(row) };
+        if (row.status !== "proposed") throw new AppError(409, "invalid_transition", "Esta propuesta ya no está disponible (se canceló o no se pudo aplicar).");
+        if (new Date(row.expires_at).getTime() < Date.now()) {
+          await trx.updateTable("helpdesk.assistant_actions").set({ status: "expired", decided_at: sql`now()` }).where("id", "=", actionId).execute();
+          return { error: new AppError(409, "invalid_transition", "La propuesta venció. Pídele al asistente que la prepare de nuevo.") };
+        }
+        const payload = row.payload as { body?: string; reason?: string };
+        const number = displayNumber(row.number);
+        try {
+          let result: Record<string, unknown>;
+          let notice: string;
+          if (row.type === "comment_on_ticket") {
+            const comment = await tickets.comment(actor, row.ticket_id, { body: payload.body ?? "", visibility: "public", requests_info: false }, { via: "assistant" });
+            result = { comment_id: comment.id };
+            notice = `Listo: agregué tu comentario a ${number}. El equipo lo verá en el ticket.`;
+          } else {
+            const current = await db.selectFrom("helpdesk.tickets").select("version").where("id", "=", row.ticket_id).executeTakeFirstOrThrow();
+            const ticket = await tickets.reopen(actor, row.ticket_id, { version: current.version, reason: payload.reason ?? "" }, { via: "assistant" });
+            result = { version: ticket.version };
+            notice = `Listo: reabrí ${number}. El equipo recibe el aviso y el historial se conserva.`;
+          }
+          const updated = await trx
+            .updateTable("helpdesk.assistant_actions")
+            .set({ status: "confirmed", decided_at: sql`now()`, result: JSON.stringify(result) })
+            .where("id", "=", actionId)
+            .returningAll()
+            .executeTakeFirstOrThrow();
+          await insertMessage(trx, conversationId, { role: "assistant", kind: "notice", content: [], text: notice, meta: { notice: "action_confirmed" } });
+          return { action: toAssistantAction({ ...updated, number: row.number }) };
+        } catch (error) {
+          // El ticket cambió (por ejemplo, se cerró): la propuesta queda fallida y se explica.
+          if (!(error instanceof AppError) || error.statusCode >= 500) throw error;
+          await trx
+            .updateTable("helpdesk.assistant_actions")
+            .set({ status: "failed", decided_at: sql`now()`, result: JSON.stringify({ error: error.message }) })
+            .where("id", "=", actionId)
+            .execute();
+          return { error: new AppError(409, "invalid_transition", `No se pudo aplicar: ${error.message}`) };
+        }
+      });
+      if (outcome.error) throw outcome.error;
+      return outcome.action!;
+    },
+
+    async cancelAction(actor: Agent, conversationId: string, actionId: string): Promise<AssistantAction> {
+      await findOwned(actor, conversationId);
+      await db
+        .updateTable("helpdesk.assistant_actions")
+        .set({ status: "cancelled", decided_at: sql`now()` })
+        .where("id", "=", actionId)
+        .where("conversation_id", "=", conversationId)
+        .where("requester_id", "=", actor.id)
+        .where("status", "=", "proposed")
+        .execute();
+      const row = await actionsQuery(db).where("x.id", "=", actionId).where("x.conversation_id", "=", conversationId).where("x.requester_id", "=", actor.id).executeTakeFirst();
+      if (!row) throw notFound("No encontramos esa propuesta.");
+      return toAssistantAction(row);
+    },
+
     // "Hablar con una persona": crea el ticket con el contexto disponible, sin pasar por el modelo.
     async escalate(actor: Agent, id: string, body: EscalateBody): Promise<TurnResponse> {
       const conversation = await findOwned(actor, id);
@@ -565,7 +645,7 @@ export function toTicketRef(row: { id: string; number: number; title: string; st
 export const ticketConfirmation = (ticket: TicketRef) =>
   `Creé el ticket ${ticket.display_number} para que una persona del equipo de soporte lo revise. Te avisaremos de cada avance; puedes seguirlo en «Mis tickets».`;
 
-function toChatMessage(row: ConversationMessageRow, attachments: ChatAttachment[] = []): ChatMessage {
+function toChatMessage(row: ConversationMessageRow, attachments: ChatAttachment[] = [], actions: AssistantAction[] = []): ChatMessage {
   const meta = row.meta as { notice?: ChatMessage["notice"]; evidence?: ChatMessage["evidence"] };
   return {
     id: row.id,
@@ -577,6 +657,7 @@ function toChatMessage(row: ConversationMessageRow, attachments: ChatAttachment[
     notice: meta.notice ?? null,
     evidence: meta.evidence ?? [],
     attachments,
+    actions,
     created_at: iso(row.created_at),
   };
 }

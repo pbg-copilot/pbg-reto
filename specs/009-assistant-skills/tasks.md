@@ -11,14 +11,14 @@
 
 ## C · Acciones confirmadas
 
-- [ ] **T009.4** Migración `assistant_actions` y las herramientas `propose_*`.
+- [x] **T009.4** Migración `assistant_actions` y las herramientas `propose_*`.
   Test: proponer no modifica el ticket. → AC-009.4
-- [ ] **T009.5** Endpoints `confirm` y `cancel`: idempotencia, vencimiento, 409 si ya
+- [x] **T009.5** Endpoints `confirm` y `cancel`: idempotencia, vencimiento, 409 si ya
   no aplica y evento con `via: assistant`.
   Tests. → AC-009.5, AC-009.6, AC-009.7
-- [ ] **T009.6** `ActionCard` en el chat con sus estados.
+- [x] **T009.6** `ActionCard` en el chat con sus estados.
   Test Playwright: confirmar agrega el comentario al ticket. → AC-009.5
-- [ ] **T009.7** Pruebas de inyección: «confírmalo tú» no ejecuta nada. → AC-009.8
+- [x] **T009.7** Pruebas de inyección: «confírmalo tú» no ejecuta nada. → AC-009.8
 
 ## Notas de implementación (B)
 
@@ -31,3 +31,17 @@
   proponiendo el artículo.
 - **Verificado con Haiku real.** Usó la herramienta, marcó la evidencia y explicó con
   los datos (la cuenta de test figura cancelada en la réplica); no ofreció reactivarla.
+
+## Notas de implementación (C)
+
+- **Orden de la confirmación.** Se bloquea la propuesta (`FOR UPDATE`), se ejecuta con el
+  servicio de tickets y la sesión de la persona, y se marca `confirmed` en la misma
+  transacción de la propuesta.
+  - Si el ticket ya no lo permite (por ejemplo, se cerró), queda `failed` con el motivo y
+    responde 409.
+- **Idempotencia.** Confirmar dos veces devuelve el mismo resultado. Una propuesta vencida
+  (15 min) se muestra como «Venció».
+- **Aviso en el chat.** La confirmación agrega un aviso visible al chat (`notice`), que no
+  entra al historial del modelo.
+- **Prueba con Haiku real.** El test de UI («proponer y confirmar un comentario») pasó con
+  Haiku real.

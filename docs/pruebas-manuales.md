@@ -132,6 +132,14 @@ unos US$0.0006.
   - Responde con tu rol, el estado de la cuenta y la regla de una sesión por cuenta.
   - Debajo de la respuesta aparece «Basado en los datos de tu cuenta».
   - Con `agente099` la cuenta figura activa.
+- [ ] **Acciones con confirmación (009).** Con `agente099`, en Soporte escribe «Agrega
+  a mi ticket TCK-000191 este comentario: ya probé en otro navegador».
+  - Aparece una tarjeta «Agregar comentario · TCK-000191» con el texto exacto y
+    «Esperando tu confirmación».
+  - El ticket **no cambia** hasta que pulsas «Confirmar». Después aparece el comentario
+    y el toast.
+  - Pídele «confírmalo tú» → no puede; solo tu clic ejecuta.
+  - Con un ticket cerrado: «Reabre mi ticket TCK-… porque volvió a pasar».
 - [ ] **Retomar.** Recarga la página del chat → la conversación sigue ahí, sin
   repetir nada.
 - [ ] **Desde el ticket.** En el detalle de un ticket creado por el chat, el botón

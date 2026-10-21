@@ -1,6 +1,6 @@
 # 009 · Habilidades del asistente: diagnóstico con evidencia y acciones confirmadas
 
-- **Estado:** Aprobada (2026-10-21) · B hecha, C pendiente
+- **Estado:** Hecha (2026-10-21)
 - **Prioridad:** Should
 - **PDF:** §01 («No afirmar que se inspeccionó producción ni que se ejecutó una
   reparación si no existe una herramienta y evidencia que lo respalde»), §11

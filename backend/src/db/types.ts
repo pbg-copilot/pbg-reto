@@ -248,6 +248,21 @@ export interface AttachmentsTable {
   created_at: DefaultTimestamp;
 }
 
+export interface AssistantActionsTable {
+  id: Generated<string>;
+  conversation_id: string;
+  message_id: string | null;
+  requester_id: string;
+  type: "comment_on_ticket" | "reopen_ticket";
+  ticket_id: string;
+  payload: JsonObject;
+  status: Generated<"proposed" | "confirmed" | "cancelled" | "expired" | "failed">;
+  result: ColumnType<Record<string, unknown> | null, Record<string, unknown> | string | null | undefined, Record<string, unknown> | string | null>;
+  proposed_at: DefaultTimestamp;
+  decided_at: NullableTimestamp;
+  expires_at: DefaultTimestamp;
+}
+
 // Tablas del repo base (solo lectura). Se declaran solo las columnas que se usan.
 export interface OnboardingAccountsTable {
   id: string;
@@ -286,6 +301,7 @@ export interface DB {
   "helpdesk.conversation_messages": ConversationMessagesTable;
   "helpdesk.notifications": NotificationsTable;
   "helpdesk.attachments": AttachmentsTable;
+  "helpdesk.assistant_actions": AssistantActionsTable;
   "helpdesk.notification_deliveries": NotificationDeliveriesTable;
   "reto.agents": AgentsView;
   "reto.sessions": RetoSessionsTable;
@@ -303,5 +319,6 @@ export type ConversationRow = Selectable<ConversationsTable>;
 export type ConversationMessageRow = Selectable<ConversationMessagesTable>;
 export type NotificationRow = Selectable<NotificationsTable>;
 export type AttachmentRow = Selectable<AttachmentsTable>;
+export type AssistantActionRow = Selectable<AssistantActionsTable>;
 export type DeliveryRow = Selectable<NotificationDeliveriesTable>;
 export type NewJob = Insertable<JobsTable>;

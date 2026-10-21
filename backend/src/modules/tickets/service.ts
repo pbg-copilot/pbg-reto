@@ -132,7 +132,8 @@ export function createTicketService(db: Database) {
       return detail(actor, ticket.id);
     },
 
-    async comment(actor: Agent, id: string, input: CommentBody) {
+    // `via: "assistant"`: la persona lo confirmó desde una propuesta del chat (009); queda en el evento.
+    async comment(actor: Agent, id: string, input: CommentBody, options: { via?: "assistant" } = {}) {
       const body = commentBodySchema.parse(input);
       const admin = isAdmin(actor);
       if (!admin && (body.visibility === "internal" || body.requests_info))
@@ -174,7 +175,7 @@ export function createTicketService(db: Database) {
           type: "comment_added",
           visibility: body.visibility,
           actorId: actor.id,
-          data: { comment_id: created.id, requests_info: body.requests_info, from_team: fromTeam },
+          data: { comment_id: created.id, requests_info: body.requests_info, from_team: fromTeam, ...(options.via ? { via: options.via } : {}) },
         });
         await markRead(trx, actor.id, id);
         return { ...created, requester_id: ticket.requester_id };
@@ -280,7 +281,7 @@ export function createTicketService(db: Database) {
       });
     },
 
-    async reopen(actor: Agent, id: string, body: ReopenBody) {
+    async reopen(actor: Agent, id: string, body: ReopenBody, options: { via?: "assistant" } = {}) {
       return withConflictDetails(actor, id, async () => {
         await db.transaction().execute(async (trx) => {
           const current = await lockForUpdate(trx, actor, id, body.version);
@@ -302,7 +303,7 @@ export function createTicketService(db: Database) {
             type: "reopened",
             visibility: "public",
             actorId: actor.id,
-            data: { from: "closed", to: "open", reason: body.reason, by_team: actor.id !== current.requester_id },
+            data: { from: "closed", to: "open", reason: body.reason, by_team: actor.id !== current.requester_id, ...(options.via ? { via: options.via } : {}) },
           });
           await markRead(trx, actor.id, id);
         });

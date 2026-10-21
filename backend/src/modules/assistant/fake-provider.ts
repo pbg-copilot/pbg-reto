@@ -7,7 +7,8 @@ import { AssistantUnavailableError, type AssistantProvider, type ProviderRespons
 // real (emite tool_use y procesa tool_result), así que la lógica del servidor se prueba completa.
 //
 // Reglas: "[[fail]]" o AI_FAKE_FAILURE → caída del proveedor · "[[inject]]" → intenta leer un
-// ticket ajeno · "revisa mi cuenta" → diagnóstico de la cuenta · "persona"/"humano" → ticket
+// ticket ajeno · "revisa mi cuenta" → diagnóstico · "agrega a mi ticket N: …" / "reabre N …" →
+// propuestas con confirmación · "persona"/"humano" → ticket
 // human_requested · si no: datos del caso + búsqueda →
 // artículo con pasos, o una pregunta y después ticket no_article / solution_failed.
 
@@ -52,6 +53,10 @@ export function createFakeProvider(env: Env): AssistantProvider {
           // Intenta leer un ticket que no es de la persona: el servidor solo devuelve los propios.
           return reply([toolUse("get_my_tickets", { number: 1, status: null })]);
         if (/revis\w*\s+(el estado de\s+)?mi cuenta|estado de mi cuenta/i.test(lastText)) return reply([toolUse("get_my_account_status", {})]);
+        const addTo = /agreg\w*\s+(?:a|en)\s+mi ticket\s+(?:tck-)?0*(\d+)\s*[:,-]?\s*(.+)/is.exec(lastText);
+        if (addTo) return reply([toolUse("propose_comment_on_my_ticket", { number: Number(addTo[1]), body: addTo[2]!.trim() })]);
+        const reopen = /reabr\w*\s+(?:mi ticket\s+)?(?:tck-)?0*(\d+)\s*[:,-]?\s*(.*)/is.exec(lastText);
+        if (reopen) return reply([toolUse("propose_reopen_my_ticket", { number: Number(reopen[1]), reason: reopen[2]!.trim() || "El problema volvió." })]);
         if (/\b(persona|humano|humana)\b/i.test(lastText))
           return reply([
             toolUse("create_ticket", {
@@ -127,6 +132,12 @@ export function createFakeProvider(env: Env): AssistantProvider {
         return reply([
           textBlock(`Creé el ticket ${data.display_number} con lo que me contaste. El equipo de soporte lo revisará y te avisaremos de cada avance.`),
         ]);
+      }
+
+      const proposal = byName("propose_comment_on_my_ticket") ?? byName("propose_reopen_my_ticket");
+      if (proposal) {
+        if (proposal.error) return reply([textBlock("No encontré ese ticket entre los tuyos o su estado no lo permite.")]);
+        return reply([textBlock("Te preparé la acción. Revísala y confírmala en la tarjeta: no se hace nada hasta que la confirmes.")]);
       }
 
       const account = byName("get_my_account_status");

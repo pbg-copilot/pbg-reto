@@ -104,3 +104,30 @@ test("AC-006.2/11 chat evidence: consent is off by default and the message shows
   await expect(sent).toContainText("pantalla.png", { timeout: 60_000 });
   await expect(sent).not.toContainText("Compartida con el asistente");
 });
+
+test("AC-009.5 the assistant proposes a comment and nothing happens until the person confirms", async ({ browser }) => {
+  test.setTimeout(90_000);
+  const page = await pageAs(browser, "agente002");
+  const created = await page.request.post("/api/tickets", {
+    headers: { "idempotency-key": `ui-action-${Date.now()}` },
+    data: { title: "E2E acciones: el reporte no exporta", description: "Al exportar el reporte de ventas no pasa nada.", category: "screens", impact: "medium" },
+  });
+  const ticket = await created.json();
+  try {
+    await page.goto("/soporte");
+    await ask(page, `Agrega a mi ticket ${ticket.display_number} este comentario: ya probé en Firefox y pasa lo mismo`);
+    const card = page.getByTestId("action-card");
+    await expect(card).toBeVisible({ timeout: 60_000 });
+    await expect(card).toContainText("Esperando tu confirmación");
+    // Todavía no hay comentario: proponer no cambia el ticket.
+    expect((await (await page.request.get(`/api/tickets/${ticket.id}`)).json()).comments).toHaveLength(0);
+    await card.getByRole("button", { name: "Confirmar" }).click();
+    await expect(page.getByTestId("toast").filter({ hasText: `Comentario agregado a ${ticket.display_number}` })).toBeVisible();
+    await expect(card).toContainText("Confirmada");
+    const comments = (await (await page.request.get(`/api/tickets/${ticket.id}`)).json()).comments;
+    expect(comments).toHaveLength(1);
+    expect(comments[0].body.toLowerCase()).toContain("firefox");
+  } finally {
+    execFileSync("docker", ["compose", "exec", "-T", "postgres", "psql", "-U", "reto", "-d", "reto", "-qc", `DELETE FROM helpdesk.tickets WHERE id = '${ticket.id}'`]);
+  }
+});

@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Conversation, ConversationList, ResolutionBody, TurnResponse } from "@reto/shared";
+import type { AssistantAction, Conversation, ConversationList, ResolutionBody, TurnResponse } from "@reto/shared";
 import { api } from "@/lib/api";
 import { ticketKeys } from "@/features/tickets/api";
 
@@ -70,3 +70,20 @@ export const useEscalate = () =>
   useTurn(({ id, note, idempotencyKey }: { id: string; note?: string; idempotencyKey: string }) =>
     api<TurnResponse>(`/support/conversations/${id}/escalate`, { method: "POST", body: note ? { note } : {}, idempotencyKey }),
   );
+
+// Confirmar o cancelar una propuesta del asistente. Una clave por clic: confirmar es idempotente
+// en el servidor igual (una propuesta confirmada devuelve el mismo resultado).
+export function useActionDecision(conversationId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ actionId, kind }: { actionId: string; kind: "confirm" | "cancel" }) =>
+      api<AssistantAction>(`/support/conversations/${conversationId}/actions/${actionId}/${kind}`, {
+        method: "POST",
+        idempotencyKey: crypto.randomUUID(),
+      }),
+    onSettled: () => {
+      void client.invalidateQueries({ queryKey: supportChatKeys.detail(conversationId) });
+      void client.invalidateQueries({ queryKey: ticketKeys.all });
+    },
+  });
+}

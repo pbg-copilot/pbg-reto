@@ -285,6 +285,8 @@ function ChatPanel({ conversation, onCreated }: { conversation?: Conversation; o
                   <MessageScrollerItem key={message.id} messageId={message.id} scrollAnchor={message.role === "user"}>
                     <ChatMessageView
                       message={message}
+                      conversationId={conversation?.id}
+                      readOnly={readOnly}
                       resolution={
                         askFor === message
                           ? { articleId: message.article_refs[0]!.article_id, pending: resolution.isPending, onAnswer: (resolved) => answer(message, resolved) }

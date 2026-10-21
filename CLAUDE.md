@@ -125,7 +125,9 @@ Capas:
 
 - El modelo nunca decide identidad, permisos, IDs ni enlaces.
 - Herramientas permitidas: `search_articles`, `get_article`, `update_case_details`,
-  `create_ticket` y `get_my_tickets` (detalle en `specs/004-assistant/plan.md`).
+  `create_ticket`, `get_my_tickets` (spec 004), `get_my_account_status`,
+  `propose_comment_on_my_ticket` y `propose_reopen_my_ticket` (spec 009). Resumen en
+  `docs/asistente.md`.
   - En `create_ticket`, el backend pone el solicitante desde la sesión y devuelve el
     número real.
   - Ninguna herramienta cambia estados ni cierra tickets.

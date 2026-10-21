@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import {
   apiErrorSchema,
+  assistantActionSchema,
   conversationListSchema,
   conversationSchema,
   paginationQuerySchema,
@@ -124,6 +125,43 @@ const conversationRoutes: FastifyPluginAsyncZod<{ service: ConversationService }
       },
     },
     async (request) => service.escalate(request.actor!, request.params.id, request.body ?? {}),
+  );
+
+  const actionParams = z.object({ id: z.uuid(), actionId: z.uuid() });
+  app.post(
+    "/support/conversations/:id/actions/:actionId/confirm",
+    {
+      ...idempotent,
+      config: { rateLimit: mutationRateLimit },
+      schema: {
+        tags,
+        security,
+        summary: "Confirmar una propuesta del asistente",
+        description:
+          "Ejecuta la acción con el servicio de tickets y la sesión de la persona (permisos, versión y eventos normales). Idempotente: confirmar dos veces devuelve el mismo resultado. 409 si venció, se canceló o el ticket ya no lo permite.",
+        headers: idempotencyHeader,
+        params: actionParams,
+        response: { 200: assistantActionSchema, ...errors, 409: apiErrorSchema },
+      },
+    },
+    async (request) => service.confirmAction(request.actor!, request.params.id, request.params.actionId),
+  );
+
+  app.post(
+    "/support/conversations/:id/actions/:actionId/cancel",
+    {
+      ...idempotent,
+      config: { rateLimit: mutationRateLimit },
+      schema: {
+        tags,
+        security,
+        summary: "Cancelar una propuesta del asistente",
+        headers: idempotencyHeader,
+        params: actionParams,
+        response: { 200: assistantActionSchema, ...errors },
+      },
+    },
+    async (request) => service.cancelAction(request.actor!, request.params.id, request.params.actionId),
   );
 };
 

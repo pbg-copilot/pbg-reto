@@ -12,7 +12,8 @@ modelo propone y el backend decide**.
 | Hacer hasta 2 preguntas útiles para entender el caso | Pedir contraseñas, tokens o códigos |
 | Revisar el estado de **la propia** cuenta y explicarlo | Reactivar, desbloquear o cambiar el rol de una cuenta |
 | Buscar y explicar artículos **publicados** del catálogo | Inventar pasos, causas, números de ticket o plazos |
-| Crear un ticket para la persona de la sesión | Cambiar estados, cerrar o reabrir tickets |
+| Crear un ticket para la persona de la sesión | Cambiar estados, cerrar o reabrir tickets por su cuenta |
+| **Proponer** comentar o reabrir un ticket propio; se ejecuta solo si la persona pulsa «Confirmar» | Confirmar una acción por su cuenta |
 | Consultar **los tickets propios** de esa persona | Asignar responsables o cambiar prioridades |
 | Informar un incidente activo y vincular el ticket | Ver casos, datos o notas internas de otras personas |
 | | Decir que revisó, reparó o ejecutó algo en sistemas internos |
@@ -25,7 +26,7 @@ con su sesión.
 
 ## Herramientas
 
-Son 6 y todas llevan `strict: true` y el servidor valida cada input con zod. El backend las
+Son 8 y todas llevan `strict: true` y el servidor valida cada input con zod. El backend las
 ejecuta con el **actor de la sesión**: el modelo nunca elige a quién pertenece un
 dato.
 
@@ -36,6 +37,8 @@ dato.
 | `update_case_details` | Registra área, intención, resultado esperado, error e impacto | Solo en la conversación actual |
 | `create_ticket` | Crea el ticket con el resumen y los pasos intentados | El solicitante sale de la sesión; devuelve el número real; idempotente |
 | `get_my_tickets` | Lista o busca los tickets propios | Filtro por `requester_id` en el SQL |
+| `propose_comment_on_my_ticket` | Propone un comentario público en un ticket propio no cerrado | No escribe nada: crea una propuesta que vence en 15 min; el clic de la persona la ejecuta |
+| `propose_reopen_my_ticket` | Propone reabrir un ticket propio cerrado | Igual: solo el clic de la persona reabre, con las reglas normales del ticket |
 | `get_my_account_status` | Diagnóstico de la propia cuenta: rol, estado, agencia (sin nombres), sesión actual y reglas de sesión | Solo lectura y solo de la sesión; sin historial de accesos ni datos personales. La UI muestra «Basado en los datos de tu cuenta» |
 
 ## Dónde vive cada regla

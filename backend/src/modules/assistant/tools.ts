@@ -3,6 +3,7 @@ import { sql } from "kysely";
 import { z } from "zod";
 import {
   CASE_FIELDS,
+  displayNumber,
   ESCALATION_REASONS,
   IMPACTS,
   TICKET_STATUSES,
@@ -16,7 +17,7 @@ import {
 import type { Database } from "../../db/kysely.js";
 import { articleUrl, isUsableSql } from "../articles/service.js";
 import { searchCondition, searchRank } from "../articles/search.js";
-import { wrapUntrusted } from "./guards.js";
+import { redactSecrets, wrapUntrusted } from "./guards.js";
 
 // Herramientas limitadas (§11). El modelo nunca envía identidades ni privilegios: el actor sale
 // de la sesión y cada input se valida con zod en el servidor. No hay herramientas para cambiar
@@ -101,6 +102,36 @@ export const TOOLS: Anthropic.Tool[] = [
     input_schema: { type: "object", properties: {}, required: [], additionalProperties: false },
   },
   {
+    name: "propose_comment_on_my_ticket",
+    description:
+      "Propone agregar un comentario público a un ticket propio que no esté cerrado (por ejemplo, información nueva que dio la persona). NO lo agrega: crea una propuesta que la persona confirma con un botón. Úsala solo si la persona lo pide o acepta.",
+    strict: true,
+    input_schema: {
+      type: "object",
+      properties: {
+        number: { type: "integer", description: "Número del ticket sin el prefijo TCK-" },
+        body: { type: "string", description: "Texto exacto del comentario, en primera persona de quien escribe" },
+      },
+      required: ["number", "body"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "propose_reopen_my_ticket",
+    description:
+      "Propone reabrir un ticket propio cerrado cuando el problema volvió. NO lo reabre: crea una propuesta que la persona confirma con un botón.",
+    strict: true,
+    input_schema: {
+      type: "object",
+      properties: {
+        number: { type: "integer", description: "Número del ticket sin el prefijo TCK-" },
+        reason: { type: "string", description: "Qué pasó: por qué se reabre" },
+      },
+      required: ["number", "reason"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "get_my_tickets",
     description: "Consulta los tickets de la persona de esta conversación (nunca los de otras personas).",
     strict: true,
@@ -135,6 +166,8 @@ const validators = {
     attempted_steps: z.array(z.strictObject({ step: text(300), result: text(300) })).max(10),
   }),
   get_my_account_status: z.strictObject({}),
+  propose_comment_on_my_ticket: z.strictObject({ number: z.number().int().min(1), body: z.string().trim().min(3).max(2000) }),
+  propose_reopen_my_ticket: z.strictObject({ number: z.number().int().min(1), reason: z.string().trim().min(3).max(500) }),
   get_my_tickets: z.strictObject({
     number: z.number().int().min(1).nullable(),
     status: z.enum(TICKET_STATUSES).nullable(),
@@ -159,6 +192,8 @@ export type TurnState = {
   incidents: { id: string; category: string | null }[];
   // Datos reales que respaldan la respuesta (AC-009.2): la UI lo muestra.
   evidence: "account_status"[];
+  // Propuestas creadas en este turno (009 C): se vinculan al mensaje del asistente.
+  actions: string[];
 };
 
 export type ToolContext = {
@@ -194,6 +229,10 @@ export async function executeTool(name: string, rawInput: unknown, ctx: ToolCont
       return getMyTickets(input, ctx);
     case "get_my_account_status":
       return getMyAccountStatus(ctx);
+    case "propose_comment_on_my_ticket":
+      return propose(ctx, "comment_on_ticket", input);
+    case "propose_reopen_my_ticket":
+      return propose(ctx, "reopen_ticket", input);
   }
 }
 
@@ -336,6 +375,46 @@ async function getMyAccountStatus(ctx: ToolContext) {
         "Ser dueño de una agencia no da acceso a los tickets de sus agentes.",
         "Una cuenta suspendida o cancelada no puede iniciar sesión; la revisa el equipo de soporte, el asistente no la puede reactivar.",
       ],
+    }),
+  };
+}
+
+// Propuestas con confirmación (AC-009.4). Validan que el ticket sea propio y que el estado lo
+// permita, y solo crean la fila "proposed": ejecutar requiere el clic de la persona.
+async function propose(ctx: ToolContext, type: "comment_on_ticket" | "reopen_ticket", input: { number: number; body?: string; reason?: string }) {
+  const ticket = await ctx.db
+    .selectFrom("helpdesk.tickets")
+    .select(["id", "number", "status"])
+    .where("number", "=", input.number)
+    .where("requester_id", "=", ctx.actor.id)
+    .executeTakeFirst();
+  if (!ticket) return fail("not_found", "No encontré ese ticket entre los tuyos. Solo puedo proponer acciones sobre tus propios tickets.");
+  if (type === "comment_on_ticket" && ticket.status === "closed")
+    return fail("ticket_closed", "El ticket está cerrado: si el problema volvió, propón reabrirlo.");
+  if (type === "reopen_ticket" && ticket.status !== "closed") return fail("not_closed", "El ticket no está cerrado: no hace falta reabrirlo.");
+  // El texto sale de la conversación: se enmascaran secretos antes de guardarlo.
+  const text = redactSecrets(input.body ?? input.reason ?? "").text;
+  const action = await ctx.db
+    .insertInto("helpdesk.assistant_actions")
+    .values({
+      conversation_id: ctx.conversationId,
+      message_id: null,
+      requester_id: ctx.actor.id,
+      type,
+      ticket_id: ticket.id,
+      payload: JSON.stringify(type === "comment_on_ticket" ? { body: text } : { reason: text }),
+      result: null,
+      decided_at: null,
+    })
+    .returning("id")
+    .executeTakeFirstOrThrow();
+  ctx.state.actions.push(action.id);
+  return {
+    isError: false,
+    content: wrapUntrusted({
+      status: "proposed",
+      ticket: displayNumber(ticket.number),
+      message: "Propuesta creada. Todavía no se hizo nada: la persona debe confirmarla en la tarjeta que ve en pantalla. No digas que ya se hizo.",
     }),
   };
 }

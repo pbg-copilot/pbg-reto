@@ -64,6 +64,25 @@ export const chatAttachmentSchema = z.object({
 });
 export type ChatAttachment = z.infer<typeof chatAttachmentSchema>;
 
+// Acción que el asistente propone y la persona confirma (009). El modelo nunca la ejecuta.
+export const ASSISTANT_ACTION_TYPES = ["comment_on_ticket", "reopen_ticket"] as const;
+export const ASSISTANT_ACTION_STATUSES = ["proposed", "confirmed", "cancelled", "expired", "failed"] as const;
+export const assistantActionSchema = z.object({
+  id: z.string(),
+  type: z.enum(ASSISTANT_ACTION_TYPES),
+  status: z.enum(ASSISTANT_ACTION_STATUSES),
+  ticket: z.object({ id: z.string(), display_number: z.string(), url: z.string() }),
+  text: z.string().describe("Comentario o motivo exacto que se enviará al confirmar"),
+  expires_at: isoDate,
+  decided_at: isoDate.nullable(),
+  error: z.string().nullable(),
+});
+export type AssistantAction = z.infer<typeof assistantActionSchema>;
+export const assistantActionLabel: Record<AssistantAction["type"], string> = {
+  comment_on_ticket: "Agregar comentario",
+  reopen_ticket: "Reabrir ticket",
+};
+
 export const chatMessageSchema = z.object({
   id: z.string(),
   role: z.enum(["user", "assistant"]),
@@ -72,7 +91,8 @@ export const chatMessageSchema = z.object({
   article_refs: z.array(articleRefSchema),
   ticket_ref: ticketRefSchema.nullable(),
   // Avisos del sistema: el asistente no respondió, se ocultó un dato sensible…
-  notice: z.enum(["assistant_unavailable", "secret_redacted"]).nullable(),
+  notice: z.enum(["assistant_unavailable", "secret_redacted", "action_confirmed"]).nullable(),
+  actions: z.array(assistantActionSchema),
   attachments: z.array(chatAttachmentSchema),
   // Datos reales que respaldan la respuesta (009): la UI muestra «Basado en los datos de tu cuenta».
   evidence: z.array(z.enum(["account_status"])),
