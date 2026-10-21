@@ -1,0 +1,183 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+/* Poppins alojada localmente: la CSP no permite fuentes de terceros. */
+@import "@fontsource/poppins/latin-300.css";
+@import "@fontsource/poppins/latin-400.css";
+@import "@fontsource/poppins/latin-500.css";
+@import "@fontsource/poppins/latin-600.css";
+@import "@fontsource/poppins/latin-700.css";
+@import "@fontsource/poppins/latin-800.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: "Poppins", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-heading: var(--font-sans);
+  --color-brand: var(--brand);
+  --color-brand-soft: var(--brand-soft);
+  --color-gold: var(--gold);
+  --color-gold-soft: var(--gold-soft);
+  --color-gold-foreground: var(--gold-foreground);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-success-foreground: var(--success-foreground);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* Tema claro: app PBG Copilot (tarjetas blancas translúcidas sobre gris-azulado). */
+:root {
+  --background: #f3f7f9;
+  --foreground: #0b2430;
+  --card: #ffffff;
+  --card-foreground: #0b2430;
+  --popover: #ffffff;
+  --popover-foreground: #0b2430;
+  --primary: #14768c; /* contraste AA con texto blanco */
+  --primary-foreground: #ffffff;
+  --brand: #1fa3c4; /* acento de marca: foco, indicadores, iconos */
+  --brand-soft: #2bbfe0;
+  --secondary: #e8f2f5;
+  --secondary-foreground: #0b2430;
+  --muted: #eef3f5;
+  --muted-foreground: #5b7480;
+  --accent: #e3f4f8;
+  --accent-foreground: #0b2430;
+  --gold: #b8913a;
+  --gold-soft: #f7efd9;
+  --gold-foreground: #6f5414;
+  --success: #1f9d61;
+  --success-soft: #e3f5ec;
+  --success-foreground: #146b42;
+  --destructive: #aa151b;
+  --border: #e1eaee;
+  --input: #d5e1e6;
+  --ring: #1fa3c4;
+  --chart-1: #1fa3c4;
+  --chart-2: #14768c;
+  --chart-3: #b8913a;
+  --chart-4: #1f9d61;
+  --chart-5: #5b7480;
+  --radius: 0.875rem;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #0b2430;
+  --sidebar-primary: #14768c;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e3f4f8;
+  --sidebar-accent-foreground: #0b2430;
+  --sidebar-border: #e1eaee;
+  --sidebar-ring: #1fa3c4;
+  --backdrop: radial-gradient(1200px 600px at 10% -10%, #dff1f6 0%, transparent 60%),
+    radial-gradient(900px 500px at 110% 10%, #e8eef8 0%, transparent 55%), #f3f7f9;
+}
+
+/* Tema oscuro: tokens del sitio pbgcopilot.com. */
+.dark {
+  --background: #06151c;
+  --foreground: #eef3f2;
+  --card: #0a222c;
+  --card-foreground: #eef3f2;
+  --popover: #0b2430;
+  --popover-foreground: #eef3f2;
+  --primary: #1fa3c4;
+  --primary-foreground: #04141a;
+  --brand: #2bbfe0;
+  --brand-soft: #2bbfe0;
+  --secondary: #0f2e3a;
+  --secondary-foreground: #eef3f2;
+  --muted: #0f2a35;
+  --muted-foreground: rgba(238, 243, 242, 0.62);
+  --accent: #12313d;
+  --accent-foreground: #eef3f2;
+  --gold: #d9c186;
+  --gold-soft: rgba(217, 193, 134, 0.14);
+  --gold-foreground: #e7d5a6;
+  --success: #3ccf8e;
+  --success-soft: rgba(60, 207, 142, 0.14);
+  --success-foreground: #7be0b1;
+  --destructive: #ff5a5a;
+  --border: rgba(198, 193, 178, 0.16);
+  --input: rgba(198, 193, 178, 0.22);
+  --ring: #2bbfe0;
+  --chart-1: #2bbfe0;
+  --chart-2: #1fa3c4;
+  --chart-3: #d9c186;
+  --chart-4: #3ccf8e;
+  --chart-5: #c6c1b2;
+  --sidebar: #0a222c;
+  --sidebar-foreground: #eef3f2;
+  --sidebar-primary: #1fa3c4;
+  --sidebar-primary-foreground: #04141a;
+  --sidebar-accent: #12313d;
+  --sidebar-accent-foreground: #eef3f2;
+  --sidebar-border: rgba(198, 193, 178, 0.16);
+  --sidebar-ring: #2bbfe0;
+  --backdrop: radial-gradient(1200px 600px at 10% -10%, rgba(31, 163, 196, 0.16) 0%, transparent 60%),
+    radial-gradient(900px 500px at 110% 10%, rgba(217, 193, 134, 0.08) 0%, transparent 55%), #06151c;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    @apply min-h-dvh text-foreground antialiased;
+    background: var(--backdrop);
+    background-attachment: fixed;
+  }
+}
+
+@layer components {
+  /* Superficie "glass" de la app Copilot. */
+  .glass {
+    @apply border bg-card/80 shadow-[0_8px_30px_-12px_rgb(11_36_48/0.18)] backdrop-blur-xl;
+  }
+  /* Etiquetas pequeñas en mayúsculas con tracking amplio. */
+  .eyebrow {
+    @apply text-[11px] font-semibold tracking-[0.16em] text-muted-foreground uppercase;
+  }
+}

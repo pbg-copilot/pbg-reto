@@ -1,20 +1,27 @@
 import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { createHash } from "node:crypto";
 import pg from "pg";
 import { hashPassword } from "./passwords.js";
+
+// Contrato con tests/database.test.mjs: este módulo exporta `pool` sin otros
+// efectos al importarlo, y se ejecuta dentro del contenedor desde /app/backend.
 export const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
   max: 10,
   connectionTimeoutMillis: 5000,
   statement_timeout: 15000,
 });
+
+export const dataDir = () => resolve(process.env.DATA_DIR || "/app/data");
+
 export async function initializeDatabase() {
-  const bytes = await readFile("/app/data/manifest.json");
+  const bytes = await readFile(resolve(dataDir(), "manifest.json"));
   const manifest = JSON.parse(bytes.toString());
   if (manifest.format_version !== 2)
     throw new Error("Full PostgreSQL replica required");
   const aliases = JSON.parse(
-    await readFile("/app/data/test-users.json", "utf8"),
+    await readFile(resolve(dataDir(), "test-users.json"), "utf8"),
   ) as { id: string; username: string }[];
   const importId = createHash("sha256").update(bytes).digest("hex");
   const conn = await pool.connect();

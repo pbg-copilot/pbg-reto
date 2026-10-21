@@ -2,12 +2,31 @@
   "name": "pbg-reto",
   "private": true,
   "version": "1.0.0",
+  "type": "module",
+  "packageManager": "pnpm@11.21.0",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
+    "dev": "pnpm --filter @reto/shared build && pnpm --parallel --filter @reto/shared --filter @reto/backend --filter @reto/frontend dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "db:migrate": "pnpm --filter @reto/backend db:migrate",
     "test": "node --test --test-concurrency=1 tests/*.test.mjs",
+    "test:unit": "pnpm -r --if-present test",
     "test:ui": "playwright test",
     "check:data": "node --test tests/data.test.mjs"
   },
   "devDependencies": {
-    "@playwright/test": "^1.64.0"
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.64.0",
+    "eslint": "^10.13.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.10",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.72.0"
   }
 }

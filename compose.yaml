@@ -1,4 +1,32 @@
 name: pbg-reto
+
+# Configuración común de la API y el worker (misma imagen, distinto comando).
+x-backend: &backend
+  build:
+    context: .
+    dockerfile: backend/Dockerfile
+  environment: &backend-env
+    NODE_ENV: production
+    DATABASE_URL: postgres://${POSTGRES_USER:-reto}:${POSTGRES_PASSWORD:-reto_local_only}@postgres:5432/${POSTGRES_DB:-reto}
+    DATA_DIR: /app/data
+    APP_ORIGIN: ${APP_ORIGIN:-http://localhost:8088}
+    PUBLIC_APP_URL: ${PUBLIC_APP_URL:-http://localhost:8088}
+    DEMO_PASSWORD: ${DEMO_PASSWORD:-123456}
+    SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-8}
+    AI_PROVIDER: ${AI_PROVIDER:-}
+    AI_MODEL: ${AI_MODEL:-claude-haiku-5-5}
+    ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    AI_FAKE_FAILURE: ${AI_FAKE_FAILURE:-false}
+    S3_ENDPOINT: http://s3:9000
+    S3_BUCKET: ${S3_BUCKET:-reto-attachments}
+    S3_ACCESS_KEY: ${S3_ACCESS_KEY:-reto}
+    S3_SECRET_KEY: ${S3_SECRET_KEY:-reto_local_only}
+    SMTP_HOST: mailpit
+    SMTP_PORT: 1025
+    EMAIL_NOTIFICATIONS: ${EMAIL_NOTIFICATIONS:-true}
+  restart: unless-stopped
+  init: true
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -21,22 +49,22 @@ services:
       interval: 3s
       timeout: 3s
       retries: 120
+      # La primera restauración tarda varios minutos: no se marca unhealthy mientras tanto.
+      start_period: 15m
     restart: unless-stopped
+
   backend:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
-    environment:
-      DATABASE_URL: postgres://${POSTGRES_USER:-reto}:${POSTGRES_PASSWORD:-reto_local_only}@postgres:5432/${POSTGRES_DB:-reto}
-      APP_ORIGIN: ${APP_ORIGIN:-http://localhost:8088}
-      DEMO_PASSWORD: ${DEMO_PASSWORD:-123456}
-      SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-8}
-      PORT: 8000
+    <<: *backend
     ports:
       - "127.0.0.1:${BACKEND_PORT:-8008}:8000"
+    environment:
+      <<: *backend-env
+      PORT: 8000
     depends_on:
       postgres:
         condition: service_healthy
+      s3:
+        condition: service_started
     healthcheck:
       test:
         [
@@ -49,8 +77,28 @@ services:
       timeout: 4s
       retries: 30
       start_period: 30s
-    restart: unless-stopped
-    init: true
+
+  worker:
+    <<: *backend
+    command: ["node", "dist/worker.js"]
+    depends_on:
+      backend:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "const s=require('fs').statSync('/tmp/worker-heartbeat');process.exit(Date.now()-s.mtimeMs<30000?0:1)",
+        ]
+      interval: 10s
+      timeout: 4s
+      retries: 6
+      start_period: 20s
+
   frontend:
     build:
       context: .
@@ -66,5 +114,28 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+
+  # Almacenamiento de adjuntos compatible con S3 (bucket privado). Ver ADR 0004.
+  s3:
+    image: rustfs/rustfs:1.0.3
+    environment:
+      RUSTFS_ACCESS_KEY: ${S3_ACCESS_KEY:-reto}
+      RUSTFS_SECRET_KEY: ${S3_SECRET_KEY:-reto_local_only}
+    ports:
+      - "127.0.0.1:${S3_PORT:-9000}:9000"
+      - "127.0.0.1:${S3_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - s3_data:/data
+    restart: unless-stopped
+
+  # Buzón local: captura los correos de notificación sin enviarlos a nadie.
+  mailpit:
+    image: axllent/mailpit:v1.31
+    ports:
+      - "127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025"
+      - "127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025"
+    restart: unless-stopped
+
 volumes:
   postgres_replica_v2:
+  s3_data:

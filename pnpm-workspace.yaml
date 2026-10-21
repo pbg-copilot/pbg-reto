@@ -1,0 +1,14 @@
+packages:
+  - backend
+  - frontend
+  - packages/*
+
+# Solo estos paquetes pueden ejecutar scripts de instalación.
+allowBuilds:
+  esbuild: true
+
+# Falla la instalación si aparece una dependencia con scripts sin revisar.
+strictDepBuilds: true
+
+# No instalar versiones publicadas hace menos de 24 h (minutos).
+minimumReleaseAge: 1440

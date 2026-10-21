@@ -28,6 +28,63 @@ Los siguientes arranques conservan los datos y cambios locales.
 Los puertos se publican solo en loopback. Las opciones están en `.env.example`.
 Si se cambia el puerto web o el host, actualizar también `APP_ORIGIN`.
 
+### Soporte y tickets con IA: servicios adicionales
+
+| Servicio | Dirección | Uso |
+| --- | --- | --- |
+| Documentación de la API | http://localhost:8088/docs | OpenAPI (Swagger UI). JSON en `/docs/json` |
+| Worker | sin puerto | Procesa trabajos persistentes (correos, reintentos) |
+| Mailpit | http://localhost:8025 | Buzón local: muestra los correos de notificación; no envía nada real |
+| S3 local (RustFS) | http://localhost:9001 | Bucket privado `reto-attachments` para adjuntos; usuario `reto` / `reto_local_only` |
+
+- Al arrancar, la API aplica las migraciones del esquema `helpdesk` y carga los datos
+  de ejemplo de forma idempotente. No modifica los esquemas originales
+  (`docs/adr/0001`).
+- La app llama a la API bajo `/api/…`. nginx quita el prefijo, de modo que las rutas
+  de la API son las del enunciado (`/tickets`, `/support/...`). `/auth`, `/health` y
+  `/docs` siguen disponibles sin prefijo.
+- Sin `ANTHROPIC_API_KEY`, el asistente usa un proveedor simulado y la app funciona
+  igual. Con key: `AI_PROVIDER=anthropic` y `AI_MODEL=claude-haiku-5-5` en `.env`.
+  Costos estimados en `docs/costos-ia.md`.
+
+### Desarrollo con pnpm
+
+Requisitos: Node 24 y pnpm 11 (`npm i -g pnpm@11.21.0`, o `corepack enable`).
+
+```sh
+cp .env.example .env
+pnpm install
+docker compose up -d postgres s3 mailpit   # infraestructura
+pnpm dev                                    # API :8008, worker y web :5173 con recarga en caliente
+```
+
+Para usar `pnpm dev` hay que detener los contenedores `backend`, `worker` y
+`frontend` (`docker compose stop backend worker frontend`), porque comparten el
+puerto 8008.
+
+| Comando | Qué hace |
+| --- | --- |
+| `pnpm typecheck` · `pnpm lint` | Tipos y lint de todo el workspace |
+| `pnpm test` | Pruebas del repo base (API, datos y base dentro del contenedor) |
+| `pnpm test:unit` | Pruebas de la API con Vitest (`app.inject`) contra el Postgres de compose |
+| `pnpm test:ui` | Pruebas de interfaz con Playwright contra :8088 |
+| `pnpm db:migrate` | Aplica las migraciones pendientes |
+
+Las pruebas automáticas usan cuentas reservadas (`agente048`, `agente049`,
+`agente002`, `agente015`, `agente104`). Como hay una sola sesión activa por cuenta,
+no cierran la sesión de las cuentas de demo. Excepción: `pnpm test` (del repo base)
+inicia y cierra sesión con `agente099`, `agente009` y `agente016`.
+
+### Problemas frecuentes
+
+- **"Origen no permitido" al iniciar sesión.** La URL desde la que se abre la app
+  debe estar en `APP_ORIGIN`, por ejemplo `http://localhost:8088,http://localhost:5173`.
+- **Dos usuarios a la vez.** Hay una sola cookie por navegador y una sesión por cuenta.
+  Para probar admin y solicitante juntos, usar dos navegadores o una ventana de
+  incógnito.
+- **La primera restauración tarda.** El healthcheck de PostgreSQL espera hasta 15
+  minutos antes de marcar error. Seguir el avance con `docker compose logs -f postgres`.
+
 ## Usuarios de prueba recomendados
 
 Todos los usuarios locales usan **`123456`**. Se puede iniciar sesión con el
@@ -146,10 +203,10 @@ tokens en localStorage. Los intentos excesivos reciben 429.
 ## Comprobaciones
 
 ```sh
-npm ci
-npm test
-npx playwright install chromium
-npm run test:ui
+pnpm install
+pnpm test
+pnpm exec playwright install chromium
+pnpm test:ui
 uv run --with cryptography --with pyahocorasick python -m unittest discover -s tests -p 'test_replica.py'
 ```
 
