@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { AlertTriangleIcon, BookOpenIcon, BotIcon, CheckIcon, ShieldAlertIcon, TicketIcon, XIcon } from "lucide-react";
+import { AlertTriangleIcon, BookOpenIcon, BotIcon, CheckIcon, ShieldAlertIcon, ShieldCheckIcon, TicketIcon, XIcon } from "lucide-react";
 import type { ArticleRef, ChatMessage, TicketRef } from "@reto/shared";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -100,6 +100,12 @@ export function ChatMessageView({
           </BubbleContent>
         </Bubble>
         {user && <MessageAttachments attachments={message.attachments} />}
+        {!user && message.evidence.includes("account_status") && (
+          <span className="flex items-center gap-1 text-xs text-muted-foreground" data-testid="evidence-account">
+            <ShieldCheckIcon aria-hidden="true" className="size-3.5 text-success" />
+            Basado en los datos de tu cuenta
+          </span>
+        )}
         {message.article_refs.map((article) => (
           <ArticleCard key={article.version_id} article={article} />
         ))}

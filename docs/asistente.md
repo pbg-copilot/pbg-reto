@@ -10,6 +10,7 @@ modelo propone y el backend decide**.
 | Puede | No puede |
 | --- | --- |
 | Hacer hasta 2 preguntas útiles para entender el caso | Pedir contraseñas, tokens o códigos |
+| Revisar el estado de **la propia** cuenta y explicarlo | Reactivar, desbloquear o cambiar el rol de una cuenta |
 | Buscar y explicar artículos **publicados** del catálogo | Inventar pasos, causas, números de ticket o plazos |
 | Crear un ticket para la persona de la sesión | Cambiar estados, cerrar o reabrir tickets |
 | Consultar **los tickets propios** de esa persona | Asignar responsables o cambiar prioridades |
@@ -24,7 +25,7 @@ con su sesión.
 
 ## Herramientas
 
-Todas llevan `strict: true` y el servidor valida cada input con zod. El backend las
+Son 6 y todas llevan `strict: true` y el servidor valida cada input con zod. El backend las
 ejecuta con el **actor de la sesión**: el modelo nunca elige a quién pertenece un
 dato.
 
@@ -35,6 +36,7 @@ dato.
 | `update_case_details` | Registra área, intención, resultado esperado, error e impacto | Solo en la conversación actual |
 | `create_ticket` | Crea el ticket con el resumen y los pasos intentados | El solicitante sale de la sesión; devuelve el número real; idempotente |
 | `get_my_tickets` | Lista o busca los tickets propios | Filtro por `requester_id` en el SQL |
+| `get_my_account_status` | Diagnóstico de la propia cuenta: rol, estado, agencia (sin nombres), sesión actual y reglas de sesión | Solo lectura y solo de la sesión; sin historial de accesos ni datos personales. La UI muestra «Basado en los datos de tu cuenta» |
 
 ## Dónde vive cada regla
 
@@ -44,6 +46,7 @@ dato.
 | Herramientas | `backend/src/modules/assistant/tools.ts` | Definiciones, validación con zod y ejecución con el actor |
 | Guardas | `backend/src/modules/assistant/guards.ts` | Oculta secretos antes de guardar y enviar; marca el contenido externo como `<untrusted_content>`; elimina números de ticket que la persona no puede ver |
 | Orquestación | `backend/src/modules/assistant/orchestrator.ts` | Hasta 4 rondas de herramientas por mensaje (`AI_MAX_TOOL_ITERATIONS`) |
+| Historial | `backend/src/modules/conversations/service.ts` | Append-only. Si un deploy cambia el prompt o las herramientas, el proveedor reintenta una vez sin los bloques *thinking* (Haiku 5.5 rechaza un historial editado) |
 | Proveedor | `backend/src/modules/assistant/anthropic-provider.ts` | Timeout (`AI_TIMEOUT_MS`), `effort: low`; `refusal` o `max_tokens` → el chat ofrece el formulario |
 | Permisos | `backend/src/modules/tickets/` | Aunque el modelo pidiera otra cosa, el servicio de tickets aplica los permisos de la sesión |
 | Especificación | `specs/004-assistant/`, `specs/009-assistant-skills/`, ADR 0005 | Criterios de aceptación y decisiones |

@@ -94,6 +94,13 @@ export const TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: "get_my_account_status",
+    description:
+      "Consulta el estado de la cuenta de la persona de esta conversación (solo lectura): rol, estado de la cuenta, si pertenece a una agencia y su sesión actual, más las reglas de sesión de la plataforma. Úsala ante problemas de acceso, de sesión que se cierra o de permisos, antes de explicar la causa. No repara nada.",
+    strict: true,
+    input_schema: { type: "object", properties: {}, required: [], additionalProperties: false },
+  },
+  {
     name: "get_my_tickets",
     description: "Consulta los tickets de la persona de esta conversación (nunca los de otras personas).",
     strict: true,
@@ -127,6 +134,7 @@ const validators = {
     reason: z.enum(ESCALATION_REASONS),
     attempted_steps: z.array(z.strictObject({ step: text(300), result: text(300) })).max(10),
   }),
+  get_my_account_status: z.strictObject({}),
   get_my_tickets: z.strictObject({
     number: z.number().int().min(1).nullable(),
     status: z.enum(TICKET_STATUSES).nullable(),
@@ -149,6 +157,8 @@ export type TurnState = {
   ticketRef: TicketRef | null;
   // Incidentes activos que vio este turno: el ticket que se cree queda vinculado.
   incidents: { id: string; category: string | null }[];
+  // Datos reales que respaldan la respuesta (AC-009.2): la UI lo muestra.
+  evidence: "account_status"[];
 };
 
 export type ToolContext = {
@@ -159,6 +169,7 @@ export type ToolContext = {
   state: TurnState;
   escalate: (input: EscalationInput) => Promise<TicketRef>;
   myTickets: (number: number | null, status: TicketStatus | null) => Promise<unknown[]>;
+  sessionHours: number;
 };
 
 export type ToolResult = { content: string; isError: boolean };
@@ -181,6 +192,8 @@ export async function executeTool(name: string, rawInput: unknown, ctx: ToolCont
       return createTicket(input, ctx);
     case "get_my_tickets":
       return getMyTickets(input, ctx);
+    case "get_my_account_status":
+      return getMyAccountStatus(ctx);
   }
 }
 
@@ -286,4 +299,43 @@ async function createTicket(input: z.infer<typeof validators.create_ticket>, ctx
 async function getMyTickets({ number, status }: z.infer<typeof validators.get_my_tickets>, ctx: ToolContext) {
   const tickets = await ctx.myTickets(number, status);
   return { isError: false, content: wrapUntrusted({ tickets }) };
+}
+
+const ROLE_LABEL: Record<string, string> = {
+  agent: "Agente",
+  agency_owner: "Dueño de agencia",
+  admin: "Administrador de soporte",
+  appeal_officer: "Oficial de apelaciones",
+};
+const ACCOUNT_STATUS_LABEL: Record<string, string> = { active: "activa", suspended: "suspendida", cancelled: "cancelada" };
+
+// Diagnóstico de la propia cuenta (AC-009.1). Proyección mínima: solo etiquetas y la sesión
+// que crea nuestro login. No lee el historial de accesos (datos reales con IP y ubicación) ni
+// nombres, correos o facturación.
+async function getMyAccountStatus(ctx: ToolContext) {
+  const [agent, account, session] = await Promise.all([
+    ctx.db.selectFrom("reto.agents").select(["role", "agency_id"]).where("id", "=", ctx.actor.id).executeTakeFirst(),
+    ctx.db.selectFrom("onboarding.accounts").select(["status"]).where("id", "=", ctx.actor.id).executeTakeFirst(),
+    ctx.db.selectFrom("reto.sessions").select(["created_at", "expires_at"]).where("agent_id", "=", ctx.actor.id).executeTakeFirst(),
+  ]);
+  ctx.state.evidence = [...new Set([...ctx.state.evidence, "account_status" as const])];
+  const role = agent?.role ?? ctx.actor.role;
+  const minutesLeft = session ? Math.max(0, Math.round((new Date(session.expires_at).getTime() - Date.now()) / 60000)) : null;
+  return {
+    isError: false,
+    content: wrapUntrusted({
+      role: ROLE_LABEL[role] ?? "Otro",
+      account_status: ACCOUNT_STATUS_LABEL[account?.status ?? ""] ?? "desconocido",
+      agency: { member: Boolean(agent?.agency_id), owner: role === "agency_owner" },
+      current_session: session
+        ? { started_at: new Date(session.created_at).toISOString(), expires_at: new Date(session.expires_at).toISOString(), minutes_left: minutesLeft }
+        : null,
+      platform_rules: [
+        "Hay una sola sesión activa por cuenta: iniciar sesión en otro dispositivo o navegador cierra la sesión anterior.",
+        `La sesión dura ${ctx.sessionHours} horas; al vencer hay que volver a iniciar sesión.`,
+        "Ser dueño de una agencia no da acceso a los tickets de sus agentes.",
+        "Una cuenta suspendida o cancelada no puede iniciar sesión; la revisa el equipo de soporte, el asistente no la puede reactivar.",
+      ],
+    }),
+  };
 }

@@ -248,6 +248,17 @@ export interface AttachmentsTable {
   created_at: DefaultTimestamp;
 }
 
+// Tablas del repo base (solo lectura). Se declaran solo las columnas que se usan.
+export interface OnboardingAccountsTable {
+  id: string;
+  status: string | null;
+}
+export interface RetoSessionsTable {
+  agent_id: string;
+  created_at: Date;
+  expires_at: Date;
+}
+
 // Vista del repo base (solo lectura). Nunca seleccionar password_hash.
 export interface AgentsView {
   id: string;
@@ -277,6 +288,8 @@ export interface DB {
   "helpdesk.attachments": AttachmentsTable;
   "helpdesk.notification_deliveries": NotificationDeliveriesTable;
   "reto.agents": AgentsView;
+  "reto.sessions": RetoSessionsTable;
+  "onboarding.accounts": OnboardingAccountsTable;
 }
 
 export type Job = Selectable<JobsTable>;

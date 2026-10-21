@@ -73,6 +73,8 @@ export const chatMessageSchema = z.object({
   // Avisos del sistema: el asistente no respondió, se ocultó un dato sensible…
   notice: z.enum(["assistant_unavailable", "secret_redacted"]).nullable(),
   attachments: z.array(chatAttachmentSchema),
+  // Datos reales que respaldan la respuesta (009): la UI muestra «Basado en los datos de tu cuenta».
+  evidence: z.array(z.enum(["account_status"])),
   created_at: isoDate,
 });
 export type ChatMessage = z.infer<typeof chatMessageSchema>;

@@ -7,7 +7,8 @@ import { AssistantUnavailableError, type AssistantProvider, type ProviderRespons
 // real (emite tool_use y procesa tool_result), así que la lógica del servidor se prueba completa.
 //
 // Reglas: "[[fail]]" o AI_FAKE_FAILURE → caída del proveedor · "[[inject]]" → intenta leer un
-// ticket ajeno · "persona"/"humano" → ticket human_requested · si no: datos del caso + búsqueda →
+// ticket ajeno · "revisa mi cuenta" → diagnóstico de la cuenta · "persona"/"humano" → ticket
+// human_requested · si no: datos del caso + búsqueda →
 // artículo con pasos, o una pregunta y después ticket no_article / solution_failed.
 
 type Block = Anthropic.ContentBlock;
@@ -50,6 +51,7 @@ export function createFakeProvider(env: Env): AssistantProvider {
         if (lastText.includes("[[inject]]"))
           // Intenta leer un ticket que no es de la persona: el servidor solo devuelve los propios.
           return reply([toolUse("get_my_tickets", { number: 1, status: null })]);
+        if (/revis\w*\s+(el estado de\s+)?mi cuenta|estado de mi cuenta/i.test(lastText)) return reply([toolUse("get_my_account_status", {})]);
         if (/\b(persona|humano|humana)\b/i.test(lastText))
           return reply([
             toolUse("create_ticket", {
@@ -124,6 +126,16 @@ export function createFakeProvider(env: Env): AssistantProvider {
         const data = ticket.data as { display_number: string };
         return reply([
           textBlock(`Creé el ticket ${data.display_number} con lo que me contaste. El equipo de soporte lo revisará y te avisaremos de cada avance.`),
+        ]);
+      }
+
+      const account = byName("get_my_account_status");
+      if (account?.data && !account.error) {
+        const data = account.data as { role: string; account_status: string; agency: { member: boolean } };
+        return reply([
+          textBlock(
+            `Revisé tu cuenta: tu rol es ${data.role}, la cuenta está ${data.account_status}${data.agency.member ? " y perteneces a una agencia" : ""}. Hay una sola sesión activa por cuenta: si entras desde otro dispositivo, se cierra la anterior.`,
+          ),
         ]);
       }
 

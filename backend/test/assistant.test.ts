@@ -215,3 +215,28 @@ describe("D5 isolation and prompt injection", () => {
     expect((await say(id, "hola", undefined, admin)).statusCode).toBe(404);
   });
 });
+
+describe("AC-009.1 / AC-009.2 account diagnosis with evidence", () => {
+  it("reads only the own account with a minimal projection and marks the evidence", async () => {
+    const id = await newConversation();
+    const res = await say(id, "¿Puedes revisar mi cuenta? La sesión se me cierra sola");
+    expect(res.statusCode).toBe(200);
+    const message = res.json().assistant_message;
+    expect(message.text).toMatch(/^Revisé tu cuenta: tu rol es Agente/);
+    expect(message.evidence).toEqual(["account_status"]);
+
+    const rows = await db.selectFrom("helpdesk.conversation_messages").select(["role", "kind", "content"]).where("conversation_id", "=", id).orderBy("seq").execute();
+    const toolResult = JSON.stringify(rows.filter((row) => row.kind === "tool_result"));
+    expect(toolResult).toContain("account_status");
+    expect(toolResult).toContain("platform_rules");
+    // Sin datos personales ni historial de accesos.
+    for (const field of ["@reto.example", "ip", "city", "latitude", "device_hint", "phone", requester.id])
+      expect(toolResult.toLowerCase()).not.toContain(`"${field}`.toLowerCase());
+  });
+
+  it("does not claim evidence when the tool was not used", async () => {
+    const id = await newConversation();
+    const res = await say(id, "No me deja exportar el reporte de ventas");
+    expect(res.json().assistant_message.evidence).toEqual([]);
+  });
+});

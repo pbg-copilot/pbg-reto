@@ -1,6 +1,6 @@
 # 009 · Habilidades del asistente: diagnóstico con evidencia y acciones confirmadas
 
-- **Estado:** Aprobada (2026-10-21)
+- **Estado:** Aprobada (2026-10-21) · B hecha, C pendiente
 - **Prioridad:** Should
 - **PDF:** §01 («No afirmar que se inspeccionó producción ni que se ejecutó una
   reparación si no existe una herramienta y evidencia que lo respalde»), §11
@@ -17,8 +17,7 @@ un botón y el backend ejecuta.
 ## Historias
 
 - Como solicitante, quiero que el asistente revise el estado de **mi** cuenta (rol,
-  agencia, estado, sesión actual y desplazamientos de sesión recientes) y me lo
-  explique con esos datos.
+  agencia, estado y sesión actual) y me lo explique con esos datos.
 - Como solicitante, quiero que el asistente me ofrezca **agregar un comentario a mi
   ticket** o **reabrirlo**, y que solo se haga si yo lo confirmo.
 
@@ -28,9 +27,9 @@ un botón y el backend ejecuta.
 
 | ID | Criterio |
 | --- | --- |
-| AC-009.1 | La herramienta `get_my_account_status` (solo lectura) devuelve, **solo de la cuenta de la sesión**: rol (etiqueta), agencia, estado de la cuenta (activa, suspendida o cancelada), inicio y vencimiento de la sesión actual, y los últimos 5 accesos registrados con fecha, tipo de dispositivo y si desplazaron una sesión anterior. **Sin** IP, ubicación, teléfono, dirección ni datos de facturación |
+| AC-009.1 | La herramienta `get_my_account_status` (solo lectura) devuelve, **solo de la cuenta de la sesión**: rol (etiqueta), estado de la cuenta (activa, suspendida o cancelada), si pertenece a una agencia y si es su dueño (sin nombres), el inicio y el vencimiento de la sesión actual, y las reglas de sesión de la plataforma (una sesión activa por cuenta, duración). **No** envía el historial de accesos (`onboarding.login_events`): son datos reales de producción con IP y ubicación, y la regla 3 de CLAUDE.md prohíbe copiar datos de las tablas originales al modelo. Tampoco nombres, correos, teléfonos ni facturación |
 | AC-009.2 | El asistente puede decir «revisé tu cuenta» solo cuando usó la herramienta en ese turno. El mensaje guarda `meta.evidence = ["account_status"]` y la UI muestra la etiqueta «Basado en los datos de tu cuenta» |
-| AC-009.3 | Casos que cubre: «la sesión se cierra sola» (desplazamiento por un login en otro dispositivo), «no veo un módulo» (rol) y «no puedo entrar» (cuenta suspendida o cancelada: no se intenta reparar, se explica y se ofrece crear un ticket) |
+| AC-009.3 | Casos que cubre: «la sesión se cierra sola» (vencimiento, o un inicio en otro dispositivo que cierra la sesión anterior), «no veo un módulo» (rol) y «no puedo entrar» (cuenta suspendida o cancelada: no se intenta reparar, se explica y se ofrece crear un ticket) |
 
 **C · Acciones con confirmación (human-in-the-loop)**
 

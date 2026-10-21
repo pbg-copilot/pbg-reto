@@ -127,6 +127,11 @@ unos US$0.0006.
   2. Escribe en el chat → «El asistente no está disponible en este momento» con el
      botón «Crear ticket con el formulario».
   3. Vuelve a poner `AI_FAKE_FAILURE=false` y ejecuta `docker compose up -d backend`.
+- [ ] **Diagnóstico de la cuenta (009).** «Se me cierra la sesión a cada rato, ¿puedes
+  revisar mi cuenta?»
+  - Responde con tu rol, el estado de la cuenta y la regla de una sesión por cuenta.
+  - Debajo de la respuesta aparece «Basado en los datos de tu cuenta».
+  - Con `agente099` la cuenta figura activa.
 - [ ] **Retomar.** Recarga la página del chat → la conversación sigue ahí, sin
   repetir nada.
 - [ ] **Desde el ticket.** En el detalle de un ticket creado por el chat, el botón

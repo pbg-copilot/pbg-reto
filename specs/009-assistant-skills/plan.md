@@ -25,7 +25,7 @@ servidor.
 
 | Herramienta | Qué hace |
 | --- | --- |
-| `get_my_account_status` | Sin argumentos. Consulta `reto.agents` y `reto.sessions` del actor y `onboarding.login_events` (columnas `at`, `device_hint`, `ua_family`, `displaced_session_id`; nunca `ip`, `city`, `latitude`/`longitude`). Devuelve el resultado envuelto en `<untrusted_content>` y marca `state.evidence.add("account_status")` |
+| `get_my_account_status` | Sin argumentos. Consulta `reto.agents` (rol y si tiene agencia), `onboarding.accounts.status` y `reto.sessions` del actor. Devuelve solo etiquetas y la sesión actual, envueltas en `<untrusted_content>`, y marca `state.evidence.add("account_status")`. **No** lee `onboarding.login_events` (datos reales con IP y ubicación; regla 3 de CLAUDE.md) |
 | `propose_comment_on_my_ticket` | `{ number, body ≤ 2000 }`. El ticket debe ser propio y no estar cerrado |
 | `propose_reopen_my_ticket` | `{ number, reason ≤ 500 }`. El ticket debe ser propio y estar cerrado |
 

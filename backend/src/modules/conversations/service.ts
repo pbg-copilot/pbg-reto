@@ -299,7 +299,7 @@ export function createConversationService({ db, env, provider, tickets, storage 
   // Ejecuta un turno del asistente y persiste el resultado. Si el modelo falla, deja un aviso
   // visible y responde 503: el mensaje del usuario ya quedó guardado.
   async function assistantTurn(actor: Agent, conversation: ConversationRow): Promise<{ message: ChatMessage; askResolution: boolean }> {
-    const state: TurnState = { articleRefs: [], ticketRef: null, incidents: [] };
+    const state: TurnState = { articleRefs: [], ticketRef: null, incidents: [], evidence: [] };
     const ctx = {
       db,
       actor,
@@ -312,6 +312,7 @@ export function createConversationService({ db, env, provider, tickets, storage 
           incidentId: state.incidents.find((i) => i.category === input.category || i.category === null)?.id ?? null,
         }),
       myTickets: (number: number | null, status: TicketStatus | null) => myTickets(actor, number, status),
+      sessionHours: env.SESSION_TTL_HOURS,
     };
     let output;
     try {
@@ -358,6 +359,8 @@ export function createConversationService({ db, env, provider, tickets, storage 
           ticketRef: final ? state.ticketRef : null,
           model: final ? output.model : null,
           usage: final ? output.usage : null,
+          // «Revisé tu cuenta» solo si la herramienta se usó en este turno (AC-009.2).
+          meta: final && state.evidence.length ? { evidence: state.evidence } : undefined,
         });
       }
       await touch(trx, conversation.id);
@@ -557,7 +560,7 @@ export const ticketConfirmation = (ticket: TicketRef) =>
   `Creé el ticket ${ticket.display_number} para que una persona del equipo de soporte lo revise. Te avisaremos de cada avance; puedes seguirlo en «Mis tickets».`;
 
 function toChatMessage(row: ConversationMessageRow, attachments: ChatAttachment[] = []): ChatMessage {
-  const meta = row.meta as { notice?: ChatMessage["notice"] };
+  const meta = row.meta as { notice?: ChatMessage["notice"]; evidence?: ChatMessage["evidence"] };
   return {
     id: row.id,
     role: row.role,
@@ -566,6 +569,7 @@ function toChatMessage(row: ConversationMessageRow, attachments: ChatAttachment[
     article_refs: row.article_refs as ArticleRef[],
     ticket_ref: (row.ticket_ref as TicketRef | null) ?? null,
     notice: meta.notice ?? null,
+    evidence: meta.evidence ?? [],
     attachments,
     created_at: iso(row.created_at),
   };

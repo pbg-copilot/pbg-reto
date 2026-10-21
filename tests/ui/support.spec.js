@@ -30,14 +30,16 @@ test.afterAll(() => {
   // Conversaciones y tickets del chat creados por la cuenta de test.
   execFileSync("docker", [
     "compose", "exec", "-T", "postgres", "psql", "-U", "reto", "-d", "reto", "-qc",
-    "DELETE FROM helpdesk.tickets WHERE source IN ('assistant','human_request') AND requester_id = (SELECT id FROM reto.agents WHERE username='agente048'); " +
-      "DELETE FROM helpdesk.conversations WHERE requester_id = (SELECT id FROM reto.agents WHERE username='agente048');",
+    "DELETE FROM helpdesk.tickets WHERE source IN ('assistant','human_request') AND requester_id IN (SELECT id FROM reto.agents WHERE username IN ('agente048','agente002')); " +
+      "DELETE FROM helpdesk.conversations WHERE requester_id IN (SELECT id FROM reto.agents WHERE username IN ('agente048','agente002'));",
   ]);
 });
 
 test("D1 known issue: article, confirmation and no ticket", async ({ browser }) => {
   test.setTimeout(90_000);
-  const page = await pageAs(browser, "agente048");
+  // Cuenta de test activa: agente048 figura cancelada en la réplica y el asistente (que ahora
+  // revisa la cuenta) respondería eso en vez del artículo.
+  const page = await pageAs(browser, "agente002");
   await page.goto("/soporte");
   await expect(page.getByRole("link", { name: "Mis tickets" })).toBeVisible();
   await ask(page, "No puedo iniciar sesión, me dice usuario o contraseña incorrectos");

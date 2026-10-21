@@ -129,7 +129,7 @@ Capas:
   - En `create_ticket`, el backend pone el solicitante desde la sesión y devuelve el
     número real.
   - Ninguna herramienta cambia estados ni cierra tickets.
-  - La 009 suma `get_my_account_status` (solo lectura, sin IP ni ubicación) y las
+  - La 009 suma `get_my_account_status` (solo lectura, sin historial de accesos) y las
     herramientas `propose_*`. Estas **solo proponen**: la persona confirma con un
     clic y el backend ejecuta con su sesión. Toda herramienta futura que escriba
     datos sigue ese patrón.
