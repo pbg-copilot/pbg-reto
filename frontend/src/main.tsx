@@ -298,21 +298,6 @@ function App() {
     if (!response.ok) throw new ApiError(body?.message || "No pudimos completar la solicitud.", response.status, body?.error || "request_failed");
     return body as T;
   }
-  async function saveDraftMessage() {
-    const content = messageDraft.trim();
-    if (!content || !activeConversationId || messageBusy) return;
-    const conversationId = activeConversationId;
-    setMessageBusy(true); setConversationError(""); setNotice("");
-    try {
-      const result = await api<{ message: Message }>(`/api/conversations/${conversationId}/messages`, { method: "POST", body: JSON.stringify({ content }) });
-      if (conversationId === activeConversationRef.current) {
-        setMessages((current) => [...current, result.message]); setMessageDraft(""); setNotice("Mensaje guardado en el historial.");
-        setConversations((current) => current.map((item) => item.id === conversationId ? { ...item, updated_at: result.message.created_at } : item));
-      }
-    } catch (e) {
-      if (conversationId === activeConversationRef.current && !(e instanceof ApiError && e.status === 401)) setConversationError(e instanceof Error ? e.message : "No se pudo guardar el mensaje.");
-    } finally { setMessageBusy(false); }
-  }
   async function saveConversationTitle(event: React.FormEvent, conversationId: string) {
     event.preventDefault();
     const title = conversationTitleDraft.trim();
@@ -655,7 +640,7 @@ function App() {
                 {messages.map((message) => { const content = message.sender_role === "assistant" ? assistantDisplayText(message.content) : message.content; return <article className={`message ${message.sender_role === "user" ? "user-message" : "assistant-message"}`} key={message.id}><div className="message-avatar">{message.sender_role === "user" ? "Tú" : "R"}</div><div className="message-content"><div className="message-meta">{message.sender_role === "user" ? "Tú" : "RETO"}<time>{dateLabel(message.created_at)}</time></div><p>{formattedText(content)}</p></div></article>; })}
                 {notice && <div className="saved-notice" role="status">{notice}</div>}
               </div>
-              <form className="composer" onSubmit={(event) => { event.preventDefault(); void askAssistant(); }}><label htmlFor="message-draft" className="sr-only">Escribe una pregunta</label><textarea id="message-draft" value={messageDraft} onChange={(event) => setMessageDraft(event.target.value)} placeholder="Escribe una pregunta sobre el cliente activo…" maxLength={4000} rows={2} disabled={conversationLoading || !activeConversationId} /><div className="composer-bottom"><span>{assistantEnabled ? "La evidencia autorizada se envía al proveedor configurado." : "Asistente IA deshabilitado por configuración."}</span><div className="action-buttons"><button type="button" onClick={() => void saveDraftMessage()} disabled={!messageDraft.trim() || messageBusy || conversationLoading}>{messageBusy ? "Guardando…" : "Guardar nota"}</button><button type="submit" disabled={!messageDraft.trim() || !activeClient || !assistantEnabled || messageBusy || conversationLoading}>{messageBusy ? "Consultando…" : "Preguntar al asistente"}<Arrow /></button></div></div></form>
+              <form className="composer" onSubmit={(event) => { event.preventDefault(); void askAssistant(); }}><label htmlFor="message-draft" className="sr-only">Escribe una pregunta</label><textarea id="message-draft" value={messageDraft} onChange={(event) => setMessageDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void askAssistant(); } }} placeholder="Escribe una pregunta sobre el cliente activo…" maxLength={4000} rows={2} disabled={conversationLoading || !activeConversationId} /><div className="composer-bottom"><span>{assistantEnabled ? "La evidencia autorizada se envía al proveedor configurado." : "Asistente IA deshabilitado por configuración."} Enter para preguntar · Shift+Enter para nueva línea.</span><button className="composer-submit" type="submit" disabled={!messageDraft.trim() || !activeClient || !assistantEnabled || messageBusy || conversationLoading}>{messageBusy ? "Consultando…" : "Preguntar al asistente"}<Arrow /></button></div></form>
             </>}
           </section>
           <aside className="context-panel" aria-label="Cliente y consultas">
