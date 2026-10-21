@@ -5,11 +5,12 @@ import { createHash, randomBytes } from "node:crypto";
 import { initializeDatabase, pool } from "./db.js";
 import { checkPassword, hashPassword } from "./passwords.js";
 import {
-  getAuthorizedConversation,
   listAuthorizedConversations,
   getAuthorizedAccount,
   getAuthorizedAgency,
   resolvePrincipal,
+  withAuthenticatedTransaction,
+  withAuthorizedConversationTransaction,
   type Principal,
 } from "./authorization.js";
 const app = Fastify({
@@ -121,7 +122,48 @@ app.get("/api/conversations", async (req, reply) => {
     conversations: await listAuthorizedConversations(pool, principal),
   };
 });
-app.get<{ Params: { conversationId: string } }>(
+app.post<{ Body: { title?: string } }>(
+  "/api/conversations",
+  {
+    schema: {
+      body: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          title: { type: "string", minLength: 1, maxLength: 200 },
+        },
+      },
+    },
+  },
+  async (req, reply) => {
+    const token = tokenOf(req);
+    const result = await withAuthenticatedTransaction(
+      pool,
+      digest(token),
+      async (client, principal) => {
+        const title = req.body.title?.trim() || null;
+        const { rows } = await client.query(
+          `INSERT INTO reto.chat_conversations(owner_account_id, title)
+           VALUES($1, $2)
+           RETURNING id, owner_account_id, title, status, active_client_path,
+                     active_client_record_id, created_at, updated_at, archived_at`,
+          [principal.accountId, title],
+        );
+        return rows[0];
+      },
+    );
+    if (!result.authenticated)
+      return reply.code(401).send({
+        error: "unauthorized",
+        message: "Inicia sesión para continuar.",
+      });
+    return reply.code(201).send({ conversation: result.result });
+  },
+);
+app.get<{
+  Params: { conversationId: string };
+  Querystring: { limit?: number; beforeSequence?: string };
+}>(
   "/api/conversations/:conversationId",
   {
     schema: {
@@ -133,26 +175,142 @@ app.get<{ Params: { conversationId: string } }>(
           conversationId: { type: "string", format: "uuid" },
         },
       },
+      querystring: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          limit: { type: "integer", minimum: 1, maximum: 100, default: 50 },
+          beforeSequence: {
+            type: "string",
+            pattern: "^[1-9][0-9]{0,18}$",
+          },
+        },
+      },
     },
   },
   async (req, reply) => {
-    const principal = req.principal;
-    if (!principal)
+    const limit = req.query.limit ?? 50;
+    const beforeSequence = req.query.beforeSequence ?? null;
+    if (
+      beforeSequence !== null &&
+      BigInt(beforeSequence) > 9223372036854775807n
+    )
+      return reply.code(400).send({
+        error: "invalid_request",
+        message: "El cursor de mensajes no es válido.",
+      });
+    const result = await withAuthorizedConversationTransaction(
+      pool,
+      digest(tokenOf(req)),
+      req.params.conversationId,
+      async (client, conversation) => {
+        const { rows } = await client.query(
+          `SELECT id, sequence_no, sender_role, content, created_at
+             FROM reto.chat_messages
+            WHERE conversation_id = $1
+              AND client_document_path IS NULL
+              AND client_record_id IS NULL
+              AND evidence_refs = '[]'::jsonb
+              AND ($2::bigint IS NULL OR sequence_no < $2::bigint)
+            ORDER BY sequence_no DESC
+            LIMIT $3`,
+          [conversation.id, beforeSequence, limit + 1],
+        );
+        const hasMore = rows.length > limit;
+        const page = rows.slice(0, limit).reverse();
+        return {
+          conversation,
+          messages: page,
+          pagination: {
+            limit,
+            hasMore,
+            nextBeforeSequence: hasMore ? page[0].sequence_no : null,
+          },
+        };
+      },
+    );
+    if (!result.authenticated)
       return reply.code(401).send({
         error: "unauthorized",
         message: "Inicia sesión para continuar.",
       });
-    const conversation = await getAuthorizedConversation(
-      pool,
-      principal,
-      req.params.conversationId,
-    );
-    if (!conversation)
+    if (!result.authorized)
       return reply.code(404).send({
         error: "not_found",
         message: "Conversación no encontrada.",
       });
-    return { conversation };
+    return result.result;
+  },
+);
+app.post<{
+  Params: { conversationId: string };
+  Body: { content: string };
+}>(
+  "/api/conversations/:conversationId/messages",
+  {
+    schema: {
+      params: {
+        type: "object",
+        additionalProperties: false,
+        required: ["conversationId"],
+        properties: {
+          conversationId: { type: "string", format: "uuid" },
+        },
+      },
+      body: {
+        type: "object",
+        additionalProperties: false,
+        required: ["content"],
+        properties: {
+          content: { type: "string", minLength: 1, maxLength: 12000 },
+        },
+      },
+    },
+  },
+  async (req, reply) => {
+    const content = req.body.content.trim();
+    if (!content)
+      return reply.code(400).send({
+        error: "invalid_request",
+        message: "El mensaje no puede estar vacío.",
+      });
+
+    const result = await withAuthorizedConversationTransaction(
+      pool,
+      digest(tokenOf(req)),
+      req.params.conversationId,
+      async (client, conversation) => {
+        if (conversation.status !== "active")
+          return { state: "archived" as const };
+        const { rows } = await client.query(
+          `INSERT INTO reto.chat_messages(conversation_id, sender_role, content)
+           VALUES($1, 'user', $2)
+           RETURNING id, sequence_no, sender_role, content, created_at`,
+          [conversation.id, content],
+        );
+        await client.query(
+          "UPDATE reto.chat_conversations SET updated_at = now() WHERE id = $1",
+          [conversation.id],
+        );
+        return { state: "saved" as const, message: rows[0] };
+      },
+    );
+    if (!result.authenticated)
+      return reply.code(401).send({
+        error: "unauthorized",
+        message: "Inicia sesión para continuar.",
+      });
+    if (!result.authorized)
+      return reply.code(404).send({
+        error: "not_found",
+        message: "Conversación no encontrada.",
+      });
+    if (result.result.state === "archived")
+      return reply.code(409).send({
+        error: "conversation_archived",
+        message: "No se pueden agregar mensajes a una conversación archivada.",
+      });
+    return reply.code(201).send({ message: result.result.message });
   },
 );
 const dummyHash = await hashPassword(randomBytes(24).toString("hex"));

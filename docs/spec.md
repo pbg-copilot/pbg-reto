@@ -85,6 +85,7 @@ Esta especificación separa los requisitos de `Reto_Chat_PBG.pdf` de las decisio
 
 - Mantener frontend React/TypeScript y backend Fastify/TypeScript separados mediante API autenticada.
 - Reutilizar login/sesión/logout existentes (`POST /auth/get-toke`, `GET /auth/me`, `POST /auth/logout`).
+- La API autenticada de conversaciones, su historial y el guardado de mensajes de usuario están documentados en [`api-conversations.md`](./api-conversations.md); las lecturas validan propiedad y ordenan por secuencia estable.
 - Añadir servicios/endpoints para conversaciones, búsqueda/detalle de clientes, cotizaciones y agenda.
 - Conservar estructura de negocio original y relaciones; añadir tablas mediante migraciones, sin sustituir documentos originales por modelos ficticios.
 - El modelo inspeccionado de expedientes, cotizaciones, agencia y bookings, con sus relaciones y límites, está documentado en [`data-model.md`](./data-model.md). Las APIs deben conservar esas distinciones.

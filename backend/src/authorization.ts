@@ -68,6 +68,14 @@ async function queryAuthorizedConversation(
         AND c.owner_account_id = $2
         AND c.active_client_path IS NULL
         AND c.active_client_record_id IS NULL
+        AND NOT EXISTS (
+          SELECT 1
+            FROM reto.chat_messages AS m
+           WHERE m.conversation_id = c.id
+             AND (m.client_document_path IS NOT NULL
+               OR m.client_record_id IS NOT NULL
+               OR m.evidence_refs <> '[]'::jsonb)
+        )
       ${lock ? "FOR UPDATE" : ""}`,
     [conversationId, principal.accountId],
   );
@@ -82,38 +90,28 @@ export function getAuthorizedConversation(
   return queryAuthorizedConversation(db, principal, conversationId, false);
 }
 
-export async function withAuthorizedConversationTransaction<T>(
+export async function withAuthenticatedTransaction<T>(
   pool: Pool,
-  principal: Principal,
-  conversationId: string,
-  mutate: (
-    client: PoolClient,
-    conversation: AuthorizedConversation,
-  ) => Promise<T>,
-): Promise<{ authorized: false } | { authorized: true; result: T }> {
+  tokenHash: string,
+  operation: (client: PoolClient, principal: Principal) => Promise<T>,
+): Promise<{ authenticated: false } | { authenticated: true; result: T }> {
   const client = await pool.connect();
   let transactionStarted = false;
   let releaseError: Error | undefined;
   try {
     await client.query("BEGIN");
     transactionStarted = true;
-
-    const conversation = await queryAuthorizedConversation(
-      client,
-      principal,
-      conversationId,
-      true,
-    );
-    if (!conversation) {
+    const principal = await resolvePrincipal(client, tokenHash);
+    if (!principal) {
       await client.query("ROLLBACK");
       transactionStarted = false;
-      return { authorized: false };
+      return { authenticated: false };
     }
 
-    const result = await mutate(client, conversation);
+    const result = await operation(client, principal);
     await client.query("COMMIT");
     transactionStarted = false;
-    return { authorized: true, result };
+    return { authenticated: true, result };
   } catch (error) {
     if (transactionStarted) {
       try {
@@ -131,6 +129,46 @@ export async function withAuthorizedConversationTransaction<T>(
   }
 }
 
+export async function withAuthorizedConversationTransaction<T>(
+  pool: Pool,
+  tokenHash: string,
+  conversationId: string,
+  mutate: (
+    client: PoolClient,
+    conversation: AuthorizedConversation,
+  ) => Promise<T>,
+): Promise<
+  | { authenticated: false }
+  | { authenticated: true; authorized: false }
+  | { authenticated: true; authorized: true; result: T }
+> {
+  const transaction = await withAuthenticatedTransaction(
+    pool,
+    tokenHash,
+    async (client, principal) => {
+      const conversation = await queryAuthorizedConversation(
+        client,
+        principal,
+        conversationId,
+        true,
+      );
+      if (!conversation) return { authorized: false } as const;
+      return {
+        authorized: true,
+        result: await mutate(client, conversation),
+      } as const;
+    },
+  );
+  if (!transaction.authenticated) return { authenticated: false };
+  if (!transaction.result.authorized)
+    return { authenticated: true, authorized: false };
+  return {
+    authenticated: true,
+    authorized: true,
+    result: transaction.result.result,
+  };
+}
+
 export async function listAuthorizedConversations(
   db: Database,
   principal: Principal,
@@ -143,6 +181,14 @@ export async function listAuthorizedConversations(
       WHERE c.owner_account_id = $1
         AND c.active_client_path IS NULL
         AND c.active_client_record_id IS NULL
+        AND NOT EXISTS (
+          SELECT 1
+            FROM reto.chat_messages AS m
+           WHERE m.conversation_id = c.id
+             AND (m.client_document_path IS NOT NULL
+               OR m.client_record_id IS NOT NULL
+               OR m.evidence_refs <> '[]'::jsonb)
+        )
       ORDER BY c.updated_at DESC, c.id`,
     [principal.accountId],
   );

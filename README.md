@@ -133,6 +133,9 @@ No son fuentes de datos de negocio independientes.
   `token_type: Bearer`, `expires_in` y `agent`, con el rol original.
 - `GET /auth/me`: obtiene el agente mediante Bearer o la cookie HttpOnly.
 - `POST /auth/logout`: revoca la sesión y elimina la cookie; devuelve 204.
+- `POST/GET /api/conversations`, `GET /api/conversations/:conversationId` y
+  `POST /api/conversations/:conversationId/messages`: crean, listan, recuperan
+  y guardan mensajes de usuario. Contrato y respuestas: [`docs/api-conversations.md`](docs/api-conversations.md).
 
 Al iniciar, la API aplica en una transacción las migraciones versionadas de
 `backend/migration_*.sql` después de preparar el esquema local `reto`. Registra
