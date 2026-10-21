@@ -32,8 +32,8 @@ services:
       DEMO_PASSWORD: ${DEMO_PASSWORD:-123456}
       SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-8}
       LLM_PROVIDER: ${LLM_PROVIDER:-openai-compatible}
-      LLM_BASE_URL: ${LLM_BASE_URL:-}
-      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.openai.com/v1}
+      LLM_MODEL: ${LLM_MODEL:-gpt-6-luna}
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_EXTERNAL_DATA_AUTHORIZED: ${LLM_EXTERNAL_DATA_AUTHORIZED:-false}
       PORT: 8000

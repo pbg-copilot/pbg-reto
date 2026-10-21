@@ -28,6 +28,34 @@ Los siguientes arranques conservan los datos y cambios locales.
 Los puertos se publican solo en loopback. Las opciones están en `.env.example`.
 Si se cambia el puerto web o el host, actualizar también `APP_ORIGIN`.
 
+## Configurar OpenAI para el asistente
+
+La integración usa Chat Completions con el endpoint oficial de OpenAI. Necesitas
+una clave de API de la [plataforma OpenAI](https://platform.openai.com/api-keys)
+y facturación de API configurada; una suscripción de ChatGPT no proporciona
+crédito de API. Consulta la [diferencia de facturación](https://help.openai.com/en/articles/9039756-billing-settings-in-chatgpt-vs-platform).
+
+1. Copia `.env.example` a `.env` en la raíz del proyecto, si aún no tienes ese
+   archivo.
+2. En `.env`, configura `LLM_API_KEY` con tu clave. El endpoint y modelo inicial
+   son `https://api.openai.com/v1` y `gpt-6-luna`; puedes cambiarlos con
+   `LLM_BASE_URL` y `LLM_MODEL`.
+3. Mantén `LLM_EXTERNAL_DATA_AUTHORIZED=false` hasta contar con autorización
+   específica para transmitir datos personales al proveedor. Al habilitarla,
+   OpenAI recibirá la pregunta, nombre, correo, teléfono, etapa, IDs/ruta del
+   cliente, cotizaciones y faltantes limitados que consulta el backend. Sin esa
+   autorización, la función IA permanece deshabilitada; guardar notas y usar
+   las consultas deterministas sigue disponible.
+4. Cuando la autorización esté aprobada, cambia el valor a `true` y reinicia:
+
+   ```sh
+   docker compose up -d --build backend frontend
+   ```
+
+No publiques `.env`, no pongas la clave en el frontend y no la compartas en el
+chat. `.env` está excluido de Git; el repositorio solo incluye `.env.example`
+sin secretos.
+
 ## Usuarios de prueba recomendados
 
 Todos los usuarios locales usan **`123456`**. Se puede iniciar sesión con el

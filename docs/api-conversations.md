@@ -171,7 +171,10 @@ Indica si la integración opcional está habilitada para la sesión autenticada.
 No entrega la URL ni la clave del proveedor. El asistente se habilita solo si
 `LLM_PROVIDER=openai-compatible`, `LLM_BASE_URL`, `LLM_MODEL`, `LLM_API_KEY` y
 `LLM_EXTERNAL_DATA_AUTHORIZED=true` están configurados. El valor predeterminado
-es deshabilitado.
+es deshabilitado. Para OpenAI se usa `https://api.openai.com/v1` y el modelo
+configurable `gpt-6-luna` por defecto. Se requiere clave de API y facturación
+activa de la plataforma; una suscripción de ChatGPT no reemplaza la facturación
+de API. La clave se configura solo en `.env` local y nunca en frontend ni Git.
 
 ## `POST /api/conversations/:conversationId/assistant`
 
