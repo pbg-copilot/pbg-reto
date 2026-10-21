@@ -3,7 +3,8 @@
 Pruebas para recorrer la app a mano, de la más básica a la más completa. Cada
 prueba indica con qué cuenta se hace, los pasos y qué debería pasar.
 
-> Se actualiza al terminar cada spec. Estado al 21 de octubre: 001 a 007 y 009 hechas; falta la 008 (entrega).
+> Se actualiza al terminar cada spec. Estado al 21 de octubre: todas las specs (001 a 009) hechas.
+> El guion de la demo D1–D6 está en el README y la guía para presentarlo en `docs/manual-usuario.md`.
 > Lo pendiente y los problemas conocidos están en `specs/BACKLOG.md`.
 
 ## 1. Antes de empezar
@@ -294,7 +295,21 @@ paginación:
   ticket con muchas, solo se piden las que están a la vista.
 - [ ] **Consultas acotadas.** Todas las listas de la API tienen un máximo de 50 por
   página. Las métricas se calculan en una sola consulta por bloque, con índices por
-  fecha de creación.
+  fecha de creación y de cierre (migración `0009_dashboard_indexes`).
+- [ ] **Panel con muchos tickets** (`agente009`, `/admin/metricas`).
+  - En «Ahora mismo», cada tarjeta muestra como máximo 5 casos, del más antiguo al más
+    nuevo, y abajo «Ver los N en la bandeja».
+  - Ese enlace abre `/tickets` con el mismo filtro: la casilla «Sin atender», o el
+    filtro «En espera» → «Esperan al equipo» / «Esperan al solicitante». El total de
+    la bandeja coincide con el de la tarjeta.
+  - «Carga del equipo» muestra 6 admins y un botón «Ver los N administradores».
+  - Los títulos largos se cortan con «…» y no hay scroll horizontal, ni en escritorio ni
+    en el celular.
+
+  Medición de referencia: con 20.000 tickets de prueba, creados dentro de una
+  transacción que después se revirtió, cada consulta del panel tardó menos de 20 ms. La
+  tendencia diaria pasó de 344 ms a 14 ms al agrupar por día antes de unir con el
+  calendario.
 
 ## 11. Dos casos para contar de punta a punta
 

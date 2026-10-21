@@ -21,7 +21,8 @@
   (*Should*). → AC-005.10
 - [x] **T005.8** UI: campana con polling, popover, página `/notificaciones` y
   navegación con 404 amable. → AC-005.4, AC-005.6
-- [ ] **T005.9** E2E de offline (D3) y de Mailpit detenido (D6), en 008.
+- [x] **T005.9** E2E de offline (D3) y de Mailpit detenido (D6), en 008: cubiertos por
+  `tests/e2e/d3-admin-flow.spec.ts` y `d6-resilience.spec.ts` (D6b).
 - [x] **T005.10** Documentar en el README la política at-least-once, el polling y la
   forma de ver los correos en `http://localhost:8025`. → AC-005.11
 

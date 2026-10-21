@@ -20,7 +20,7 @@ Specs del reto en formato Spec-Driven Development. El alcance lo define
 
 | # | Feature | Estado | Prioridad | Objetivo |
 | --- | --- | --- | --- | --- |
-| 000 | [overview](000-overview/) | Borrador | — | — |
+| 000 | [overview](000-overview/) | Aprobada (referencia) | — | — |
 | 001 | [foundation](001-foundation/) | **Hecha** | Must | 20 oct, noche |
 | 002 | [tickets](002-tickets/) | **Hecha** | Must | 21 oct, mañana |
 | 003 | [catalog](003-catalog/) | **Hecha** | Must | 21 oct, tarde |
@@ -29,7 +29,7 @@ Specs del reto en formato Spec-Driven Development. El alcance lo define
 | 006 | [attachments](006-attachments/) | **Hecha** (+ visión) | Must · visión Should | 21 oct, noche |
 | 009 | [assistant-skills](009-assistant-skills/) | **Hecha** | Should | 21 oct, noche |
 | 007 | [admin-metrics](007-admin-metrics/) | **Hecha** (+ copiloto) | Should | 21 oct, noche |
-| 008 | [delivery](008-delivery/) | Borrador | Must | 22 oct, tarde |
+| 008 | [delivery](008-delivery/) | **Hecha** (falta correr `pnpm test` del repo base) | Must | 22 oct, tarde |
 
 Orden de implementación desde aquí, acordado el 2026-10-21:
 
@@ -49,7 +49,16 @@ El orden sigue las dependencias:
 - Los adjuntos (006) se integran en tickets y chat ya existentes.
 - Las acciones confirmadas (009) reutilizan el servicio de tickets de 002 y el chat de 004.
 
-Lo pendiente, lo que quedó fuera y los problemas conocidos están en [`BACKLOG.md`](BACKLOG.md).
+## Fuera de alcance / futuro
+
+Todas las specs están hechas. Lo que quedó fuera o pendiente:
+- `pnpm eval:assistant` (T004.19, Should);
+- tiempo real por SSE (hoy hay polling cada 20 s);
+- proveedor de correo real, antivirus y purga de adjuntos;
+- MCP y embeddings (ADR 0005);
+- fusionar duplicados y horario laboral en las métricas.
+
+El detalle, junto con los problemas conocidos, está en [`BACKLOG.md`](BACKLOG.md).
 
 ## Identificadores
 

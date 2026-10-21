@@ -1,6 +1,7 @@
 # ADR 0003 · Proveedor de IA: Anthropic `claude-haiku-5-5`
 
-- **Estado:** Aceptada (2026-10-20). Los costos medidos se completan en la spec 004.
+- **Estado:** Aceptada (2026-10-20). Costos medidos en la spec 004 (chat) y completados
+  en la 008 con visión, diagnóstico y copiloto.
 - **Contexto del PDF:** §11, "El participante elige un proveedor y modelo, documenta
   costo y limitaciones, y configura las claves en el backend mediante variables de
   entorno."
@@ -74,3 +75,33 @@ dentro de un workspace en la Console.
   - usa el artículo correcto, aclara que es de ejemplo y pregunta si se resolvió;
   - sin artículo, hace como máximo 2 preguntas útiles y escala;
   - ante la inyección, se niega y no muestra datos ajenos.
+
+## Medición de las funciones agregadas (specs 006, 007 y 009)
+
+| Función | Medición | Costo | Cuándo se paga |
+| --- | --- | --- | --- |
+| Copiloto · «Sugerir respuesta» | 703 de entrada / 338 de salida | ≈ US$0.00024 por uso | Solo cuando un admin pulsa el botón |
+| Copiloto · «Resumir caso» | 376 de entrada / 307 de salida | ≈ US$0.00019 por uso | Ídem |
+| Visión (captura compartida con consentimiento) | ≈ 1.500 tokens de entrada por imagen | ≈ US$0.00015 por turno | Solo si la persona marca la casilla. La imagen se reenvía en los turnos siguientes de esa conversación |
+| Diagnóstico de cuenta y propuestas de acción | Unos cientos de tokens por llamada a la herramienta | < US$0.0001 | Cuando el asistente usa la herramienta |
+| Posibles duplicados | Búsqueda en PostgreSQL, sin modelo | US$0 | — |
+
+- El copiloto es una sola llamada sin herramientas, así que no usa la caché del prefijo
+  del chat. Aun así cuesta menos de un cuarto de centavo de dólar por cada 10 usos.
+- Cada uso queda en `helpdesk.ai_usage` y el panel `/admin/metricas` muestra el costo
+  real del rango, separado entre chat y copiloto.
+
+## Límites encontrados durante la implementación
+
+- **Thinking ligado a la conversación.** Haiku 5.5 valida que los bloques `thinking`
+  reenviados correspondan exactamente al historial que los produjo. Si el historial
+  cambia (un mensaje editado, un prompt o una herramienta nuevos entre versiones),
+  responde 400. El proveedor reintenta **una vez** sin los bloques `thinking`; el texto
+  y las llamadas a herramientas se conservan (`assistant-provider.test.ts`).
+- **Primera llamada lenta.** La primera petición tras un despliegue tarda más (≈ 18 s en
+  D1) porque la API compila los esquemas estrictos de las herramientas. Las siguientes
+  responden en 1–6 s. El timeout es `AI_TIMEOUT_MS` (20 s); si se agota, el chat ofrece
+  el formulario.
+- **Límites de la cuenta.** Las solicitudes y tokens por minuto dependen del nivel de la
+  cuenta de Anthropic. Para producción hay que revisar el nivel y poner alertas de
+  presupuesto (ver `docs/despliegue-y-escalabilidad.md`).

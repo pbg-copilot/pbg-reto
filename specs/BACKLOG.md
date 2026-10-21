@@ -11,19 +11,18 @@ conocidos. El detalle de cada feature está en su carpeta. Actualizado el 2026-1
 | Qué cambió y por qué | Mensajes de commit (Conventional Commits) |
 | Pendientes y problemas conocidos | Este archivo |
 
-## Falta para entregar (spec 008, Must)
+## Entrega (spec 008)
 
-- [ ] **E2E deterministas de D1 a D6.**
-  - Hoy los tests de UI corren contra Haiku real, que no siempre responde igual (el D1
-    falló una vez).
-  - La propuesta es correr el stack de tests con `AI_PROVIDER=fake` y dejar el modelo real
-    para la demo y las pruebas manuales.
-- [ ] **Guion de demo en el README:** los 6 casos, paso a paso, con las cuentas.
-- [ ] **`docs/permisos.md`:** la matriz de permisos con el test que cubre cada fila.
-- [ ] **`docs/api.md`:** el resumen de endpoints (el detalle está en `/docs`, OpenAPI).
-- [ ] **Clon limpio:** `docker compose up` y todos los tests en verde desde cero.
-- [ ] **Revisión final de secretos y datos personales** en todo el historial de la rama.
-- [ ] **Estado final de las specs** y el texto del PR (sin crearlo hasta que se pida).
+Hecha el 2026-10-21:
+- E2E deterministas D1–D6 con el asistente simulado (`pnpm test:e2e`). `pnpm test:ui`
+  también corre con el simulado.
+- Guion de demo en el README y guía de presentación en `docs/manual-usuario.md`.
+- `docs/permisos.md`, `docs/api.md` y `docs/despliegue-y-escalabilidad.md`.
+- Verificación en una copia limpia, revisión de secretos y datos personales, estado de
+  las specs y borrador del PR (`specs/008-delivery/pr-descripcion.md`).
+
+Opcional: levantar el stack desde cero en otra carpeta y con otros puertos
+(`specs/008-delivery/plan.md`, «Verificación final»).
 
 ## Fuera de alcance o pendiente (Should / Could)
 
