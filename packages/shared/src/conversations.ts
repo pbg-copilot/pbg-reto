@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { paginatedSchema } from "./pagination.js";
 
 // Chat de soporte con el asistente (specs/004-assistant).
 
@@ -95,7 +96,9 @@ export type ConversationState = z.infer<typeof conversationStateSchema>;
 export const conversationSchema = conversationStateSchema.extend({ messages: z.array(chatMessageSchema) });
 export type Conversation = z.infer<typeof conversationSchema>;
 
-export const conversationListSchema = z.array(conversationStateSchema);
+// Paginada: el panel de conversaciones carga más con "Ver más".
+export const conversationListSchema = paginatedSchema(conversationStateSchema);
+export type ConversationList = z.infer<typeof conversationListSchema>;
 
 export const sendMessageBodySchema = z.strictObject({
   text: z.string().trim().min(1).max(4000),

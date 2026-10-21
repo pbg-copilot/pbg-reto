@@ -73,7 +73,7 @@ export function SupportPage() {
             </Link>
           </Button>
           <ul className="flex gap-2 overflow-x-auto lg:flex-col lg:overflow-visible">
-            {(conversations.data ?? []).slice(0, 8).map((item) => (
+            {(conversations.data?.pages.flatMap((page) => page.items) ?? []).map((item) => (
               <li key={item.id} className="min-w-52 lg:min-w-0">
                 <Link
                   to={`/soporte/c/${item.id}`}
@@ -91,6 +91,21 @@ export function SupportPage() {
               </li>
             ))}
           </ul>
+          {conversations.hasNextPage && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="self-start"
+              // Sin carga doble: no se pide otra página mientras llega la anterior.
+              disabled={conversations.isFetchingNextPage}
+              onClick={() => {
+                if (!conversations.isFetchingNextPage) void conversations.fetchNextPage();
+              }}
+            >
+              {conversations.isFetchingNextPage ? <Spinner data-icon="inline-start" aria-hidden="true" /> : null}
+              Ver más conversaciones
+            </Button>
+          )}
         </aside>
 
         {id && conversation.isPending && panelKey !== "new" ? (

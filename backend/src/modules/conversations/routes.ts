@@ -4,6 +4,7 @@ import {
   apiErrorSchema,
   conversationListSchema,
   conversationSchema,
+  paginationQuerySchema,
   escalateBodySchema,
   resolutionBodySchema,
   sendMessageBodySchema,
@@ -35,9 +36,16 @@ const conversationRoutes: FastifyPluginAsyncZod<{ service: ConversationService }
     "/support/conversations",
     {
       preValidation: app.requireAuth,
-      schema: { tags, security, summary: "Mis conversaciones recientes", response: { 200: conversationListSchema, ...errors } },
+      schema: {
+        tags,
+        security,
+        summary: "Mis conversaciones recientes",
+        description: "Paginada, de la más reciente a la más antigua.",
+        querystring: paginationQuerySchema,
+        response: { 200: conversationListSchema, ...errors },
+      },
     },
-    async (request) => service.list(request.actor!),
+    async (request) => service.list(request.actor!, request.query),
   );
 
   app.get(

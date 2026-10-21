@@ -13,6 +13,7 @@ import { formatDateTime, formatRelative } from "@/lib/format";
 import { NotFoundPage } from "@/features/errors/NotFoundPage";
 import { useArticleFromTicket } from "@/features/catalog/api";
 import { DeliveriesPanel } from "@/features/notifications/DeliveriesPanel";
+import { toast } from "@/components/feedback/toast-store";
 import { AttachmentList } from "@/features/attachments/AttachmentList";
 import { useTicket } from "./api";
 import { AdminAttributes } from "./components/AdminAttributes";
@@ -138,7 +139,16 @@ export function TicketDetailPage() {
                     size="sm"
                     variant="outline"
                     disabled={fromTicket.isPending}
-                    onClick={() => fromTicket.mutate(t.id, { onSuccess: (article) => navigate(`/admin/catalogo/${article.id}`) })}
+                    onClick={() =>
+                      fromTicket.mutate(t.id, {
+                        onSuccess: (article) => {
+                          toast.success(article.reused ? "Ya había un artículo de este ticket" : "Borrador creado desde el ticket", {
+                            description: article.reused ? "Te llevamos a él para que lo termines." : "Revísalo y publícalo para que el asistente lo use.",
+                          });
+                          navigate(`/admin/catalogo/${article.id}`);
+                        },
+                      })
+                    }
                   >
                     <BookPlusIcon data-icon="inline-start" aria-hidden="true" />
                     Crear artículo desde este ticket

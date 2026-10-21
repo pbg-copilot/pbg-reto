@@ -13,10 +13,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCatalogNames } from "@/features/tickets/useCatalogNames";
 import { useArticles } from "./api";
+import { Pager } from "@/components/pagination/Pager";
 import { ArticleStatusBadge } from "./components";
 
 const ALL = "__all";
 const REVIEW_DAYS = 90;
+const PAGE_SIZE = 20;
 const staleReview = (reviewedAt: string) => Date.now() - new Date(`${reviewedAt}T00:00:00`).getTime() > REVIEW_DAYS * 86_400_000;
 
 export function AdminCatalogPage() {
@@ -25,18 +27,22 @@ export function AdminCatalogPage() {
   const status = params.get("status") ?? ALL;
   const category = params.get("category") ?? ALL;
   const [search, setSearch] = useState(params.get("q") ?? "");
+  const page = Math.max(1, Number(params.get("page")) || 1);
   const articles = useArticles({
     q: params.get("q") ?? undefined,
     status: status === ALL ? undefined : status,
     category: category === ALL ? undefined : category,
-    page_size: "50",
+    page: String(page),
+    page_size: String(PAGE_SIZE),
   });
 
+  // Cambiar un filtro vuelve a la página 1.
   function update(key: string, value: string) {
     const next = new URLSearchParams(params);
     if (!value || value === ALL) next.delete(key);
     else next.set(key, value);
-    setParams(next, { replace: true });
+    if (key !== "page") next.delete("page");
+    setParams(next, { replace: key !== "page" });
   }
 
   useEffect(() => {
@@ -181,6 +187,16 @@ export function AdminCatalogPage() {
             <p className="p-6 text-center text-sm text-muted-foreground">No hay artículos con estos filtros.</p>
           )}
         </div>
+      )}
+      {articles.data && (
+        <Pager
+          page={page}
+          pageSize={PAGE_SIZE}
+          total={articles.data.total}
+          noun={["artículo", "artículos"]}
+          loading={articles.isPlaceholderData}
+          onPageChange={(next) => update("page", String(next))}
+        />
       )}
     </div>
   );

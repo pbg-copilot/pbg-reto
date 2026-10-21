@@ -1,10 +1,11 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { ArchiveIcon, ArrowLeftIcon, EyeIcon, SendIcon } from "lucide-react";
+import { ArchiveIcon, ArrowLeftIcon, EyeIcon, SendIcon, Trash2Icon } from "lucide-react";
 import type { ArticleManage, CreateArticleBody } from "@reto/shared";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -19,7 +20,7 @@ import { Markdown } from "@/components/Markdown";
 import { ApiError } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import { useCatalogNames } from "@/features/tickets/useCatalogNames";
-import { useArchive, useArticleManage, useCreateArticle, useNewVersion, usePublish } from "./api";
+import { useArchive, useArticleManage, useCreateArticle, useDiscardArticle, useNewVersion, usePublish } from "./api";
 import { ArticleStatusBadge } from "./components";
 import { toast } from "@/components/feedback/toast-store";
 
@@ -307,17 +308,65 @@ function Editor({ article }: { article?: ArticleManage }) {
                     </Link>
                   </Button>
                 )}
-                {article.status !== "archived" && (
+                {article.status !== "archived" && article.versions.some((v) => v.published_at) && (
                   <Button variant="outline" disabled={archive.isPending} onClick={() => archive.mutate(undefined, { onSuccess: () => toast.success("Artículo archivado") })}>
                     <ArchiveIcon data-icon="inline-start" aria-hidden="true" />
                     Archivar (el chat deja de usarlo)
                   </Button>
                 )}
+                {/* Un borrador que nunca se publicó se puede descartar; lo publicado solo se archiva. */}
+                {article.status === "draft" && !article.versions.some((v) => v.published_at) && <DiscardDraft articleId={article.id} />}
               </CardContent>
             </Card>
           </aside>
         )}
       </div>
     </div>
+  );
+}
+
+function DiscardDraft({ articleId }: { articleId: string }) {
+  const discard = useDiscardArticle(articleId);
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" className="text-destructive">
+          <Trash2Icon data-icon="inline-start" aria-hidden="true" />
+          Descartar borrador
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>¿Descartar este borrador?</DialogTitle>
+          <DialogDescription>Nunca se publicó, así que el asistente no lo usó. Se borra con todas sus versiones.</DialogDescription>
+        </DialogHeader>
+        {discard.error && (
+          <Alert variant="destructive" role="alert">
+            <AlertDescription>{discard.error.message}</AlertDescription>
+          </Alert>
+        )}
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>
+            Cancelar
+          </Button>
+          <Button
+            variant="destructive"
+            disabled={discard.isPending}
+            onClick={() =>
+              discard.mutate(undefined, {
+                onSuccess: () => {
+                  toast.success("Borrador descartado");
+                  navigate("/admin/catalogo?status=draft");
+                },
+              })
+            }
+          >
+            Descartar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

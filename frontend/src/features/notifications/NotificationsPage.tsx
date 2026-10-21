@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Link, useSearchParams } from "react-router";
-import { BellOffIcon, CheckCheckIcon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import { BellOffIcon, CheckCheckIcon } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useMarkAllRead, useMarkRead, useNotifications } from "./api";
 import { NotificationRow } from "./components";
+import { Pager } from "@/components/pagination/Pager";
 import { toast } from "@/components/feedback/toast-store";
 
 const PAGE_SIZE = 20;
@@ -20,7 +21,6 @@ export function NotificationsPage() {
   const list = useNotifications({ unread: unreadOnly, page, page_size: PAGE_SIZE });
   const markRead = useMarkRead();
   const markAll = useMarkAllRead();
-  const totalPages = Math.max(1, Math.ceil((list.data?.total ?? 0) / PAGE_SIZE));
   const unread = list.data?.unread_count ?? 0;
 
   useEffect(() => {
@@ -86,28 +86,15 @@ export function NotificationsPage() {
         </ul>
       )}
 
-      {totalPages > 1 && (
-        <nav aria-label="Paginación" className="flex items-center justify-between gap-2">
-          <Button
-            variant="outline"
-            disabled={page <= 1}
-            onClick={() => setParams({ ...Object.fromEntries(params), page: String(page - 1) })}
-          >
-            <ChevronLeftIcon data-icon="inline-start" aria-hidden="true" />
-            Anterior
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            Página {page} de {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            disabled={page >= totalPages}
-            onClick={() => setParams({ ...Object.fromEntries(params), page: String(page + 1) })}
-          >
-            Siguiente
-            <ChevronRightIcon data-icon="inline-end" aria-hidden="true" />
-          </Button>
-        </nav>
+      {list.data && (
+        <Pager
+          page={page}
+          pageSize={PAGE_SIZE}
+          total={list.data.total}
+          noun={["notificación", "notificaciones"]}
+          loading={list.isPlaceholderData}
+          onPageChange={(next) => setParams({ ...Object.fromEntries(params), page: String(next) })}
+        />
       )}
     </div>
   );

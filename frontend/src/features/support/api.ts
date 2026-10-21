@@ -1,5 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Conversation, ConversationState, ResolutionBody, TurnResponse } from "@reto/shared";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { Conversation, ConversationList, ResolutionBody, TurnResponse } from "@reto/shared";
 import { api } from "@/lib/api";
 import { ticketKeys } from "@/features/tickets/api";
 
@@ -9,8 +9,18 @@ export const supportChatKeys = {
   detail: (id: string) => [...supportChatKeys.all, "detail", id] as const,
 };
 
+const CONVERSATIONS_PAGE = 10;
+
+// "Ver más" en el panel de conversaciones: páginas de 10, máximo 10 páginas en memoria.
 export function useConversations() {
-  return useQuery({ queryKey: supportChatKeys.list(), queryFn: () => api<ConversationState[]>("/support/conversations") });
+  return useInfiniteQuery({
+    queryKey: supportChatKeys.list(),
+    queryFn: ({ pageParam, signal }) =>
+      api<ConversationList>(`/support/conversations?page=${pageParam}&page_size=${CONVERSATIONS_PAGE}`, { signal }),
+    initialPageParam: 1,
+    getNextPageParam: (last) => (last.page * last.page_size < last.total ? last.page + 1 : undefined),
+    maxPages: 10,
+  });
 }
 
 export function useConversation(id: string | undefined) {

@@ -8,7 +8,9 @@ import {
   articleReaderSchema,
   createArticleBodySchema,
   incidentBodySchema,
+  incidentListSchema,
   incidentSchema,
+  listIncidentsQuerySchema,
   isAdmin,
   listArticlesQuerySchema,
   newVersionBodySchema,
@@ -22,6 +24,7 @@ import type { ArticleService } from "./service.js";
 
 const security: Record<string, string[]>[] = [{ bearer: [] }, { cookie: [] }];
 const errors = { 400: apiErrorSchema, 401: apiErrorSchema, 403: apiErrorSchema, 404: apiErrorSchema };
+const fromTicketSchema = articleManageSchema.extend({ reused: z.boolean().describe("true si ya existía un artículo de este ticket") });
 const idParams = z.object({ id: z.uuid() });
 
 const articleRoutes: FastifyPluginAsyncZod<{ service: ArticleService }> = async (app, { service }) => {
@@ -126,18 +129,48 @@ const articleRoutes: FastifyPluginAsyncZod<{ service: ArticleService }> = async 
         tags,
         security,
         summary: "Borrador desde un ticket resuelto",
-        description: "No copia comentarios, notas internas, adjuntos ni datos personales. El admin revisa y publica.",
+        description:
+          "Idempotente: un solo artículo (no archivado) por ticket. Si ya existe, responde 200 con `reused: true` y el mismo artículo; si no, 201. No copia comentarios, notas internas, adjuntos ni datos personales.",
         params: z.object({ ticketId: z.uuid() }),
-        response: { 201: articleManageSchema, ...errors, 422: apiErrorSchema },
+        response: { 200: fromTicketSchema, 201: fromTicketSchema, ...errors, 422: apiErrorSchema },
       },
     },
-    async (request, reply) => reply.code(201).send(await service.fromTicket(request.actor!, request.params.ticketId)),
+    async (request, reply) => {
+      const article = await service.fromTicket(request.actor!, request.params.ticketId);
+      return reply.code(article.reused ? 200 : 201).send(article);
+    },
+  );
+
+  app.delete(
+    "/support/articles/:id",
+    {
+      preValidation: app.requireAdmin,
+      config: { rateLimit: mutationRateLimit },
+      schema: {
+        tags,
+        security,
+        summary: "Descartar un borrador que nunca se publicó",
+        description: "Lo que alguna vez se publicó no se borra (409): se archiva para conservar la trazabilidad.",
+        params: idParams,
+        response: { 204: z.undefined(), ...errors, 409: apiErrorSchema },
+      },
+    },
+    async (request, reply) => {
+      await service.discard(request.actor!, request.params.id);
+      return reply.code(204).send();
+    },
   );
 
   // ---------- Incidentes ----------
 
   const incidentTags = ["incidentes"];
-  async function loadIncidents(where: { id?: string; active?: boolean }, admin: boolean): Promise<Incident[]> {
+  async function countIncidents(active: boolean) {
+    let query = app.db.selectFrom("helpdesk.incidents").select((eb) => eb.fn.countAll<string>().as("n"));
+    if (active) query = query.where("status", "<>", "resolved");
+    return Number((await query.executeTakeFirstOrThrow()).n);
+  }
+
+  async function loadIncidents(where: { id?: string; active?: boolean; limit?: number; offset?: number }, admin: boolean): Promise<Incident[]> {
     let query = app.db
       .selectFrom("helpdesk.incidents as i")
       .leftJoin("helpdesk.articles as a", "a.id", "i.article_id")
@@ -157,6 +190,7 @@ const articleRoutes: FastifyPluginAsyncZod<{ service: ArticleService }> = async 
       .orderBy("i.started_at", "desc");
     if (where.id) query = query.where("i.id", "=", where.id);
     if (where.active) query = query.where("i.status", "<>", "resolved");
+    if (where.limit) query = query.orderBy("i.id").limit(where.limit).offset(where.offset ?? 0);
     const rows = await query.execute();
     return rows.map((row) => ({
       id: row.id,
@@ -180,12 +214,20 @@ const articleRoutes: FastifyPluginAsyncZod<{ service: ArticleService }> = async 
         tags: incidentTags,
         security,
         summary: "Incidentes conocidos",
-        description: "Vista pública: nunca incluye tickets ni datos de solicitantes.",
-        querystring: z.object({ active: z.enum(["true", "false"]).optional() }),
-        response: { 200: z.array(incidentSchema), ...errors },
+        description: "Vista pública: nunca incluye tickets ni datos de solicitantes. Paginada, de la más reciente a la más antigua.",
+        querystring: listIncidentsQuerySchema,
+        response: { 200: incidentListSchema, ...errors },
       },
     },
-    async (request) => loadIncidents({ active: request.query.active === "true" }, isAdmin(request.actor)),
+    async (request) => {
+      const { page, page_size } = request.query;
+      const active = request.query.active === "true";
+      const [items, total] = await Promise.all([
+        loadIncidents({ active, limit: page_size, offset: (page - 1) * page_size }, isAdmin(request.actor)),
+        countIncidents(active),
+      ]);
+      return { items, page, page_size, total };
+    },
   );
 
   app.post(

@@ -118,10 +118,10 @@ export function AdminAttributes({ ticket }: { ticket: TicketDetail }) {
           <SelectContent>
             <SelectGroup>
               <SelectItem value={UNASSIGNED}>Ninguno</SelectItem>
-              {ticket.incident && !(incidents.data ?? []).some((i) => i.id === ticket.incident?.id) && (
+              {ticket.incident && !(incidents.data?.items ?? []).some((i) => i.id === ticket.incident?.id) && (
                 <SelectItem value={ticket.incident.id}>{ticket.incident.title}</SelectItem>
               )}
-              {(incidents.data ?? []).map((incident) => (
+              {(incidents.data?.items ?? []).map((incident) => (
                 <SelectItem key={incident.id} value={incident.id}>
                   {incident.title}
                 </SelectItem>

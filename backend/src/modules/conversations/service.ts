@@ -15,7 +15,9 @@ import {
   type CaseDetails,
   type ChatMessage,
   type Conversation,
+  type ConversationList,
   type ConversationState,
+  type PaginationQuery,
   type EscalateBody,
   type ResolutionBody,
   type TicketRef,
@@ -392,9 +394,13 @@ export function createConversationService({ db, env, provider, tickets, storage 
       return { ...(await toState(row, actor)), messages: [] };
     },
 
-    async list(actor: Agent): Promise<ConversationState[]> {
-      const rows = await db.selectFrom("helpdesk.conversations").selectAll().where("requester_id", "=", actor.id).orderBy("last_message_at", "desc").limit(20).execute();
-      return Promise.all(rows.map((row) => toState(row, actor)));
+    async list(actor: Agent, { page, page_size }: PaginationQuery): Promise<ConversationList> {
+      const own = db.selectFrom("helpdesk.conversations").where("requester_id", "=", actor.id);
+      const [rows, total] = await Promise.all([
+        own.selectAll().orderBy("last_message_at", "desc").orderBy("id").limit(page_size).offset((page - 1) * page_size).execute(),
+        own.select((eb) => eb.fn.countAll<string>().as("n")).executeTakeFirstOrThrow(),
+      ]);
+      return { items: await Promise.all(rows.map((row) => toState(row, actor))), page, page_size, total: Number(total.n) };
     },
 
     async get(actor: Agent, id: string): Promise<Conversation> {

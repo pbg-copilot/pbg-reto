@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useOutletContext, useSearchParams } from "react-router";
-import { BellDotIcon, ChevronLeftIcon, ChevronRightIcon, InboxIcon, PlusIcon, SearchIcon } from "lucide-react";
+import { BellDotIcon, InboxIcon, PlusIcon, SearchIcon } from "lucide-react";
 import { isAdmin, type Agent, type TicketStatus, type TicketSummary } from "@reto/shared";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { useAdmins, useTicketList, type TicketFilters } from "./api";
 import { PriorityBadge, StatusBadge } from "./components/badges";
 import { useCatalogNames } from "./useCatalogNames";
+import { Pager } from "@/components/pagination/Pager";
 
 const VIEWS: { value: TicketStatus; label: string }[] = [
   { value: "open", label: "Abiertos" },
@@ -84,7 +85,6 @@ export function TicketsPage() {
   }, [admin]);
 
   const page = Number(filters.page);
-  const totalPages = Math.max(1, Math.ceil((list.data?.total ?? 0) / Number(PAGE_SIZE)));
   const recentItems = recent.data?.items ?? [];
 
   return (
@@ -283,28 +283,15 @@ export function TicketsPage() {
         <TicketTable items={list.data?.items ?? []} admin={admin} names={names} />
       )}
 
-      {totalPages > 1 && (
-        <nav aria-label="Paginación" className="flex items-center justify-between gap-2">
-          <Button
-            variant="outline"
-            disabled={page <= 1}
-            onClick={() => update({ page: String(page - 1) }, false)}
-          >
-            <ChevronLeftIcon data-icon="inline-start" aria-hidden="true" />
-            Anterior
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            Página {page} de {totalPages} · {list.data?.total} tickets
-          </span>
-          <Button
-            variant="outline"
-            disabled={page >= totalPages}
-            onClick={() => update({ page: String(page + 1) }, false)}
-          >
-            Siguiente
-            <ChevronRightIcon data-icon="inline-end" aria-hidden="true" />
-          </Button>
-        </nav>
+      {list.data && (
+        <Pager
+          page={page}
+          pageSize={Number(PAGE_SIZE)}
+          total={list.data.total}
+          noun={["ticket", "tickets"]}
+          loading={list.isPlaceholderData}
+          onPageChange={(next) => update({ page: String(next) }, false)}
+        />
       )}
     </div>
   );

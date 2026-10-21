@@ -65,3 +65,26 @@ test("AC-003.5 seeded examples are marked as examples for the requester", async 
   await requester.goto("/soporte/articulos/no-puedo-iniciar-sesion");
   await expect(requester.getByText("Ejemplo — no es un procedimiento oficial de PBG")).toBeVisible();
 });
+
+test("catalog is paginated and a never-published draft can be discarded", async ({ browser }) => {
+  const admin = await pageAs(browser, "agente015");
+  await admin.goto("/admin/catalogo");
+  await expect(admin.getByRole("navigation", { name: "Paginación" })).toContainText(/de \d+ artículos/);
+
+  const title = `${PREFIX} Borrador para descartar`;
+  await admin.goto("/admin/catalogo/nuevo");
+  await admin.getByLabel("Título").fill(title);
+  await admin.getByLabel("Categoría").click();
+  await admin.getByRole("option", { name: "Otro" }).click();
+  await admin.getByLabel("Síntomas").fill("Borrador de prueba.");
+  await admin.getByLabel("Pasos de diagnóstico").fill("1. Ninguno.");
+  await admin.getByLabel("Solución").fill("1. Ninguna.");
+  await admin.getByLabel("Condiciones de escalación").fill("Nunca.");
+  await admin.getByRole("button", { name: "Crear borrador" }).click();
+  await expect(admin.getByRole("heading", { level: 1, name: title })).toBeVisible();
+  await admin.getByRole("button", { name: "Descartar borrador" }).click();
+  await admin.getByRole("dialog").getByRole("button", { name: "Descartar" }).click();
+  await expect(admin.getByTestId("toast").filter({ hasText: "Borrador descartado" })).toBeVisible();
+  await expect(admin).toHaveURL(/\/admin\/catalogo\?status=draft$/);
+  await expect(admin.getByRole("link", { name: title })).toHaveCount(0);
+});

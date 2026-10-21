@@ -26,7 +26,7 @@ afterAll(async () => {
 });
 
 const get = (actor: Actor, url: string) => app.inject({ method: "GET", url, headers: actor.headers });
-const send = (actor: Actor, method: "POST" | "PATCH", url: string, payload?: unknown) =>
+const send = (actor: Actor, method: "GET" | "POST" | "PATCH" | "DELETE", url: string, payload?: unknown) =>
   app.inject({ method, url, headers: { ...actor.headers, "idempotency-key": uniqueKey() }, payload: payload as object });
 const titles = (body: { items: { title: string }[] }) => body.items.map((item) => item.title);
 
@@ -145,8 +145,32 @@ describe("AC-003.7 draft from a resolved ticket", () => {
     articles.push(article.id);
     expect(article).toMatchObject({ status: "draft", is_example: false, source_ticket: { id: ticket.id } });
     const text = JSON.stringify(article.versions[0]);
-    for (const leaked of ["Henry", "Perez", "agente048", "NOTA-INTERNA-SECRETA", ticket.display_number]) expect(text).not.toContain(leaked);
+    // El nombre real se lee de la base: no se copian datos de la réplica al repositorio.
+    const owner = await db.selectFrom("reto.agents").select("name").where("username", "=", "agente048").executeTakeFirstOrThrow();
+    const nameParts = owner.name.split(/\s+/).filter((part) => part.length > 3);
+    for (const leaked of [...nameParts, "agente048", "NOTA-INTERNA-SECRETA", ticket.display_number]) expect(text).not.toContain(leaked);
     expect(article.versions[0].solution).toContain("Se habilitó el permiso de exportación");
+
+    // Idempotente: otro clic vuelve al mismo borrador en vez de crear uno nuevo.
+    const again = await send(admin, "POST", `/support/articles/from-ticket/${ticket.id}`);
+    expect(again.statusCode).toBe(200);
+    expect(again.json()).toMatchObject({ id: article.id, reused: true });
+    const count = await db.selectFrom("helpdesk.articles").select(db.fn.countAll<string>().as("n")).where("source_ticket_id", "=", ticket.id).executeTakeFirstOrThrow();
+    expect(Number(count.n)).toBe(1);
+
+    // Descartar: solo admin y solo un borrador nunca publicado.
+    expect((await send(requester, "DELETE", `/support/articles/${article.id}`)).statusCode).toBe(403);
+    expect((await send(admin, "DELETE", `/support/articles/${article.id}`)).statusCode).toBe(204);
+    expect((await send(admin, "DELETE", `/support/articles/${article.id}`)).statusCode).toBe(404);
+    // Después de descartarlo, se puede volver a crear desde el ticket.
+    const fresh = await send(admin, "POST", `/support/articles/from-ticket/${ticket.id}`);
+    expect(fresh.statusCode).toBe(201);
+    articles.push(fresh.json().id);
+  });
+
+  it("never discards an article that was published (409): it is archived instead", async () => {
+    const published = (await send(admin, "GET", "/support/articles?status=published&page_size=1")).json().items[0];
+    expect((await send(admin, "DELETE", `/support/articles/${published.id}`)).statusCode).toBe(409);
   });
 });
 
@@ -171,15 +195,25 @@ describe("AC-003.8 / AC-003.9 incidents", () => {
     expect(mine.incident.title).toBe("TEST Lentitud general");
     expect(mine.events.map((e: { type: string }) => e.type)).toContain("incident_linked");
 
-    const publicList = (await get(requester, "/support/incidents?active=true")).json();
+    const publicList = (await get(requester, "/support/incidents?active=true&page_size=50")).json().items;
     const fromRequester = publicList.find((i: { id: string }) => i.id === incident.id);
     expect(fromRequester).not.toHaveProperty("linked_tickets");
-    const adminList = (await get(admin, "/support/incidents?active=true")).json();
+    const adminList = (await get(admin, "/support/incidents?active=true&page_size=50")).json().items;
     expect(adminList.find((i: { id: string }) => i.id === incident.id).linked_tickets).toBe(1);
 
     const resolved = (await send(admin, "PATCH", `/support/incidents/${incident.id}`, { status: "resolved" })).json();
     expect(resolved.resolved_at).not.toBeNull();
-    const active = (await get(requester, "/support/incidents?active=true")).json();
+    const active = (await get(requester, "/support/incidents?active=true&page_size=50")).json().items;
     expect(active.map((i: { id: string }) => i.id)).not.toContain(incident.id);
+  });
+
+  it("paginates incidents and conversations with totals", async () => {
+    const page = (await get(admin, "/support/incidents?page=1&page_size=1")).json();
+    expect(page).toMatchObject({ page: 1, page_size: 1 });
+    expect(page.items.length).toBeLessThanOrEqual(1);
+    expect(page.total).toBeGreaterThanOrEqual(page.items.length);
+    const conversations = await get(requester, "/support/conversations?page=1&page_size=5");
+    expect(conversations.statusCode).toBe(200);
+    expect(conversations.json()).toMatchObject({ page: 1, page_size: 5, items: expect.any(Array), total: expect.any(Number) });
   });
 });

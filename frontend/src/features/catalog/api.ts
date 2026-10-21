@@ -5,6 +5,7 @@ import type {
   ArticleReader,
   CreateArticleBody,
   Incident,
+  IncidentList,
   IncidentBody,
   NewVersionBody,
 } from "@reto/shared";
@@ -48,7 +49,7 @@ export function useArticleManage(id: string | undefined) {
   });
 }
 
-function useCatalogMutation<TVariables>(mutationFn: (variables: TVariables) => Promise<ArticleManage>) {
+function useCatalogMutation<TVariables, TResult extends ArticleManage = ArticleManage>(mutationFn: (variables: TVariables) => Promise<TResult>) {
   const client = useQueryClient();
   return useMutation({
     mutationFn,
@@ -74,13 +75,31 @@ export const usePublish = (id: string) =>
 export const useArchive = (id: string) =>
   useCatalogMutation(() => api<ArticleManage>(`/support/articles/${id}/archive`, { method: "POST" }));
 
+// Idempotente en el servidor: si el ticket ya tiene un artículo sin archivar, vuelve ese (reused).
 export const useArticleFromTicket = () =>
-  useCatalogMutation((ticketId: string) => api<ArticleManage>(`/support/articles/from-ticket/${ticketId}`, { method: "POST" }));
+  useCatalogMutation((ticketId: string) =>
+    api<ArticleManage & { reused: boolean }>(`/support/articles/from-ticket/${ticketId}`, { method: "POST" }),
+  );
 
-export function useIncidents(active: boolean) {
+// Descarta un borrador que nunca se publicó.
+export function useDiscardArticle(id: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => api<void>(`/support/articles/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      client.removeQueries({ queryKey: catalogKeys.manage(id) });
+      void client.invalidateQueries({ queryKey: catalogKeys.lists() });
+    },
+  });
+}
+
+// Paginado en el servidor. Los activos se piden en una sola página (son pocos).
+export function useIncidents(active: boolean, page = 1, pageSize = active ? 50 : 10) {
   return useQuery({
-    queryKey: catalogKeys.incidents(active),
-    queryFn: () => api<Incident[]>(`/support/incidents${active ? "?active=true" : ""}`),
+    queryKey: [...catalogKeys.incidents(active), page, pageSize],
+    queryFn: ({ signal }) =>
+      api<IncidentList>(`/support/incidents?${new URLSearchParams({ ...(active ? { active: "true" } : {}), page: String(page), page_size: String(pageSize) })}`, { signal }),
+    placeholderData: keepPreviousData,
     staleTime: 60_000,
   });
 }

@@ -142,3 +142,9 @@ export const incidentSchema = z.object({
   linked_tickets: z.number().int().optional(),
 });
 export type Incident = z.infer<typeof incidentSchema>;
+
+export const listIncidentsQuerySchema = paginationQuerySchema.extend({
+  active: z.enum(["true", "false"]).optional().describe("true: solo los no resueltos"),
+});
+export const incidentListSchema = paginatedSchema(incidentSchema);
+export type IncidentList = z.infer<typeof incidentListSchema>;

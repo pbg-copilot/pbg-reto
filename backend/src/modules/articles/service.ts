@@ -141,6 +141,25 @@ export function createArticleService(db: Database) {
       throw new AppError(400, "invalid_request", "La categoría no existe.", { fields: { category: "Categoría no válida" } });
   }
 
+  async function insertArticle(trx: Transaction<DB>, actor: Agent, body: CreateArticleBody, sourceTicketId: string | null) {
+    await requireCategory(trx, body.category);
+    const article = await trx
+      .insertInto("helpdesk.articles")
+      .values({
+        slug: await uniqueSlug(trx, body.title),
+        category_code: body.category,
+        is_example: body.is_example ?? false,
+        published_version_id: null,
+        source_ticket_id: sourceTicketId,
+        created_by: actor.id,
+        archived_at: null,
+      })
+      .returning("id")
+      .executeTakeFirstOrThrow();
+    await insertVersion(trx, article.id, 1, body, actor.id);
+    return article.id;
+  }
+
   const service = {
     // El solicitante ve solo artículos publicados y vigentes; el admin, todos (última versión).
     async list(actor: Agent, filters: ListArticlesFilters): Promise<ArticleList> {
@@ -237,25 +256,26 @@ export function createArticleService(db: Database) {
 
     async create(actor: Agent, body: CreateArticleBody, sourceTicketId: string | null = null): Promise<ArticleManage> {
       if (!isAdmin(actor)) throw forbidden();
-      const id = await db.transaction().execute(async (trx) => {
-        await requireCategory(trx, body.category);
-        const article = await trx
-          .insertInto("helpdesk.articles")
-          .values({
-            slug: await uniqueSlug(trx, body.title),
-            category_code: body.category,
-            is_example: body.is_example ?? false,
-            published_version_id: null,
-            source_ticket_id: sourceTicketId,
-            created_by: actor.id,
-            archived_at: null,
-          })
-          .returning("id")
-          .executeTakeFirstOrThrow();
-        await insertVersion(trx, article.id, 1, body, actor.id);
-        return article.id;
-      });
+      const id = await db.transaction().execute((trx) => insertArticle(trx, actor, body, sourceTicketId));
       return service.manage(actor, id);
+    },
+
+    // Descarta un borrador que nunca se publicó (por ejemplo, uno creado por error). Lo que
+    // alguna vez se publicó no se borra: se archiva, para conservar la trazabilidad.
+    async discard(actor: Agent, id: string) {
+      if (!isAdmin(actor)) throw forbidden();
+      const deleted = await db
+        .deleteFrom("helpdesk.articles")
+        .where("id", "=", id)
+        .where("status", "=", "draft")
+        .where("published_version_id", "is", null)
+        .where(({ not, exists, selectFrom }) =>
+          not(exists(selectFrom("helpdesk.article_versions").select("id").whereRef("article_id", "=", "helpdesk.articles.id").where("published_at", "is not", null))),
+        )
+        .executeTakeFirst();
+      if (Number(deleted.numDeletedRows) > 0) return;
+      if (await findArticle(id)) throw new AppError(409, "invalid_transition", "Solo se descarta un borrador que nunca se publicó. Para retirarlo del chat, archívalo.");
+      throw articleNotFound();
     },
 
     // Las versiones son inmutables: editar crea la siguiente. La publicada no cambia hasta publicar.
@@ -319,7 +339,7 @@ export function createArticleService(db: Database) {
 
     // Borrador a partir de un ticket resuelto. Solo campos de una lista blanca y con datos
     // personales enmascarados: nunca comentarios, notas internas ni adjuntos (§03).
-    async fromTicket(actor: Agent, ticketId: string): Promise<ArticleManage> {
+    async fromTicket(actor: Agent, ticketId: string): Promise<ArticleManage & { reused: boolean }> {
       if (!isAdmin(actor)) throw forbidden();
       const ticket = await db
         .selectFrom("helpdesk.tickets as t")
@@ -350,9 +370,9 @@ export function createArticleService(db: Database) {
       const steps = (ticket.attempted_steps as { step?: string; result?: string }[])
         .filter((step) => step.step)
         .map((step, index) => `${index + 1}. ${step.step}${step.result ? ` → ${step.result}` : ""}`);
-      return service.create(
-        actor,
-        {
+      // Un solo artículo por ticket: si ya hay uno sin archivar, se vuelve a él (idempotente).
+      // El candado evita dos borradores por un doble clic simultáneo.
+      const draft: CreateArticleBody = {
           title: clean(ticket.title),
           category: ticket.category_code,
           symptoms: clean(symptom),
@@ -362,9 +382,20 @@ export function createArticleService(db: Database) {
           escalation_conditions: "Si después de seguir la solución el problema continúa, crea un ticket con los pasos que ya probaste.",
           tags: ticket.tags,
           is_example: false,
-        },
-        ticket.id,
-      );
+        };
+      const { id, reused } = await db.transaction().execute(async (trx) => {
+        await sql`SELECT pg_advisory_xact_lock(hashtext(${`article-from-ticket:${ticket.id}`}))`.execute(trx);
+        const existing = await trx
+          .selectFrom("helpdesk.articles")
+          .select("id")
+          .where("source_ticket_id", "=", ticket.id)
+          .where("status", "<>", "archived")
+          .orderBy("updated_at", "desc")
+          .executeTakeFirst();
+        if (existing) return { id: existing.id, reused: true };
+        return { id: await insertArticle(trx, actor, draft, ticket.id), reused: false };
+      });
+      return { ...(await service.manage(actor, id)), reused };
     },
 
   };

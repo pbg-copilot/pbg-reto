@@ -13,11 +13,15 @@ import { formatRelative } from "@/lib/format";
 import { useCatalogNames } from "@/features/tickets/useCatalogNames";
 import { useIncidents, useSaveIncident } from "./api";
 import { IncidentStatusBadge } from "./components";
+import { Pager } from "@/components/pagination/Pager";
+
+const INCIDENTS_PAGE_SIZE = 10;
 import { toast } from "@/components/feedback/toast-store";
 
 // Incidentes conocidos: el chat informa su estado público y vincula los tickets nuevos.
 export function IncidentsPage() {
-  const incidents = useIncidents(false);
+  const [page, setPage] = useState(1);
+  const incidents = useIncidents(false, page, INCIDENTS_PAGE_SIZE);
   const save = useSaveIncident();
   const names = useCatalogNames();
   const [title, setTitle] = useState("");
@@ -66,7 +70,7 @@ export function IncidentsPage() {
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="flex flex-col gap-3">
-          {(incidents.data ?? []).map((incident) => (
+          {(incidents.data?.items ?? []).map((incident) => (
             <Card key={incident.id} className="glass">
               <CardHeader>
                 <CardTitle className="flex flex-wrap items-center gap-2 text-base">
@@ -115,7 +119,17 @@ export function IncidentsPage() {
               </CardContent>
             </Card>
           ))}
-          {incidents.data?.length === 0 && <p className="text-sm text-muted-foreground">No hay incidentes registrados.</p>}
+          {incidents.data?.items.length === 0 && <p className="text-sm text-muted-foreground">No hay incidentes registrados.</p>}
+          {incidents.data && (
+            <Pager
+              page={page}
+              pageSize={INCIDENTS_PAGE_SIZE}
+              total={incidents.data.total}
+              noun={["incidente", "incidentes"]}
+              loading={incidents.isPlaceholderData}
+              onPageChange={setPage}
+            />
+          )}
         </div>
 
         <Card className="glass">
