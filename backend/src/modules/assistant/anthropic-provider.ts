@@ -10,6 +10,22 @@ import { AssistantUnavailableError, type AssistantProvider } from "./provider.js
 // El cliente se puede inyectar en los tests (sin red).
 type MessagesClient = Pick<Anthropic, "messages">;
 
+// Haiku 5.5 verifica que cada bloque thinking se reenvíe en la misma conversación que lo
+// produjo. Si cambian el system prompt o las herramientas (un deploy), los bloques guardados de
+// conversaciones anteriores dejan de valer y la API responde 400. Recuperación documentada:
+// reintentar una vez sin los bloques thinking (el texto y las herramientas se conservan).
+const PREFIX_MISMATCH = /bound to a different conversation/i;
+export const isThinkingPrefixMismatch = (error: unknown) =>
+  error instanceof Anthropic.BadRequestError && PREFIX_MISMATCH.test(error.message);
+
+export function stripThinking(messages: Anthropic.MessageParam[]): Anthropic.MessageParam[] {
+  return messages.map((message) =>
+    message.role !== "assistant" || typeof message.content === "string"
+      ? message
+      : { ...message, content: message.content.filter((block) => block.type !== "thinking" && block.type !== "redacted_thinking") },
+  );
+}
+
 export function createAnthropicProvider(env: Env, injected?: MessagesClient): AssistantProvider {
   const client: MessagesClient =
     injected ?? new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, maxRetries: 1, timeout: env.AI_TIMEOUT_MS });
@@ -17,8 +33,8 @@ export function createAnthropicProvider(env: Env, injected?: MessagesClient): As
   return {
     name: "anthropic",
     async complete({ system, tools, messages, signal }) {
-      try {
-        const response = await client.messages.create(
+      const send = (history: Anthropic.MessageParam[]) =>
+        client.messages.create(
           {
             model: env.AI_MODEL,
             max_tokens: 4096,
@@ -26,10 +42,18 @@ export function createAnthropicProvider(env: Env, injected?: MessagesClient): As
             tools,
             tool_choice: { type: "auto" },
             output_config: { effort: "low" },
-            messages,
+            messages: history,
           },
           { signal },
         );
+      try {
+        let response;
+        try {
+          response = await send(messages);
+        } catch (error) {
+          if (!isThinkingPrefixMismatch(error)) throw error;
+          response = await send(stripThinking(messages));
+        }
         // Revisar stop_reason antes de leer el contenido.
         if (response.stop_reason === "refusal") throw new AssistantUnavailableError("refusal");
         if (response.stop_reason === "max_tokens") throw new AssistantUnavailableError("max_tokens");

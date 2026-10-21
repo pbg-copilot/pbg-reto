@@ -30,6 +30,38 @@ const reasonOf = async (provider: AssistantProvider) => {
   }
 };
 
+describe("Anthropic provider recovers from a thinking prefix mismatch (prompt or tools changed)", () => {
+  const env = { ...testEnv(), AI_PROVIDER: "anthropic" as const, ANTHROPIC_API_KEY: "test" };
+  it("retries once without thinking blocks; text and tool calls stay", async () => {
+    const calls: Anthropic.MessageParam[][] = [];
+    const mismatch = Anthropic.APIError.generate(
+      400,
+      { type: "error", error: { type: "invalid_request_error", message: "messages.1.content.0: Invalid `signature` in `thinking` block. The block is bound to a different conversation." } },
+      "messages.1.content.0: Invalid `signature` in `thinking` block. The block is bound to a different conversation.",
+      new Headers(),
+    );
+    const client = {
+      messages: {
+        create: (body: { messages: Anthropic.MessageParam[] }) => {
+          calls.push(body.messages);
+          if (calls.length === 1) return Promise.reject(mismatch);
+          return Promise.resolve({ content: [{ type: "text", text: "ok" }], stop_reason: "end_turn", model: "claude-haiku-5-5", usage: { input_tokens: 1, output_tokens: 1 } });
+        },
+      },
+    } as unknown as Pick<Anthropic, "messages">;
+    const history: Anthropic.MessageParam[] = [
+      { role: "user", content: "hola" },
+      { role: "assistant", content: [{ type: "thinking", thinking: "…", signature: "sig" }, { type: "text", text: "¿Qué pasa?" }] },
+      { role: "user", content: "no puedo entrar" },
+    ];
+    const result = await createAnthropicProvider(env, client).complete({ ...request, messages: history });
+    expect(result.stop_reason).toBe("end_turn");
+    expect(calls).toHaveLength(2);
+    expect(JSON.stringify(calls[1])).not.toContain("thinking");
+    expect(calls[1]![1]!.content).toEqual([{ type: "text", text: "¿Qué pasa?" }]);
+  });
+});
+
 describe("T004.4 Anthropic provider maps failures to AssistantUnavailableError", () => {
   const env = { ...testEnv(), AI_PROVIDER: "anthropic" as const, ANTHROPIC_API_KEY: "test" };
   const response = (stop_reason: string) =>
