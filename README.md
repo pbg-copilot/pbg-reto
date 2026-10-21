@@ -204,17 +204,21 @@ tokens en localStorage. Los intentos excesivos reciben 429.
 
 ## Comprobaciones
 
-```sh
+La guía de [demo reproducible y limitaciones](docs/demo.md) cubre el recorrido manual, las consultas SQL de persistencia y los casos límite. Desde la raíz del repo, primero instala y levanta la aplicación; luego ejecuta las suites:
+
+```powershell
 npm ci
+docker compose up -d --build
 npm test
+$LASTEXITCODE
 npx playwright install chromium
 npm run test:ui
+$LASTEXITCODE
 uv run --with cryptography --with pyahocorasick python -m unittest discover -s tests -p 'test_replica.py'
+$LASTEXITCODE
 ```
 
-Las pruebas comprueban checksums y correos sustituidos, todos los conteos de tablas,
-columnas y tipos, roles y dueños de agencia, contraseñas locales, autenticación,
-revocación, logout y la pantalla móvil. Las pruebas de API y base necesitan Compose.
+`npm test` y `npm run test:ui` necesitan la app local iniciada. Playwright requiere Chromium instalado (una vez por máquina). La suite UI existente cubre login, persistencia de sesión, logout y vista móvil; no sustituye el recorrido manual del chat, cliente, citas, conflictos e idempotencia descrito en la guía. Conserva en pantalla la salida y el código de cada comando; éxito corresponde a código `0` y cero pruebas fallidas.
 
 ## Regenerar desde un respaldo privado
 
