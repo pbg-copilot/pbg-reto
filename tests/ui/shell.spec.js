@@ -11,11 +11,19 @@ async function login(page, usuario, { mobile = false } = {}) {
   else await expect(page.getByTestId("agent-name")).toBeVisible();
 }
 
-function collectCspViolations(page) {
+// Junta los errores de CSP de la consola y los eventos securitypolicyviolation. Estos
+// últimos incluyen violaciones que no llegan a la consola (por ejemplo, un eval atrapado).
+async function collectCspViolations(page) {
   const violations = [];
   page.on("console", (message) => {
     if (/Content Security Policy|Refused to (apply|load|execute)/i.test(message.text()))
       violations.push(message.text());
+  });
+  await page.exposeFunction("__reportCsp", (text) => violations.push(text));
+  await page.addInitScript(() => {
+    document.addEventListener("securitypolicyviolation", (event) =>
+      window.__reportCsp(`${event.violatedDirective} ${event.sourceFile}:${event.lineNumber}:${event.columnNumber}`),
+    );
   });
   return violations;
 }
@@ -33,14 +41,20 @@ test("AC-001.11 admin sees admin navigation and agent does not", async ({ browse
   await expect(agent.getByRole("heading", { name: "Página no disponible" })).toBeVisible();
 });
 
-test("AC-001.10 no CSP violations when opening menus (Radix uses the nonce)", async ({ page }) => {
-  const violations = collectCspViolations(page);
+test("AC-001.10 no CSP violations when opening menus and selects (Radix uses the nonce)", async ({ page }) => {
+  const violations = await collectCspViolations(page);
   await login(page, "agente048");
   await page.getByRole("button", { name: "Menú de cuenta" }).click();
   await expect(page.getByRole("menuitem", { name: "Logout" })).toBeVisible();
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Usar tema oscuro" }).click();
   await expect(page.locator("html")).toHaveClass(/dark/);
+  // El Select de Radix inyecta un <style> fijo: lo permite el hash de la CSP de nginx.
+  await page.goto("/tickets/nuevo");
+  await page.getByLabel("Categoría").click();
+  await page.getByRole("option", { name: "Funcionamiento de pantallas" }).click();
+  await page.getByRole("button", { name: "Notificaciones" }).click();
+  await page.keyboard.press("Escape");
   expect(violations).toEqual([]);
 });
 
