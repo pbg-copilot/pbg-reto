@@ -134,6 +134,13 @@ No son fuentes de datos de negocio independientes.
 - `GET /auth/me`: obtiene el agente mediante Bearer o la cookie HttpOnly.
 - `POST /auth/logout`: revoca la sesión y elimina la cookie; devuelve 204.
 
+Al iniciar, la API aplica en una transacción las migraciones versionadas de
+`backend/migration_*.sql` después de preparar el esquema local `reto`. Registra
+versión y checksum en `reto.schema_migrations`; los archivos aplicados no se
+pueden modificar silenciosamente. La primera migración añade `reto.chat_conversations`,
+`reto.chat_messages` y `reto.chat_actions`, sin alterar las tablas originales de
+negocio. Las tablas de chat se describen en la migración y en `docs/spec.md`.
+
 ```sh
 curl http://localhost:8008/auth/get-toke \
   -H 'Content-Type: application/json' \

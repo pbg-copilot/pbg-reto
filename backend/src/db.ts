@@ -1,6 +1,6 @@
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
-import pg from "pg";
+import pg, { type PoolClient } from "pg";
 import { hashPassword } from "./passwords.js";
 export const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
@@ -8,6 +8,44 @@ export const pool = new pg.Pool({
   connectionTimeoutMillis: 5000,
   statement_timeout: 15000,
 });
+
+async function applyMigrations(conn: PoolClient) {
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS reto.schema_migrations (
+      version text PRIMARY KEY,
+      checksum text NOT NULL CHECK (checksum ~ '^[0-9a-f]{64}$'),
+      applied_at timestamptz NOT NULL DEFAULT now()
+    )
+  `);
+
+  const directory = new URL("../", import.meta.url);
+  const files = (await readdir(directory))
+    .filter((file) => /^migration_\d{3}_[a-z0-9_]+\.sql$/.test(file))
+    .sort();
+
+  for (const file of files) {
+    const bytes = await readFile(new URL(file, directory));
+    const version = file.slice("migration_".length, -".sql".length);
+    const checksum = createHash("sha256").update(bytes).digest("hex");
+    const applied = await conn.query(
+      "SELECT checksum FROM reto.schema_migrations WHERE version=$1",
+      [version],
+    );
+
+    if (applied.rowCount) {
+      if (applied.rows[0].checksum !== checksum)
+        throw new Error(`Applied migration ${version} has changed`);
+      continue;
+    }
+
+    await conn.query(bytes.toString("utf8"));
+    await conn.query(
+      "INSERT INTO reto.schema_migrations(version,checksum) VALUES($1,$2)",
+      [version, checksum],
+    );
+  }
+}
+
 export async function initializeDatabase() {
   const bytes = await readFile("/app/data/manifest.json");
   const manifest = JSON.parse(bytes.toString());
@@ -29,6 +67,7 @@ export async function initializeDatabase() {
     await conn.query(
       await readFile(new URL("../schema.sql", import.meta.url), "utf8"),
     );
+    await applyMigrations(conn);
     const exists = await conn.query("SELECT id FROM reto.imports WHERE id=$1", [
       importId,
     ]);
