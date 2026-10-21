@@ -120,10 +120,13 @@ describe("AC-003.2 / AC-003.6 versions, publish and archive", () => {
 
 describe("AC-003.7 draft from a resolved ticket", () => {
   it("copies only whitelisted, redacted fields and never internal notes", async () => {
+    // El nombre real se lee de la base: no se copian datos de la réplica al repositorio.
+    const owner = await db.selectFrom("reto.agents").select("name").where("username", "=", "agente048").executeTakeFirstOrThrow();
+    const nameParts = owner.name.split(/\s+/).filter((part) => part.length > 3);
     const ticket = (
       await send(requester, "POST", "/tickets", {
-        title: "Exportación falla para Henry",
-        description: "Hola, soy Henry David Perez (agente048@reto.example). Al exportar sale error 500.",
+        title: `Exportación falla para ${nameParts[0]}`,
+        description: `Hola, soy ${owner.name} (agente048@reto.example). Al exportar sale error 500.`,
         category: "screens",
         impact: "high",
       })
@@ -145,9 +148,6 @@ describe("AC-003.7 draft from a resolved ticket", () => {
     articles.push(article.id);
     expect(article).toMatchObject({ status: "draft", is_example: false, source_ticket: { id: ticket.id } });
     const text = JSON.stringify(article.versions[0]);
-    // El nombre real se lee de la base: no se copian datos de la réplica al repositorio.
-    const owner = await db.selectFrom("reto.agents").select("name").where("username", "=", "agente048").executeTakeFirstOrThrow();
-    const nameParts = owner.name.split(/\s+/).filter((part) => part.length > 3);
     for (const leaked of [...nameParts, "agente048", "NOTA-INTERNA-SECRETA", ticket.display_number]) expect(text).not.toContain(leaked);
     expect(article.versions[0].solution).toContain("Se habilitó el permiso de exportación");
 
