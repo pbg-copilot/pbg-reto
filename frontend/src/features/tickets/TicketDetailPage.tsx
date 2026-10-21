@@ -1,6 +1,6 @@
 import { useEffect, type ReactNode } from "react";
 import { Link, useNavigate, useOutletContext, useParams } from "react-router";
-import { ArrowLeftIcon, BookPlusIcon, BotIcon, CheckCircle2Icon, FileTextIcon, MessagesSquareIcon, SirenIcon } from "lucide-react";
+import { ArrowLeftIcon, BookPlusIcon, BotIcon, CheckCircle2Icon, FileTextIcon, MessagesSquareIcon, PaperclipIcon, SirenIcon } from "lucide-react";
 import { closureReasonLabel, impactLabel, incidentStatusLabel, isAdmin, type Agent, type TicketDetail } from "@reto/shared";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,7 @@ import { formatDateTime, formatRelative } from "@/lib/format";
 import { NotFoundPage } from "@/features/errors/NotFoundPage";
 import { useArticleFromTicket } from "@/features/catalog/api";
 import { DeliveriesPanel } from "@/features/notifications/DeliveriesPanel";
+import { AttachmentList } from "@/features/attachments/AttachmentList";
 import { useTicket } from "./api";
 import { AdminAttributes } from "./components/AdminAttributes";
 import { AssigneePicker } from "./components/AssigneePicker";
@@ -203,12 +204,31 @@ export function TicketDetailPage() {
             </Card>
           )}
 
+          {t.attachments.some((attachment) => !attachment.comment_id) && (
+            <Card className="glass">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <PaperclipIcon aria-hidden="true" className="size-4 text-brand" />
+                  Evidencias
+                </CardTitle>
+                <CardDescription>Archivos del reporte y del chat. Cada descarga se autoriza.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <AttachmentList
+                  attachments={t.attachments.filter((attachment) => !attachment.comment_id)}
+                  ticketId={t.id}
+                  canRemove={t.permissions.can_remove_attachments}
+                />
+              </CardContent>
+            </Card>
+          )}
+
           <Card className="glass">
             <CardHeader>
               <CardTitle className="text-base">Conversación con el equipo</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-6">
-              <CommentThread comments={t.comments} />
+              <CommentThread comments={t.comments} attachments={t.attachments} ticketId={t.id} canRemoveAttachments={t.permissions.can_remove_attachments} />
               {t.status === "closed" && !t.permissions.can_add_internal_note ? (
                 <Alert>
                   <AlertDescription>

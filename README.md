@@ -88,6 +88,22 @@ inicia y cierra sesión con `agente099`, `agente009` y `agente016`.
 Las pruebas manuales paso a paso, con las cuentas para cada una, están en
 [`docs/pruebas-manuales.md`](docs/pruebas-manuales.md).
 
+### Adjuntos y evidencias
+
+| Regla | Valor |
+| --- | --- |
+| Tipos admitidos | PNG, JPEG, WEBP, GIF, PDF y texto (`.txt`, `.log`) |
+| Rechazados | Todo lo demás, por ejemplo SVG, HTML, XML, ejecutables, comprimidos y Office |
+| Tamaño | 10 MB por archivo, hasta 5 por envío (`UPLOAD_MAX_BYTES`, `UPLOAD_MAX_FILES`) |
+| Validación | En el servidor, por el contenido (magic bytes con `file-type`), que debe coincidir con la extensión. El texto debe ser UTF-8 sin bytes nulos. Se guarda el SHA-256 |
+| Errores | 415 si el tipo no se admite o no coincide; 413 si pasa el tamaño. Nada rechazado llega al bucket |
+| Almacenamiento | Metadatos en PostgreSQL. El binario va al bucket S3 privado con clave `t/<ticket>/<uuid>` o `c/<conversación>/<uuid>`, sin el nombre original |
+| Descarga | `GET /attachments/:id/download`, que autoriza cada request y hace streaming. Usa `Content-Disposition: attachment`, `nosniff` y `Cache-Control: private, no-store`. Las imágenes admiten `?inline=1` para la vista previa |
+| Visibilidad | El solicitante solo ve y descarga los públicos de sus tickets y chats. Un adjunto de una nota interna es interno y nunca aparece para el solicitante. Uno ajeno o interno da 404 |
+| Retiro | Solo un admin, con motivo. El archivo deja de servirse y quedan el registro y el evento con autor, fecha y motivo; el binario se conserva para auditoría |
+| Asistente | Solo recibe nombre, tipo y tamaño. Las imágenes del chat le llegan si la persona marca «Permitir que el asistente lea esta imagen», que está **desmarcada** por defecto |
+| Pendiente | Antivirus (ClamAV) y purga automática de binarios retirados |
+
 ### Notificaciones
 
 - **Qué se avisa.**

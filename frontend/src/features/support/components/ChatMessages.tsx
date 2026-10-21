@@ -4,6 +4,7 @@ import type { ArticleRef, ChatMessage, TicketRef } from "@reto/shared";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
+import { MessageAttachments } from "./ChatAttachments";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Marker, MarkerContent, MarkerIcon } from "@/components/ui/marker";
@@ -98,6 +99,7 @@ export function ChatMessageView({
             {user ? <p className="whitespace-pre-wrap">{message.text}</p> : <Markdown>{message.text}</Markdown>}
           </BubbleContent>
         </Bubble>
+        {user && <MessageAttachments attachments={message.attachments} />}
         {message.article_refs.map((article) => (
           <ArticleCard key={article.version_id} article={article} />
         ))}

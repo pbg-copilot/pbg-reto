@@ -94,10 +94,11 @@ en el resto, 1 MB.
   - solo imágenes de esa conversación, de quien envía y en estado `active`;
   - se leen desde S3 y se agrega `{ type: "image", source: { type: "base64", media_type, data } }`
     antes del texto, en el mensaje `user` de ese turno;
-  - en el historial guardado, el bloque se reemplaza por un marcador de texto
-    `[Imagen compartida con el asistente: nombre.png]`, para no reenviar el binario en
-    cada turno ni guardarlo en la base de datos.
-- **Proveedor `fake`:** si recibe un bloque `image`, responde «Recibí tu captura»
-  (test determinista).
-- **Costo:** con Haiku 5.5, una captura típica suma ~1.500 tokens de entrada
-  (≈ US$0.00015).
+  - en el historial guardado queda un marcador `{ type: "attachment_image", attachment_id }`,
+    que cada turno convierte en el mismo bloque `image` leído de S3. El historial no cambia
+    entre turnos (Haiku 5.5 rechaza con 400 un historial editado) y el binario no se guarda
+    en PostgreSQL.
+- **Tests:** un proveedor que registra lo que recibe el modelo comprueba que sin
+  consentimiento no hay bloque `image` y que con consentimiento sí, estable entre turnos.
+- **Costo:** con Haiku 5.5, una captura típica suma ~1.500 tokens de entrada por turno
+  (≈ US$0.00015) desde que se comparte.

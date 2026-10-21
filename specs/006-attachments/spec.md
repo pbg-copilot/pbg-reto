@@ -1,6 +1,6 @@
 # 006 · Adjuntos y evidencias
 
-- **Estado:** Borrador
+- **Estado:** Hecha (2026-10-21)
 - **Prioridad:** Must
 - **PDF:** §01 (evidencias en el chat), §06, §07, §09
 - **Depende de:** 001 (S3), 002, 004

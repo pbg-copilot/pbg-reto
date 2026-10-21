@@ -227,6 +227,27 @@ export interface NotificationDeliveriesTable {
   updated_at: DefaultTimestamp;
 }
 
+export interface AttachmentsTable {
+  id: Generated<string>;
+  ticket_id: string | null;
+  conversation_id: string | null;
+  comment_id: string | null;
+  message_id: string | null;
+  uploader_id: string;
+  visibility: "public" | "internal";
+  original_name: string;
+  mime_type: string;
+  size_bytes: ColumnType<string, number | string, number | string>;
+  sha256: string;
+  storage_key: string;
+  status: Generated<"active" | "removed">;
+  removed_at: NullableTimestamp;
+  removed_by: string | null;
+  removal_reason: string | null;
+  shared_with_ai_at: NullableTimestamp;
+  created_at: DefaultTimestamp;
+}
+
 // Vista del repo base (solo lectura). Nunca seleccionar password_hash.
 export interface AgentsView {
   id: string;
@@ -253,6 +274,7 @@ export interface DB {
   "helpdesk.conversations": ConversationsTable;
   "helpdesk.conversation_messages": ConversationMessagesTable;
   "helpdesk.notifications": NotificationsTable;
+  "helpdesk.attachments": AttachmentsTable;
   "helpdesk.notification_deliveries": NotificationDeliveriesTable;
   "reto.agents": AgentsView;
 }
@@ -267,5 +289,6 @@ export type IncidentRow = Selectable<IncidentsTable>;
 export type ConversationRow = Selectable<ConversationsTable>;
 export type ConversationMessageRow = Selectable<ConversationMessagesTable>;
 export type NotificationRow = Selectable<NotificationsTable>;
+export type AttachmentRow = Selectable<AttachmentsTable>;
 export type DeliveryRow = Selectable<NotificationDeliveriesTable>;
 export type NewJob = Insertable<JobsTable>;

@@ -69,6 +69,13 @@ export function describeEvent(event: TicketEvent, names: Names): string {
       return `Vinculó el caso al incidente «${str(d.title)}»`;
     case "incident_unlinked":
       return "Desvinculó el caso del incidente";
+    case "attachment_added": {
+      const names = (d.names as string[] | undefined) ?? [];
+      const what = names.length === 1 ? `«${names[0]}»` : `${names.length} archivos`;
+      return d.source === "chat" ? `Adjuntó ${what} desde el chat` : `Adjuntó ${what}`;
+    }
+    case "attachment_removed":
+      return `Retiró «${str(d.name)}»: ${str(d.reason)}`;
     default:
       return event.type;
   }

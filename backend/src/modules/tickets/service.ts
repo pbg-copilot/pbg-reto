@@ -21,6 +21,7 @@ import { AppError, forbidden, notFound } from "../../lib/errors.js";
 import { markRead, recordEvent } from "./events.js";
 import { isOwner } from "./policy.js";
 import * as repo from "./repository.js";
+import { listTicketAttachments } from "../attachments/repository.js";
 import { toComment, toDetail, toSummary } from "./serializers.js";
 import { reopen as reopenTransition, transition } from "./state-machine.js";
 
@@ -45,13 +46,14 @@ export function createTicketService(db: Database) {
       await markRead(db, actor.id, id);
       row.unread = false;
     }
-    const [comments, events, duplicateOf, incident] = await Promise.all([
+    const [comments, events, duplicateOf, incident, attachments] = await Promise.all([
       repo.listComments(db, actor, id),
       repo.listEvents(db, actor, id),
       row.duplicate_of_ticket_id ? repo.findTicketRefById(db, row.duplicate_of_ticket_id) : Promise.resolve(undefined),
       row.incident_id ? repo.findIncident(db, row.incident_id) : Promise.resolve(undefined),
+      listTicketAttachments(db, actor, id),
     ]);
-    return toDetail(row, actor, { comments, events, duplicateOf: duplicateOf ?? null, incident: incident ?? null });
+    return toDetail(row, actor, { comments, events, duplicateOf: duplicateOf ?? null, incident: incident ?? null, attachments });
   }
 
   // Bloquea el ticket visible dentro de la transacción y aplica el control de versión.

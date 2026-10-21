@@ -3,7 +3,7 @@
 Pruebas para recorrer la app a mano, de la más básica a la más completa. Cada
 prueba indica con qué cuenta se hace, los pasos y qué debería pasar.
 
-> Se actualiza al terminar cada spec. Estado al 21 de octubre: 001 a 005 hechas.
+> Se actualiza al terminar cada spec. Estado al 21 de octubre: 001 a 006 hechas.
 
 ## 1. Antes de empezar
 
@@ -171,7 +171,32 @@ unos US$0.0006.
 `GET /notifications/unread-count` y `PATCH /notifications/{id}/read`. Un id de
 notificación de otra persona da 404.
 
-## 8. Dos casos para contar de punta a punta
+## 8. Adjuntos y evidencias (spec 006)
+
+- [ ] **Adjuntar con una respuesta.** Con `agente099`, en un ticket propio, pulsa
+  «Adjuntar archivos» (o arrastra el archivo), escribe la respuesta y envía.
+  - Aparece el toast «Respuesta enviada con 1 adjunto».
+  - La imagen se ve en miniatura debajo del comentario.
+- [ ] **Validación en el navegador.** Prueba con un `.svg` o un archivo de más de 10 MB
+  → mensaje claro y no se sube nada.
+- [ ] **Validación en el servidor.** Renombra un `.html` a `.png` y súbelo → «no es un
+  tipo admitido o su contenido no coincide con la extensión».
+- [ ] **Descarga autorizada.** Copia el enlace de descarga del archivo. Con `agente025`
+  (otra cuenta), pégalo en el navegador → 404.
+- [ ] **Interno.** Con `agente009`, deja una nota interna con un archivo adjunto. Con
+  `agente099` no aparece ni la nota ni el archivo.
+- [ ] **Retirar.** Con `agente009`, usa el ícono de papelera del archivo y escribe el
+  motivo.
+  - El solicitante ve «Evidencia retirada por… · fecha · motivo».
+  - El enlace de descarga deja de funcionar.
+- [ ] **Desde el chat.** En Soporte pulsa «Adjuntar» y elige una captura.
+  - La casilla «Permitir que el asistente lea esta imagen» viene **desmarcada**: sin
+    marcarla, el asistente solo sabe el nombre y el tipo.
+  - Márcala y pregunta «¿qué dice mi captura?» → el asistente describe lo que se ve.
+- [ ] **Al escalar.** Pulsa «Hablar con una persona» → el ticket nuevo tiene la
+  captura en «Evidencias» con la marca «Desde el chat».
+
+## 9. Dos casos para contar de punta a punta
 
 **Caso 1 · Problema conocido, sin ticket (D1).**
 1. `agente099` escribe en Soporte «La tabla de clientes no muestra datos».
@@ -187,13 +212,12 @@ notificación de otra persona da 404.
 2. Pulsa «No, sigue igual» → se crea el ticket con el contexto.
 3. `agente009` lo asigna a `agente105`.
 4. `agente105` lo pasa a En revisión y pide información («¿Qué navegador usas?»).
-5. `agente099` ve la notificación, responde y adjunta una captura (cuando esté la
-   spec 006).
+5. `agente099` ve la notificación, responde y adjunta una captura.
 6. `agente105` cierra el ticket como Resuelto.
 7. `agente099` lo reabre porque volvió a pasar: el historial se conserva y la nota
    interna sigue oculta.
 
-## 9. Problemas comunes
+## 10. Problemas comunes
 
 | Síntoma | Solución |
 | --- | --- |

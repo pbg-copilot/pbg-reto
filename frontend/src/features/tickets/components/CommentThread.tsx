@@ -1,12 +1,23 @@
 import { LockIcon, MessageSquareIcon } from "lucide-react";
-import type { TicketComment } from "@reto/shared";
+import type { Attachment, TicketComment } from "@reto/shared";
+import { AttachmentList } from "@/features/attachments/AttachmentList";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { formatDateTime, formatRelative, initials } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-export function CommentThread({ comments }: { comments: TicketComment[] }) {
+export function CommentThread({
+  comments,
+  attachments = [],
+  ticketId,
+  canRemoveAttachments = false,
+}: {
+  comments: TicketComment[];
+  attachments?: Attachment[];
+  ticketId: string;
+  canRemoveAttachments?: boolean;
+}) {
   if (comments.length === 0)
     return (
       <Empty className="border border-dashed">
@@ -62,6 +73,13 @@ export function CommentThread({ comments }: { comments: TicketComment[] }) {
                 </time>
               </div>
               <p className="text-sm whitespace-pre-wrap">{comment.body}</p>
+              <div className="mt-2 empty:hidden">
+                <AttachmentList
+                  attachments={attachments.filter((attachment) => attachment.comment_id === comment.id)}
+                  ticketId={ticketId}
+                  canRemove={canRemoveAttachments}
+                />
+              </div>
             </div>
           </li>
         );

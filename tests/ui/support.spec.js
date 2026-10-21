@@ -84,3 +84,21 @@ test("D6 / AC-004.14 the model goes down: draft kept, retry, and ticket form", a
   await page.getByRole("button", { name: "Crear ticket con el formulario" }).click();
   await expect(page.getByTestId("ticket-card")).toBeVisible();
 });
+
+test("AC-006.2/11 chat evidence: consent is off by default and the message shows the file", async ({ browser }) => {
+  test.setTimeout(90_000);
+  const png = Buffer.from(
+    "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d4944415478da63f8ffff3f0005fe02fea7d9a2fc0000000049454e44ae426082",
+    "hex",
+  );
+  const page = await pageAs(browser, "agente048");
+  await page.goto("/soporte");
+  await page.getByTestId("chat-file-input").setInputFiles({ name: "pantalla.png", mimeType: "image/png", buffer: png });
+  await expect(page.getByRole("list", { name: "Adjuntos para enviar" })).toContainText("pantalla.png");
+  const consent = page.getByRole("checkbox", { name: "Permitir que el asistente lea esta imagen" });
+  await expect(consent).not.toBeChecked();
+  await ask(page, "Me aparece esta pantalla al entrar al tablero");
+  const sent = page.getByRole("list", { name: "Adjuntos del mensaje" });
+  await expect(sent).toContainText("pantalla.png", { timeout: 60_000 });
+  await expect(sent).not.toContainText("Compartida con el asistente");
+});

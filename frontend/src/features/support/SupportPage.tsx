@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent, type KeyboardEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { LifeBuoyIcon, MessageSquarePlusIcon, SendIcon, TicketIcon, UserRoundIcon } from "lucide-react";
-import type { ChatMessage, Conversation } from "@reto/shared";
+import { checkFileBeforeUpload, isImageMime, type ChatAttachment, type ChatMessage, type Conversation } from "@reto/shared";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
@@ -28,6 +28,9 @@ import { cn } from "@/lib/utils";
 import { NotFoundPage } from "@/features/errors/NotFoundPage";
 import { useConversation, useConversations, useCreateConversation, useEscalate, useResolution, useSendMessage } from "./api";
 import { ChatMessageView } from "./components/ChatMessages";
+import { AttachButton, StagedAttachments } from "./components/ChatAttachments";
+import { UploadProgress } from "@/features/attachments/FilePicker";
+import { uploadChatAttachments } from "@/features/attachments/api";
 
 export function SupportPage() {
   const { id } = useParams();
@@ -118,8 +121,14 @@ function ChatPanel({ conversation, onCreated }: { conversation?: Conversation; o
   const [draft, setDraft] = useState("");
   const [pendingText, setPendingText] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
+  // Evidencias ya subidas a la conversación que viajan con el próximo mensaje.
+  const uploadKey = useIdempotencyKey();
+  const [staged, setStaged] = useState<ChatAttachment[]>([]);
+  const [shareImages, setShareImages] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
-  const busy = createConversation.isPending || send.isPending || resolution.isPending || escalate.isPending;
+  const busy = createConversation.isPending || send.isPending || resolution.isPending || escalate.isPending || uploadProgress !== null;
   useEffect(() => {
     if (!busy) return;
     const started = Date.now();
@@ -144,23 +153,53 @@ function ChatPanel({ conversation, onCreated }: { conversation?: Conversation; o
       ? lastAssistant
       : undefined;
 
+  async function ensureConversation() {
+    if (conversation?.id) return conversation.id;
+    const id = (await createConversation.mutateAsync(conversationKey.current())).id;
+    conversationKey.reset();
+    onCreated(id);
+    navigate(`/soporte/c/${id}`, { replace: true });
+    return id;
+  }
+
+  async function pickFiles(files: File[]) {
+    const problem = files.map(checkFileBeforeUpload).find(Boolean);
+    if (problem) return setUploadError(problem);
+    if (staged.length + files.length > 5) return setUploadError("Puedes adjuntar hasta 5 archivos por mensaje.");
+    setUploadError(null);
+    setUploadProgress(0);
+    try {
+      const id = await ensureConversation();
+      const { attachments } = await uploadChatAttachments(id, files, uploadKey.current(), setUploadProgress);
+      uploadKey.reset();
+      setStaged((current) => [...current, ...attachments]);
+    } catch (error) {
+      uploadKey.reset();
+      setUploadError(error instanceof Error ? error.message : "No pudimos subir los archivos.");
+    } finally {
+      setUploadProgress(null);
+    }
+  }
+
   async function submit(event?: FormEvent) {
     event?.preventDefault();
     const text = draft.trim();
     if (!text || busy) return;
     setPendingText(text);
     try {
-      let id = conversation?.id;
-      if (!id) {
-        id = (await createConversation.mutateAsync(conversationKey.current())).id;
-        conversationKey.reset();
-        onCreated(id);
-        navigate(`/soporte/c/${id}`, { replace: true });
-      }
+      const id = await ensureConversation();
       // Misma clave en el reintento: el mensaje no se duplica.
-      await send.mutateAsync({ id, text, idempotencyKey: sendKey.current() });
+      await send.mutateAsync({
+        id,
+        text,
+        attachmentIds: staged.map((attachment) => attachment.id),
+        shareImages: shareImages && staged.some((attachment) => isImageMime(attachment.mime_type)),
+        idempotencyKey: sendKey.current(),
+      });
       sendKey.reset();
       setDraft("");
+      setStaged([]);
+      setShareImages(false);
     } catch {
       // El borrador se conserva; el error se muestra abajo con opción de reintentar.
     } finally {
@@ -321,8 +360,22 @@ function ChatPanel({ conversation, onCreated }: { conversation?: Conversation; o
                 disabled={busy}
               />
             </Field>
+            <StagedAttachments
+              attachments={staged}
+              onRemove={(id) => setStaged((current) => current.filter((attachment) => attachment.id !== id))}
+              share={shareImages}
+              onShareChange={setShareImages}
+              disabled={busy}
+            />
+            <UploadProgress value={uploadProgress} />
+            {uploadError && (
+              <p role="alert" className="text-xs text-destructive">
+                {uploadError}
+              </p>
+            )}
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap gap-2">
+                <AttachButton onPick={(files) => void pickFiles(files)} disabled={busy} />
                 {conversation && messages.some((m) => m.role === "user") && (
                   <Button type="button" size="sm" variant="outline" onClick={talkToHuman} disabled={busy}>
                     <UserRoundIcon data-icon="inline-start" aria-hidden="true" />

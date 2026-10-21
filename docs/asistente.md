@@ -54,9 +54,12 @@ dato.
 - El texto de los artículos publicados que se consultan.
 - Los tickets propios que consulta: número, título, estado, fecha de actualización y enlace.
 
+- De los adjuntos del chat: nombre, tipo y tamaño. La imagen solo llega si la persona
+  marca «Permitir que el asistente lea esta imagen». Desde ahí se reenvía igual en los
+  turnos siguientes, porque el historial no se edita.
+
 Nunca recibe nombres, correos, notas internas, adjuntos internos ni datos de otras
-cuentas. Las capturas de pantalla llegan solo con consentimiento y solo en ese
-mensaje (spec 006).
+cuentas.
 
 ## Riesgos y cómo se cubren
 

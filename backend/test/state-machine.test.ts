@@ -59,8 +59,10 @@ describe("permission matrix", () => {
       can_assign: false,
       can_edit_attributes: false,
       can_request_info: false,
+      can_attach: true,
+      can_remove_attachments: false,
     });
-    expect(permissionsFor(owner, closed)).toMatchObject({ can_comment: false, can_reopen: true });
+    expect(permissionsFor(owner, closed)).toMatchObject({ can_comment: false, can_reopen: true, can_attach: false });
   });
 
   it("gives nothing to another requester, even an agency owner", () => {

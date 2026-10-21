@@ -209,3 +209,48 @@ test("assign to me shows a toast with undo; on mobile the actions come before th
   await expect(admin.getByLabel("Buscar administrador")).toBeVisible();
   expect(await admin.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
+
+// 1×1 PNG real para las pruebas de adjuntos.
+const PNG = Buffer.from(
+  "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d4944415478da63f8ffff3f0005fe02fea7d9a2fc0000000049454e44ae426082",
+  "hex",
+);
+
+test("AC-006.1/4/5/7/9 evidence on a reply: preview, authorized download, client validation and removal", async ({ browser }) => {
+  const requester = await newContextPage(browser, "agente048");
+  const id = await createTicket(requester, `${PREFIX} adjuntos`);
+
+  // Validación en el cliente antes de subir: un SVG no se acepta.
+  await requester.getByTestId("file-input").setInputFiles({ name: "logo.svg", mimeType: "image/svg+xml", buffer: Buffer.from("<svg/>") });
+  await expect(requester.getByRole("alert").filter({ hasText: "no es un tipo admitido" })).toBeVisible();
+
+  await requester.getByTestId("file-input").setInputFiles({ name: "captura.png", mimeType: "image/png", buffer: PNG });
+  await expect(requester.getByRole("list", { name: "Archivos para adjuntar" })).toContainText("captura.png");
+  await requester.getByLabel("Escribe una respuesta").fill("Adjunto la captura del error.");
+  await requester.getByRole("button", { name: "Enviar" }).click();
+  await expect(requester.getByTestId("toast").filter({ hasText: "Respuesta enviada con 1 adjunto" })).toBeVisible();
+  const item = requester.getByTestId("attachment").filter({ hasText: "captura.png" });
+  await expect(item).toContainText("Imagen PNG");
+  // La miniatura carga por el endpoint autorizado (mismo origen).
+  await expect(item.locator("img")).toHaveJSProperty("complete", true);
+  expect(await item.locator("img").evaluate((img) => img.naturalWidth)).toBe(1);
+  const href = await item.getByRole("link", { name: "Descargar captura.png" }).first().getAttribute("href");
+  const download = await requester.request.get(href);
+  expect(download.status()).toBe(200);
+  expect(download.headers()["content-type"]).toBe("image/png");
+
+  // Otro solicitante no puede descargarlo.
+  const outsider = await newContextPage(browser, "agente049");
+  expect((await outsider.request.get(href)).status()).toBe(404);
+
+  // El admin lo retira con motivo y queda la traza.
+  const admin = await newContextPage(browser, "agente015");
+  await admin.goto(`/tickets/${id}`);
+  await admin.getByRole("button", { name: "Retirar captura.png" }).click();
+  await admin.getByLabel("Motivo").fill("Contiene datos personales");
+  await admin.getByRole("dialog").getByRole("button", { name: "Retirar" }).click();
+  await expect(admin.getByText("Evidencia retirada").first()).toBeVisible();
+  await requester.reload();
+  await expect(requester.getByText("Motivo: Contiene datos personales")).toBeVisible();
+  expect((await requester.request.get(href)).status()).toBe(404);
+});

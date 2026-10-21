@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { paginatedSchema, paginationQuerySchema } from "./pagination.js";
 import { INCIDENT_STATUSES } from "./articles.js";
+import { attachmentSchema } from "./attachments.js";
 
 // Dominio de tickets (specs/000-overview/domain.md). Códigos en inglés, etiquetas en español.
 
@@ -191,6 +192,8 @@ export const ticketPermissionsSchema = z.object({
   can_assign: z.boolean(),
   can_edit_attributes: z.boolean(),
   can_request_info: z.boolean().describe("El equipo pide información a otra persona (no al propio solicitante admin)"),
+  can_attach: z.boolean().describe("Adjuntar evidencias públicas (el equipo puede adjuntar internas aunque esté cerrado)"),
+  can_remove_attachments: z.boolean(),
 });
 export type TicketPermissions = z.infer<typeof ticketPermissionsSchema>;
 
@@ -210,6 +213,8 @@ export const ticketDetailSchema = ticketSummarySchema.extend({
   comments: z.array(commentSchema),
   events: z.array(ticketEventSchema),
   permissions: ticketPermissionsSchema,
+  // Visibles para el actor: el solicitante nunca recibe los internos (D4).
+  attachments: z.array(attachmentSchema),
   // Solo para administradores.
   tags: z.array(z.string()).optional(),
 });

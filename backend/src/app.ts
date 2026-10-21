@@ -1,6 +1,7 @@
 import Fastify, { type FastifyServerOptions } from "fastify";
 import cookie from "@fastify/cookie";
 import rateLimit from "@fastify/rate-limit";
+import multipart from "@fastify/multipart";
 import {
   serializerCompiler,
   validatorCompiler,
@@ -28,6 +29,10 @@ import notificationRoutes from "./modules/notifications/routes.js";
 import { createNotificationService } from "./modules/notifications/service.js";
 import { createNotificationListener } from "./modules/notifications/listener.js";
 import { onTicketEvent } from "./modules/tickets/events.js";
+import attachmentRoutes from "./modules/attachments/routes.js";
+import { createAttachmentService } from "./modules/attachments/service.js";
+import { createS3Storage, type AttachmentStorage } from "./modules/attachments/storage.js";
+import { createS3Client } from "./infra/s3.js";
 
 export type BuildAppOptions = {
   env: Env;
@@ -35,6 +40,8 @@ export type BuildAppOptions = {
   logger?: FastifyServerOptions["logger"];
   // Los tests inyectan un proveedor (por ejemplo, el fake o uno que siempre falla).
   provider?: AssistantProvider;
+  // Bucket de adjuntos; por defecto el S3 de la configuración.
+  storage?: AttachmentStorage;
 };
 
 declare module "fastify" {
@@ -45,7 +52,7 @@ declare module "fastify" {
 }
 
 // Factory de la API. Los tests la usan con app.inject() sin levantar puertos.
-export async function buildApp({ env, db, logger = false, provider }: BuildAppOptions) {
+export async function buildApp({ env, db, logger = false, provider, storage }: BuildAppOptions) {
   const app = Fastify({ logger, bodyLimit: 16384 }).withTypeProvider<ZodTypeProvider>();
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
@@ -56,6 +63,10 @@ export async function buildApp({ env, db, logger = false, provider }: BuildAppOp
   await app.register(securityPlugin, { allowedOrigins: env.APP_ORIGIN });
   await app.register(cookie);
   await app.register(rateLimit, { global: false });
+  // Límites de la política de archivos (spec 006). Cada archivo se lee a memoria acotado.
+  await app.register(multipart, {
+    limits: { fileSize: env.UPLOAD_MAX_BYTES, files: env.UPLOAD_MAX_FILES, fields: 5, fieldSize: 200, parts: env.UPLOAD_MAX_FILES + 5 },
+  });
   await app.register(authPlugin);
   await app.register(idempotencyPlugin, { db });
   await app.register(swaggerPlugin);
@@ -72,8 +83,14 @@ export async function buildApp({ env, db, logger = false, provider }: BuildAppOp
   const tickets = createTicketService(db);
   await app.register(ticketRoutes, { service: tickets });
   await app.register(articleRoutes, { service: createArticleService(db) });
+  const files = storage ?? createS3Storage(createS3Client(env), env.S3_BUCKET);
   await app.register(conversationRoutes, {
-    service: createConversationService({ db, env, tickets, provider: provider ?? createProvider(env) }),
+    service: createConversationService({ db, env, tickets, provider: provider ?? createProvider(env), storage: files }),
+  });
+  await app.register(attachmentRoutes, {
+    service: createAttachmentService({ db, storage: files }),
+    maxBytes: env.UPLOAD_MAX_BYTES,
+    maxFiles: env.UPLOAD_MAX_FILES,
   });
   await app.register(notificationRoutes, { service: createNotificationService(db) });
 

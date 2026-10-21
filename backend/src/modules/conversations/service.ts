@@ -1,8 +1,14 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { sql, type Transaction } from "kysely";
 import {
+  AI_IMAGE_MAX_BYTES,
+  attachmentTypeLabel,
   displayNumber,
+  formatBytes,
   isAdmin,
+  isImageMime,
+  type AttachmentMime,
+  type ChatAttachment,
   listTicketsQuerySchema,
   type Agent,
   type ArticleRef,
@@ -25,6 +31,9 @@ import { mentionedTicketNumbers, redactSecrets, sanitizeTicketMentions } from ".
 import { runTurn, type NewMessage } from "../assistant/orchestrator.js";
 import { AssistantUnavailableError, type AssistantProvider } from "../assistant/provider.js";
 import type { EscalationInput, TurnState } from "../assistant/tools.js";
+import { attachmentsByMessage, toChatAttachment } from "../attachments/repository.js";
+import type { AttachmentStorage } from "../attachments/storage.js";
+import { recordEvent } from "../tickets/events.js";
 
 const conversationNotFound = () => notFound("No encontramos esta conversación.");
 const iso = (value: Date | string) => new Date(value).toISOString();
@@ -32,9 +41,17 @@ const iso = (value: Date | string) => new Date(value).toISOString();
 const UNAVAILABLE_TEXT =
   "El asistente no está disponible en este momento. Tu mensaje quedó guardado: puedes reintentar o crear un ticket con lo que ya contaste.";
 
-type Deps = { db: Database; env: Env; provider: AssistantProvider; tickets: TicketService };
+type Deps = { db: Database; env: Env; provider: AssistantProvider; tickets: TicketService; storage: AttachmentStorage };
 
-export function createConversationService({ db, env, provider, tickets }: Deps) {
+// Marcador de una imagen compartida con el asistente (AC-006.12). En la base se guarda solo el
+// id; al armar el historial se convierte en un bloque image leído del bucket. Así el historial
+// que ve el modelo es siempre el mismo (append-only, requisito del thinking de Haiku 5.5) y el
+// binario no se guarda en PostgreSQL.
+type ImageMarker = { type: "attachment_image"; attachment_id: string };
+const isImageMarker = (block: unknown): block is ImageMarker =>
+  typeof block === "object" && block !== null && (block as { type?: unknown }).type === "attachment_image";
+
+export function createConversationService({ db, env, provider, tickets, storage }: Deps) {
   // ---------- Lectura ----------
 
   async function ticketRefFor(ticketId: string | null): Promise<TicketRef | null> {
@@ -82,7 +99,8 @@ export function createConversationService({ db, env, provider, tickets }: Deps) 
       .where("visible", "=", true)
       .orderBy("seq")
       .execute();
-    return rows.map(toChatMessage);
+    const attachments = await attachmentsByMessage(db, rows.map((row) => row.id));
+    return rows.map((row) => toChatMessage(row, attachments.get(row.id)));
   }
 
   // Historial para el modelo: append-only, tal cual se guardó (incluye thinking y tool_result).
@@ -94,7 +112,57 @@ export function createConversationService({ db, env, provider, tickets }: Deps) 
       .where("kind", "in", ["message", "tool_result", "resolution_feedback"])
       .orderBy("seq")
       .execute();
-    return rows.map((row) => ({ role: row.role, content: row.content as Anthropic.ContentBlockParam[] }));
+    const blocks = rows.flatMap((row) => row.content as unknown[]);
+    const images = await loadSharedImages(blocks.filter(isImageMarker).map((marker) => marker.attachment_id));
+    return rows.map((row) => ({
+      role: row.role,
+      content: (row.content as unknown[]).map((block) =>
+        isImageMarker(block)
+          ? (images.get(block.attachment_id) ?? { type: "text", text: "[La imagen compartida ya no está disponible]" })
+          : block,
+      ) as Anthropic.ContentBlockParam[],
+    }));
+  }
+
+  async function loadSharedImages(ids: string[]) {
+    const map = new Map<string, Anthropic.ImageBlockParam>();
+    if (ids.length === 0) return map;
+    const rows = await db
+      .selectFrom("helpdesk.attachments")
+      .select(["id", "mime_type", "storage_key"])
+      .where("id", "in", ids)
+      .where("status", "=", "active")
+      .execute();
+    await Promise.all(
+      rows.map(async (row) => {
+        try {
+          const data = (await storage.getBuffer(row.storage_key)).toString("base64");
+          map.set(row.id, { type: "image", source: { type: "base64", media_type: row.mime_type as "image/png", data } });
+        } catch {
+          // Sin la imagen el turno sigue con el texto de reemplazo.
+        }
+      }),
+    );
+    return map;
+  }
+
+  // Adjuntos subidos a la conversación que se envían con este mensaje. Un reintento con la misma
+  // clave reutiliza los que ya quedaron vinculados a su mensaje.
+  async function attachmentsForMessage(actor: Agent, conversationId: string, ids: string[], clientMessageId: string) {
+    if (ids.length === 0) return [];
+    const rows = await db
+      .selectFrom("helpdesk.attachments as f")
+      .leftJoin("helpdesk.conversation_messages as m", "m.id", "f.message_id")
+      .selectAll("f")
+      .where("f.id", "in", ids)
+      .where("f.conversation_id", "=", conversationId)
+      .where("f.uploader_id", "=", actor.id)
+      .where("f.status", "=", "active")
+      .where((eb) => eb.or([eb("f.message_id", "is", null), eb("m.client_message_id", "=", clientMessageId)]))
+      .execute();
+    if (rows.length !== new Set(ids).size)
+      throw new AppError(400, "invalid_request", "Uno de los adjuntos no es válido o ya se envió en otro mensaje.");
+    return rows;
   }
 
   // ---------- Escritura ----------
@@ -196,6 +264,23 @@ export function createConversationService({ db, env, provider, tickets }: Deps) 
         .set({ status: "escalated", ticket_id: ticket.id, updated_at: sql`now()` })
         .where("id", "=", conversationId)
         .execute();
+      // Las evidencias del chat pasan al ticket en la misma transacción (AC-006.2).
+      const moved = await trx
+        .updateTable("helpdesk.attachments")
+        .set({ ticket_id: ticket.id })
+        .where("conversation_id", "=", conversationId)
+        .where("ticket_id", "is", null)
+        .where("status", "=", "active")
+        .returning(["id", "original_name"])
+        .execute();
+      if (moved.length)
+        await recordEvent(trx, {
+          ticket,
+          type: "attachment_added",
+          visibility: "public",
+          actorId: actor.id,
+          data: { attachment_ids: moved.map((f) => f.id), names: moved.map((f) => f.original_name), source: "chat" },
+        });
       return toTicketRef(ticket);
     });
   }
@@ -315,13 +400,29 @@ export function createConversationService({ db, env, provider, tickets }: Deps) 
       return { ...(await toState(row, actor)), messages: await visibleMessages(id) };
     },
 
-    async sendMessage(actor: Agent, id: string, rawText: string, clientMessageId: string): Promise<TurnResponse> {
+    async sendMessage(
+      actor: Agent,
+      id: string,
+      rawText: string,
+      clientMessageId: string,
+      options: { attachmentIds?: string[]; shareImagesWithAi?: boolean } = {},
+    ): Promise<TurnResponse> {
       const conversation = await findOwned(actor, id);
       if (conversation.status === "escalated")
         throw new AppError(409, "conversation_already_escalated", "Esta conversación ya tiene un ticket. Sigue el caso desde el ticket.", {
           ticket: await ticketRefFor(conversation.ticket_id),
         });
       const { text, redacted } = redactSecrets(rawText);
+      const files = await attachmentsForMessage(actor, id, options.attachmentIds ?? [], clientMessageId);
+      // Visión con consentimiento (AC-006.11/12): solo imágenes de este chat, hasta 5 MB.
+      const shared = options.shareImagesWithAi ? files.filter((f) => isImageMime(f.mime_type) && Number(f.size_bytes) <= AI_IMAGE_MAX_BYTES) : [];
+      // Sin consentimiento, al modelo solo le llegan los metadatos (AC-006.8).
+      const note = files.length
+        ? `\n\n[Adjuntos de la persona: ${files
+            .map((f) => `${f.original_name} (${attachmentTypeLabel[f.mime_type as AttachmentMime]}, ${formatBytes(Number(f.size_bytes))})`)
+            .join("; ")}. ${shared.length ? "Las imágenes compartidas van en este mensaje." : "Su contenido no se comparte con el asistente."}]`
+        : "";
+      const content = [...shared.map((f): ImageMarker => ({ type: "attachment_image", attachment_id: f.id })), { type: "text", text: text + note }];
       // El mensaje se guarda antes de llamar al modelo. Un reintento con la misma clave lo reutiliza.
       await db
         .insertInto("helpdesk.conversation_messages")
@@ -329,7 +430,7 @@ export function createConversationService({ db, env, provider, tickets }: Deps) 
           conversation_id: id,
           role: "user",
           kind: "message",
-          content: JSON.stringify([{ type: "text", text }]),
+          content: JSON.stringify(content),
           display_text: text,
           visible: true,
           client_message_id: clientMessageId,
@@ -342,9 +443,19 @@ export function createConversationService({ db, env, provider, tickets }: Deps) 
         .onConflict((oc) => oc.columns(["conversation_id", "client_message_id"]).doNothing())
         .execute();
       const userRow = await db.selectFrom("helpdesk.conversation_messages").selectAll().where("conversation_id", "=", id).where("client_message_id", "=", clientMessageId).executeTakeFirstOrThrow();
+      if (files.length) {
+        await db.updateTable("helpdesk.attachments").set({ message_id: userRow.id }).where("id", "in", files.map((f) => f.id)).execute();
+        if (shared.length)
+          await db
+            .updateTable("helpdesk.attachments")
+            .set({ shared_with_ai_at: sql`coalesce(shared_with_ai_at, now())` })
+            .where("id", "in", shared.map((f) => f.id))
+            .execute();
+      }
+      const sentFiles = files.map((f) => toChatAttachment({ ...f, shared_with_ai_at: shared.some((s) => s.id === f.id) ? new Date() : f.shared_with_ai_at }));
       await touch(db, id, { status: "active", ...(conversation.title ? {} : { title: text.slice(0, 80) }) });
       const turn = await assistantTurn(actor, { ...conversation, status: "active" });
-      return response(actor, id, toChatMessage(userRow), turn);
+      return response(actor, id, toChatMessage(userRow, sentFiles), turn);
     },
 
     // "¿Se resolvió?": Sí cierra la conversación sin ticket; No registra el paso y, al segundo
@@ -445,7 +556,7 @@ export function toTicketRef(row: { id: string; number: number; title: string; st
 export const ticketConfirmation = (ticket: TicketRef) =>
   `Creé el ticket ${ticket.display_number} para que una persona del equipo de soporte lo revise. Te avisaremos de cada avance; puedes seguirlo en «Mis tickets».`;
 
-function toChatMessage(row: ConversationMessageRow): ChatMessage {
+function toChatMessage(row: ConversationMessageRow, attachments: ChatAttachment[] = []): ChatMessage {
   const meta = row.meta as { notice?: ChatMessage["notice"] };
   return {
     id: row.id,
@@ -455,6 +566,7 @@ function toChatMessage(row: ConversationMessageRow): ChatMessage {
     article_refs: row.article_refs as ArticleRef[],
     ticket_ref: (row.ticket_ref as TicketRef | null) ?? null,
     notice: meta.notice ?? null,
+    attachments,
     created_at: iso(row.created_at),
   };
 }

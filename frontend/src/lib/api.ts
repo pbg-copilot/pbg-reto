@@ -66,3 +66,39 @@ function safeJson(text: string): unknown {
     return undefined;
   }
 }
+
+// Subida multipart con progreso. fetch no informa el progreso de subida, así que es la
+// única llamada con XMLHttpRequest; mismos errores tipados y misma Idempotency-Key.
+export function apiUpload<T>(
+  path: string,
+  files: File[],
+  options: { fields?: Record<string, string>; idempotencyKey: string; onProgress?: (fraction: number) => void; signal?: AbortSignal },
+): Promise<T> {
+  const form = new FormData();
+  // Los campos van antes que los archivos: el servidor los lee en orden.
+  for (const [name, value] of Object.entries(options.fields ?? {})) form.append(name, value);
+  for (const file of files) form.append("files", file, file.name);
+
+  return new Promise<T>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `/api${path}`);
+    xhr.withCredentials = true;
+    xhr.setRequestHeader("Idempotency-Key", options.idempotencyKey);
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) options.onProgress?.(event.loaded / event.total);
+    };
+    xhr.onload = () => {
+      const data = xhr.responseText ? safeJson(xhr.responseText) : undefined;
+      if (xhr.status >= 200 && xhr.status < 300) return resolve(data as T);
+      const body = (data ?? {}) as Partial<ApiErrorBody>;
+      // nginx corta antes de llegar a la API si el envío completo es demasiado grande.
+      if (xhr.status === 413 && !body.error)
+        return reject(new ApiError(413, "file_too_large", "Los archivos son demasiado grandes. El máximo es 10 MB por archivo."));
+      reject(new ApiError(xhr.status, body.error ?? "internal_error", body.message ?? "No fue posible subir los archivos.", body.details));
+    };
+    xhr.onerror = () => reject(new ApiError(0, "network_error", NETWORK_ERROR));
+    options.signal?.addEventListener("abort", () => xhr.abort());
+    xhr.onabort = () => reject(new DOMException("Aborted", "AbortError"));
+    xhr.send(form);
+  });
+}

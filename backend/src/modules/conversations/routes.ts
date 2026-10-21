@@ -73,7 +73,11 @@ const conversationRoutes: FastifyPluginAsyncZod<{ service: ConversationService }
         response: { 200: turnResponseSchema, ...errors, 409: apiErrorSchema, 503: apiErrorSchema },
       },
     },
-    async (request) => service.sendMessage(request.actor!, request.params.id, request.body.text, request.idempotency!.key),
+    async (request) =>
+      service.sendMessage(request.actor!, request.params.id, request.body.text, request.idempotency!.key, {
+        attachmentIds: request.body.attachment_ids,
+        shareImagesWithAi: request.body.share_images_with_ai,
+      }),
   );
 
   app.post(

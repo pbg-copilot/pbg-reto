@@ -26,7 +26,7 @@ let migrated = false;
 
 export async function buildTestApp(
   configure?: (app: App) => void | Promise<void>,
-  options: Pick<BuildAppOptions, "provider"> = {},
+  options: Pick<BuildAppOptions, "provider" | "storage"> = {},
 ) {
   if (!migrated) {
     await migrateToLatest(db, silentLog);

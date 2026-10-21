@@ -42,8 +42,13 @@ function useTurn<TVariables>(mutationFn: (variables: TVariables) => Promise<Turn
 }
 
 export const useSendMessage = () =>
-  useTurn(({ id, text, idempotencyKey }: { id: string; text: string; idempotencyKey: string }) =>
-    api<TurnResponse>(`/support/conversations/${id}/messages`, { method: "POST", body: { text }, idempotencyKey }),
+  useTurn(
+    ({ id, text, attachmentIds = [], shareImages = false, idempotencyKey }: { id: string; text: string; attachmentIds?: string[]; shareImages?: boolean; idempotencyKey: string }) =>
+      api<TurnResponse>(`/support/conversations/${id}/messages`, {
+        method: "POST",
+        body: { text, attachment_ids: attachmentIds, share_images_with_ai: shareImages },
+        idempotencyKey,
+      }),
   );
 
 export const useResolution = () =>

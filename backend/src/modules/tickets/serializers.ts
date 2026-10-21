@@ -70,6 +70,7 @@ export function toDetail(
     events: EventWithActor[];
     duplicateOf: { id: string; number: number } | null;
     incident: TicketDetail["incident"];
+    attachments: TicketDetail["attachments"];
   },
 ): TicketDetail {
   return {
@@ -91,6 +92,7 @@ export function toDetail(
     comments: parts.comments.map((comment) => toComment(comment, row.requester_id)),
     events: parts.events.map(toEvent),
     permissions: permissionsFor(actor, row),
+    attachments: parts.attachments,
     ...(isAdmin(actor) ? { tags: row.tags } : {}),
   };
 }

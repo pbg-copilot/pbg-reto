@@ -52,6 +52,17 @@ export const ticketRefSchema = z.object({
 });
 export type TicketRef = z.infer<typeof ticketRefSchema>;
 
+// Adjunto de un mensaje del chat: solo metadatos y la ruta autorizada.
+export const chatAttachmentSchema = z.object({
+  id: z.string(),
+  original_name: z.string(),
+  mime_type: z.string(),
+  size_bytes: z.number().int(),
+  shared_with_ai: z.boolean(),
+  download_url: z.string(),
+});
+export type ChatAttachment = z.infer<typeof chatAttachmentSchema>;
+
 export const chatMessageSchema = z.object({
   id: z.string(),
   role: z.enum(["user", "assistant"]),
@@ -61,6 +72,7 @@ export const chatMessageSchema = z.object({
   ticket_ref: ticketRefSchema.nullable(),
   // Avisos del sistema: el asistente no respondió, se ocultó un dato sensible…
   notice: z.enum(["assistant_unavailable", "secret_redacted"]).nullable(),
+  attachments: z.array(chatAttachmentSchema),
   created_at: isoDate,
 });
 export type ChatMessage = z.infer<typeof chatMessageSchema>;
@@ -85,8 +97,13 @@ export const conversationListSchema = z.array(conversationStateSchema);
 
 export const sendMessageBodySchema = z.strictObject({
   text: z.string().trim().min(1).max(4000),
+  // Adjuntos subidos antes a esta conversación (POST /support/conversations/:id/attachments).
+  attachment_ids: z.array(z.uuid()).max(5).default([]),
+  // Visión con consentimiento (AC-006.11): solo si la persona marca la casilla.
+  share_images_with_ai: z.boolean().default(false),
 });
-export type SendMessageBody = z.infer<typeof sendMessageBodySchema>;
+// Tipo de entrada: attachment_ids y share_images_with_ai son opcionales al enviar.
+export type SendMessageBody = z.input<typeof sendMessageBodySchema>;
 
 export const resolutionBodySchema = z.strictObject({
   resolved: z.boolean(),
