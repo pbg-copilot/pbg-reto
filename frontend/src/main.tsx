@@ -9,6 +9,48 @@ type Agent = {
   agency_name: string | null;
   role: string;
 };
+type Conversation = {
+  id: string;
+  title: string | null;
+  status: "active" | "archived";
+  active_client_path: string | null;
+  active_client_record_id: string | null;
+  updated_at: string;
+};
+type Message = {
+  id: string;
+  sequence_no: string;
+  sender_role: "user" | "assistant" | "tool";
+  content: string;
+  created_at: string;
+};
+type Client = {
+  document_path: string;
+  client_record_id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  stage: string | null;
+};
+type ClientProfile = {
+  client: { id: string; name: string | null; email: string | null; phone: string | null; stage: string | null };
+  source: { type: string; document_path: string; client_record_id: string; date: string | null };
+  missing: string[];
+  notes_status: "loaded" | "empty" | "unavailable";
+  notes: Array<{ id: string; index: string; text: { original?: string | null; es?: string | null; en?: string | null }; occurred_at: string | null; source: { document_path: string; client_record_id: string; note_id: string; note_index: string; date: string | null } }>;
+  activity: { status: "loaded" | "partial" | "empty" | "unavailable"; entries: Array<{ call_id: string; note_id: string; occurred_at: string; source: { document_path: string; client_record_id: string; note_id: string; note_index: string; date: string | null } }>; reason?: string | null };
+};
+type QuoteResponse = {
+  quotes_status: "loaded" | "empty";
+  quotes: Array<{ id: string; carrier: string | null; product: string | null; face_amount_cents: string | null; monthly_premium_cents: string | null; annual_premium_cents: string | null; recorded_at: string | null; source: { type: string; table: string; record_id: string; client_record_id: string; date: string | null; match_basis: string } }>;
+  rules: { status: string; reason: string };
+  missing: string[];
+};
+class ApiError extends Error {
+  constructor(message: string, readonly status: number, readonly code: string) { super(message); }
+}
+const dateLabel = (value?: string | null) => value ? new Date(value).toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" }) : "Fecha no disponible";
+const textValue = (value: { original?: string | null; es?: string | null; en?: string | null }) => value.original ?? value.es ?? value.en ?? "Texto no disponible";
 function Arrow() {
   return (
     <svg
@@ -63,16 +105,53 @@ function App() {
     [showPassword, setShowPassword] = useState(false);
   const [username, setUsername] = useState(""),
     [password, setPassword] = useState("");
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState("");
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [messagesHasMore, setMessagesHasMore] = useState(false);
+  const [messagesCursor, setMessagesCursor] = useState<string | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [conversationLoading, setConversationLoading] = useState(false);
+  const [conversationError, setConversationError] = useState("");
+  const [clientQuery, setClientQuery] = useState("");
+  const [clientResults, setClientResults] = useState<Client[]>([]);
+  const [clientSearchLoading, setClientSearchLoading] = useState(false);
+  const [clientError, setClientError] = useState("");
+  const [activeClient, setActiveClient] = useState<Client | null>(null);
+  const [profile, setProfile] = useState<ClientProfile | null>(null);
+  const [quotes, setQuotes] = useState<QuoteResponse | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState("");
+  const [messageDraft, setMessageDraft] = useState("");
+  const [messageBusy, setMessageBusy] = useState(false);
+  const [notice, setNotice] = useState("");
+  const contextRequest = useRef(0);
+  const searchRequest = useRef(0);
+  const activeConversationRef = useRef("");
   const menuRef = useRef<HTMLDivElement>(null),
     buttonRef = useRef<HTMLButtonElement>(null);
+  function clearWorkspace() {
+    contextRequest.current += 1; searchRequest.current += 1;
+    activeConversationRef.current = "";
+    setConversations([]); setActiveConversationId(""); setMessages([]);
+    setMessagesHasMore(false); setMessagesCursor(null); setActiveClient(null);
+    setProfile(null); setQuotes(null); setMessageDraft(""); setClientQuery("");
+    setClientResults([]); setClientError(""); setConversationError("");
+    setDetailError(""); setNotice("");
+    setConversationLoading(false); setHistoryLoading(false); setClientSearchLoading(false);
+    setDetailLoading(false); setMessageBusy(false);
+  }
   async function restore() {
     try {
       const r = await fetch("/auth/me", { credentials: "same-origin" });
       if (r.ok) {
-        setAgent((await r.json()).agent);
+        const restored = (await r.json()).agent as Agent;
+        if (agent && agent.id !== restored.id) clearWorkspace();
+        setAgent(restored);
         setError("");
       } else if (r.status === 401) {
         setAgent(null);
+        clearWorkspace();
       } else {
         setError("No pudimos conectar. Intenta de nuevo.");
       }
@@ -86,7 +165,7 @@ function App() {
     void restore();
   }, []);
   useEffect(() => {
-    document.title = agent ? "RETO · Inicio" : "RETO · Iniciar sesión";
+    document.title = agent ? "RETO · Chat" : "RETO · Iniciar sesión";
   }, [agent]);
   useEffect(() => {
     const close = (e: MouseEvent) => {
@@ -118,6 +197,119 @@ function App() {
       window.removeEventListener("focus", check);
     };
   }, [agent?.id]);
+  async function api<T>(path: string, init?: RequestInit): Promise<T> {
+    const headers = new Headers(init?.headers);
+    if (init?.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+    const response = await fetch(path, {
+      ...init,
+      credentials: "same-origin",
+      headers,
+    });
+    const body = response.status === 204 ? null : await response.json().catch(() => ({}));
+    if (response.status === 401) {
+      setAgent(null);
+      clearWorkspace();
+      setError("Tu sesión venció. Inicia sesión para continuar.");
+      throw new ApiError("Tu sesión venció. Inicia sesión para continuar.", 401, "unauthorized");
+    }
+    if (!response.ok) throw new ApiError(body?.message || "No pudimos completar la solicitud.", response.status, body?.error || "request_failed");
+    return body as T;
+  }
+  async function loadProfile(conversationId: string, requestId = contextRequest.current) {
+    setDetailLoading(true); setDetailError("");
+    setQuotes(null);
+    try {
+      const result = await api<ClientProfile>(`/api/conversations/${conversationId}/client`);
+      if (requestId === contextRequest.current) setProfile(result);
+    } catch (error) {
+      if (requestId !== contextRequest.current) return;
+      if (error instanceof ApiError && error.status === 409 && error.code === "client_not_selected") {
+        setProfile(null); return;
+      }
+      setDetailError(error instanceof Error ? error.message : "No se pudo cargar el expediente.");
+    } finally {
+      if (requestId === contextRequest.current) setDetailLoading(false);
+    }
+  }
+  useEffect(() => {
+    if (!agent) return;
+    let cancelled = false;
+    setConversationError("");
+    api<{ conversations: Conversation[] }>("/api/conversations").then((result) => {
+      if (cancelled) return;
+      setConversations(result.conversations);
+      const current = activeConversationRef.current;
+      const next = current && result.conversations.some((item) => item.id === current) ? current : result.conversations[0]?.id ?? "";
+      activeConversationRef.current = next;
+      setActiveConversationId(next);
+    }).catch((error) => { if (!cancelled && !(error instanceof ApiError && error.status === 401)) setConversationError(error instanceof Error ? error.message : "No se pudieron cargar las conversaciones."); });
+    return () => { cancelled = true; };
+  }, [agent?.id]);
+  useEffect(() => {
+    if (!activeConversationId) {
+      setMessages([]); setMessagesHasMore(false); setMessagesCursor(null); setActiveClient(null); setProfile(null); setQuotes(null); return;
+    }
+    const requestId = ++contextRequest.current;
+    let cancelled = false;
+    setConversationLoading(true); setConversationError(""); setDetailError("");
+    setMessages([]); setMessagesHasMore(false); setMessagesCursor(null); setActiveClient(null); setProfile(null); setQuotes(null);
+    setMessageDraft(""); setNotice("");
+    api<{ conversation: Conversation; messages: Message[]; pagination: { hasMore: boolean; nextBeforeSequence: string | null } }>(`/api/conversations/${activeConversationId}?limit=100`).then(async (history) => {
+      if (cancelled || requestId !== contextRequest.current) return;
+      setMessages(history.messages);
+      setMessagesHasMore(history.pagination.hasMore);
+      setMessagesCursor(history.pagination.nextBeforeSequence);
+      const conversation = history.conversation;
+      setConversations((current) => current.map((item) => item.id === conversation.id ? { ...item, ...conversation } : item));
+      if (conversation.active_client_path && conversation.active_client_record_id) {
+        setActiveClient({ document_path: conversation.active_client_path, client_record_id: conversation.active_client_record_id, name: "Cliente seleccionado", email: null, phone: null, stage: null });
+        await loadProfile(conversation.id, requestId);
+      }
+    }).catch((error) => {
+      if (!cancelled && requestId === contextRequest.current && !(error instanceof ApiError && error.status === 401)) setConversationError(error instanceof Error ? error.message : "No se pudo abrir la conversación.");
+    }).finally(() => { if (!cancelled && requestId === contextRequest.current) setConversationLoading(false); });
+    return () => { cancelled = true; };
+  }, [activeConversationId, agent?.id]);
+  useEffect(() => {
+    const query = clientQuery.trim();
+    const requestId = ++searchRequest.current;
+    if (query.length < 2) { setClientResults([]); setClientSearchLoading(false); setClientError(""); return; }
+    setClientResults([]); setClientError("");
+    const timer = window.setTimeout(() => {
+      setClientSearchLoading(true); setClientError("");
+      api<{ clients: Client[] }>(`/api/clients?q=${encodeURIComponent(query)}&limit=20`).then((result) => {
+        if (requestId === searchRequest.current) setClientResults(result.clients);
+      }).catch((error) => { if (requestId === searchRequest.current && !(error instanceof ApiError && error.status === 401)) setClientError(error instanceof Error ? error.message : "No se pudo buscar."); })
+        .finally(() => { if (requestId === searchRequest.current) setClientSearchLoading(false); });
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [clientQuery, agent?.id]);
+  async function loadOlderMessages() {
+    if (!activeConversationId || !messagesCursor || historyLoading) return;
+    const conversationId = activeConversationId;
+    const requestId = contextRequest.current;
+    setHistoryLoading(true);
+    try {
+      const result = await api<{ messages: Message[]; pagination: { hasMore: boolean; nextBeforeSequence: string | null } }>(`/api/conversations/${conversationId}?limit=100&beforeSequence=${encodeURIComponent(messagesCursor)}`);
+      if (requestId !== contextRequest.current || conversationId !== activeConversationId) return;
+      setMessages((current) => [...result.messages, ...current]);
+      setMessagesHasMore(result.pagination.hasMore);
+      setMessagesCursor(result.pagination.nextBeforeSequence);
+    } catch (e) {
+      if (requestId === contextRequest.current && conversationId === activeConversationRef.current && !(e instanceof ApiError && e.status === 401)) setConversationError(e instanceof Error ? e.message : "No se pudo cargar el historial anterior.");
+    } finally { if (requestId === contextRequest.current && conversationId === activeConversationRef.current) setHistoryLoading(false); }
+  }
+  function activateConversation(conversationId: string) {
+    contextRequest.current += 1;
+    searchRequest.current += 1;
+    activeConversationRef.current = conversationId;
+    setActiveConversationId(conversationId);
+    setMessages([]); setMessagesHasMore(false); setMessagesCursor(null);
+    setHistoryLoading(false);
+    setActiveClient(null); setProfile(null); setQuotes(null);
+    setMessageDraft(""); setNotice(""); setClientQuery("");
+    setClientResults([]); setDetailError(""); setConversationError("");
+  }
   async function login(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -135,6 +327,7 @@ function App() {
         return;
       }
       setAgent(body.agent);
+      clearWorkspace();
       setPassword("");
       setMenu(false);
     } catch {
@@ -153,6 +346,7 @@ function App() {
       });
       if (!r.ok) throw new Error();
       setAgent(null);
+      clearWorkspace();
       setMenu(false);
       setPassword("");
     } catch {
@@ -213,49 +407,40 @@ function App() {
             )}
           </div>
         </header>
-        <main className="home">
-          <div className="home-heading">
-            <span className="eyebrow teal">TU ESPACIO DE TRABAJO</span>
-            <h1>Hola, {agent.name.split(" ")[0]}.</h1>
-            <p>Todo listo para empezar.</p>
-          </div>
-          {error && (
-            <p className="error" role="alert">
-              {error}
-            </p>
-          )}
-          <section className="welcome-card">
-            <div className="card-top">
-              <span className="status-square" />
-              <span>SESIÓN INICIADA</span>
-            </div>
-            <h2>
-              Un espacio para construir
-              <br />
-              lo que sigue.
-            </h2>
-            <p>
-              Tu entorno está preparado. Este es el punto de partida del reto.
-            </p>
-            <div className="workspace-detail">
-              <div>
-                <span className="eyebrow">AGENTE</span>
-                <strong>{agent.name}</strong>
+        <main className="chat-shell">
+          <aside className="conversation-rail" aria-label="Conversaciones">
+            <div className="rail-heading"><div><span className="eyebrow teal">RETO · ASISTENTE</span><h1>Conversaciones</h1></div><button className="new-chat" onClick={async () => { try { const result = await api<{ conversation: Conversation }>("/api/conversations", { method: "POST", body: JSON.stringify({ title: "Nueva conversación" }) }); setConversations((current) => [result.conversation, ...current]); activateConversation(result.conversation.id); } catch (e) { if (!(e instanceof ApiError && e.status === 401)) setConversationError(e instanceof Error ? e.message : "No se pudo crear la conversación."); } }} aria-label="Nueva conversación" title="Nueva conversación">+</button></div>
+            {conversationError && <div className="inline-error" role="alert">{conversationError}</div>}
+            {conversations.length === 0 && !conversationError ? <div className="rail-empty">Aún no tienes conversaciones. Crea una para empezar.</div> : <nav className="conversation-list">{conversations.map((conversation) => <button key={conversation.id} className={`conversation-item ${activeConversationId === conversation.id ? "selected" : ""}`} onClick={() => activateConversation(conversation.id)}><span className="conversation-mark" /><span className="conversation-copy"><strong>{conversation.title || "Conversación"}</strong><small>{conversation.active_client_record_id ? `Cliente · ${conversation.active_client_record_id}` : dateLabel(conversation.updated_at)}</small></span></button>)}</nav>}
+            <div className="rail-foot"><span className="status-square" /> Sesión de {agent.name.split(" ")[0]}</div>
+          </aside>
+          <section className="chat-main" aria-label="Chat y contexto">
+            {!activeConversationId ? <div className="chat-welcome"><span className="welcome-icon">R</span><span className="eyebrow teal">TU ESPACIO DE TRABAJO</span><h2>Hola, {agent.name.split(" ")[0]}.</h2><p>Crea una conversación para consultar expedientes y cotizaciones autorizadas.</p></div> : <>
+              <header className="chat-heading"><div><span className="eyebrow teal">CONVERSACIÓN ACTIVA</span><h2>{conversations.find((item) => item.id === activeConversationId)?.title || "Conversación"}</h2></div><span className={`state-pill ${conversationLoading ? "loading-state" : ""}`}>{conversationLoading ? "Cargando" : "Guardada"}</span></header>
+              {conversationError && <div className="inline-error wide" role="alert">{conversationError}</div>}
+              <div className="chat-feed" aria-live="polite">
+                {conversationLoading && <div className="feed-state"><span className="loader" /> Cargando historial y contexto…</div>}
+                {!conversationLoading && messagesHasMore && <button className="load-older" onClick={() => void loadOlderMessages()} disabled={historyLoading}>{historyLoading ? "Cargando…" : "Cargar mensajes anteriores"}</button>}
+                {!conversationLoading && messages.length === 0 && <div className="feed-state empty-chat"><strong>Esta conversación está lista.</strong><span>Busca un cliente para fijarlo como contexto. El historial y los resultados se mantienen separados por conversación.</span></div>}
+                {messages.map((message) => <article className={`message ${message.sender_role === "user" ? "user-message" : "assistant-message"}`} key={message.id}><div className="message-avatar">{message.sender_role === "user" ? "Tú" : "R"}</div><div className="message-content"><div className="message-meta">{message.sender_role === "user" ? "Tú" : "RETO"}<time>{dateLabel(message.created_at)}</time></div><p>{message.content}</p></div></article>)}
+                {notice && <div className="saved-notice" role="status">{notice}</div>}
               </div>
-              <div>
-                <span className="eyebrow">ORGANIZACIÓN</span>
-                <strong>{agent.agency_name || "Independiente"}</strong>
-              </div>
-              <div>
-                <span className="eyebrow">ENTORNO</span>
-                <strong>Prueba · Copia de PostgreSQL</strong>
-              </div>
-            </div>
+              <form className="composer" onSubmit={async (event) => { event.preventDefault(); const content = messageDraft.trim(); if (!content || !activeConversationId || messageBusy) return; const conversationId = activeConversationId; setMessageBusy(true); setNotice(""); try { const result = await api<{ message: Message }>(`/api/conversations/${conversationId}/messages`, { method: "POST", body: JSON.stringify({ content }) }); if (conversationId === activeConversationRef.current) { setMessages((current) => [...current, result.message]); setMessageDraft(""); setNotice("Mensaje guardado en el historial."); setConversations((current) => current.map((item) => item.id === conversationId ? { ...item, updated_at: result.message.created_at } : item)); } } catch (e) { if (conversationId === activeConversationRef.current && !(e instanceof ApiError && e.status === 401)) setConversationError(e instanceof Error ? e.message : "No se pudo guardar el mensaje."); } finally { setMessageBusy(false); } }}><label htmlFor="message-draft" className="sr-only">Escribe un mensaje</label><textarea id="message-draft" value={messageDraft} onChange={(event) => setMessageDraft(event.target.value)} placeholder="Escribe una nota o pregunta para guardar en esta conversación…" maxLength={12000} rows={2} disabled={conversationLoading || !activeConversationId} /><div className="composer-bottom"><span>Los mensajes se guardan en esta conversación.</span><button type="submit" disabled={!messageDraft.trim() || messageBusy || conversationLoading}>{messageBusy ? "Guardando…" : "Guardar mensaje"}<Arrow /></button></div></form>
+            </>}
           </section>
-          <div className="home-foot">
-            <span>RETO</span>
-            <span>Diseñado para dar el siguiente paso.</span>
-          </div>
+          <aside className="context-panel" aria-label="Cliente y consultas">
+            <div className="panel-section"><span className="eyebrow teal">CONTEXTO DEL EXPEDIENTE</span><h2>Cliente activo</h2>
+              {activeClient ? <div className="active-client"><span className="client-avatar">{(profile?.client.name || activeClient.name).split(" ").slice(0,2).map((part) => part[0]).join("")}</span><div><strong>{profile?.client.name || activeClient.name}</strong><small>ID · {activeClient.client_record_id}</small></div></div> : <p className="muted-copy">Selecciona un cliente para consultar su perfil y sus cotizaciones.</p>}
+              <label className="search-label" htmlFor="client-search">Buscar cliente</label><div className="search-box"><span aria-hidden="true">⌕</span><input id="client-search" value={clientQuery} onChange={(event) => setClientQuery(event.target.value)} placeholder="Nombre, correo o ID" disabled={!activeConversationId} /></div>
+              {clientSearchLoading && <p className="search-hint">Buscando dentro de tu alcance…</p>}{clientError && <div className="inline-error" role="alert">{clientError}</div>}{clientQuery.trim().length > 0 && clientQuery.trim().length < 2 && <p className="search-hint">Escribe al menos 2 caracteres.</p>}{clientResults.length > 0 && <div className="client-results" role="listbox" aria-label="Resultados de clientes">{clientResults.map((client) => <button key={`${client.document_path}#${client.client_record_id}`} role="option" aria-selected={activeClient?.client_record_id === client.client_record_id && activeClient?.document_path === client.document_path} onClick={async () => { const conversationId = activeConversationId; if (!conversationId) return; const requestId = ++contextRequest.current; searchRequest.current += 1; setDetailLoading(true); setClientError(""); setDetailError(""); setQuotes(null); setProfile(null); setActiveClient(client); setClientQuery(""); setClientResults([]); setNotice(""); try { await api(`/api/conversations/${conversationId}/client`, { method: "POST", body: JSON.stringify({ documentPath: client.document_path, clientRecordId: client.client_record_id }) }); if (requestId === contextRequest.current && conversationId === activeConversationRef.current) { setConversations((current) => current.map((item) => item.id === conversationId ? { ...item, active_client_path: client.document_path, active_client_record_id: client.client_record_id } : item)); await loadProfile(conversationId, requestId); } } catch (e) { if (requestId === contextRequest.current) { setActiveClient(null); setProfile(null); if (!(e instanceof ApiError && e.status === 401)) setClientError(e instanceof Error ? e.message : "No se pudo seleccionar el cliente."); } } finally { if (requestId === contextRequest.current) setDetailLoading(false); } }}><strong>{client.name || "Sin nombre"}</strong><small>{client.email || client.client_record_id}</small><span className="result-stage">{client.stage || "Etapa no disponible"}</span></button>)}</div>}{clientQuery.trim().length >= 2 && !clientSearchLoading && !clientError && clientResults.length === 0 && <p className="search-hint">No encontramos clientes dentro de tu alcance.</p>}
+            </div>
+            {activeClient && <div className="panel-section lookup-actions"><span className="eyebrow teal">CONSULTAS DETERMINISTAS</span><div className="action-buttons"><button onClick={() => activeConversationId && void loadProfile(activeConversationId)} disabled={detailLoading || !activeConversationId}>Ver expediente</button><button onClick={async () => { const conversationId = activeConversationId; if (!conversationId) return; const requestId = ++contextRequest.current; setDetailLoading(true); setDetailError(""); setProfile(null); setQuotes(null); try { const response = await api<QuoteResponse>(`/api/conversations/${conversationId}/quotes`); if (requestId === contextRequest.current && conversationId === activeConversationRef.current) setQuotes(response); } catch (e) { if (requestId === contextRequest.current && !(e instanceof ApiError && e.status === 401)) setDetailError(e instanceof Error ? e.message : "No se pudieron consultar las cotizaciones."); } finally { if (requestId === contextRequest.current) setDetailLoading(false); } }} disabled={detailLoading || !activeConversationId}>Ver cotizaciones</button></div><p className="search-hint">Solo se muestran registros autorizados, con su procedencia y datos faltantes.</p></div>}
+            <div className="panel-section results-section"><div className="result-heading"><span className="eyebrow teal">RESULTADO Y FUENTES</span>{detailLoading && <span className="mini-loader" aria-label="Cargando" />}</div>{detailError && <div className="inline-error" role="alert">{detailError}<button onClick={() => activeConversationId && activeClient && void loadProfile(activeConversationId)}>Reintentar</button></div>}{!activeClient && <div className="panel-empty">Elige un cliente para consultar información. Las fuentes aparecerán aquí.</div>}{activeClient && !profile && !quotes && !detailLoading && !detailError && <div className="panel-empty">Usa “Ver expediente” o “Ver cotizaciones”.</div>}
+              {profile && <div className="result-card"><div className="result-card-title"><span className="source-dot" /> Expediente encontrado</div><dl className="profile-fields">{[["Nombre", profile.client.name], ["Correo", profile.client.email], ["Teléfono", profile.client.phone], ["Etapa", profile.client.stage]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value || <span className="missing-value">No consta</span>}</dd></div>)}</dl><div className="source-block"><strong>Fuente</strong><span>{profile.source.document_path}</span><small>Registro {profile.source.client_record_id} · {dateLabel(profile.source.date)}</small></div><div className="missing-block"><strong>Datos faltantes</strong>{profile.missing.length ? <ul>{profile.missing.map((item) => <li key={item}>{item}</li>)}</ul> : <span>No se reportan campos faltantes.</span>}</div><div className="notes-heading"><strong>Notas del expediente</strong><span>{profile.notes_status === "loaded" ? `${profile.notes.length} encontradas` : profile.notes_status === "empty" ? "Sin notas" : "No disponibles"}</span></div>{profile.notes.map((note) => <div className="note-item" key={`${note.id}-${note.index}`}><p>{textValue(note.text)}</p><small>{dateLabel(note.occurred_at)} · Fuente: {note.source.document_path} · nota {note.source.note_id}</small></div>)}{profile.activity.entries.map((entry) => <div className="note-item" key={`${entry.call_id}-${entry.note_id}`}><p>Nota vinculada a llamada {entry.call_id}</p><small>{dateLabel(entry.occurred_at)} · Fuente: {entry.source.document_path} · nota {entry.source.note_id}</small></div>)}{profile.activity.status !== "loaded" && profile.activity.status !== "empty" && profile.activity.reason && <p className="limitation-note">Actividad {profile.activity.status === "partial" ? "parcial" : "no disponible"}: {profile.activity.reason}</p>}</div>}
+              {quotes && <div className="result-card"><div className="result-card-title"><span className={`source-dot ${quotes.quotes_status === "empty" ? "empty-dot" : ""}`} /> Cotizaciones {quotes.quotes_status === "empty" ? "no encontradas" : "registradas"}</div>{quotes.quotes.length === 0 ? <p className="muted-copy">No hay coincidencias exactas para este cliente.</p> : quotes.quotes.map((quote) => <article className="quote-item" key={quote.id}><div className="quote-title"><strong>{quote.carrier || "Aseguradora no disponible"}</strong><small>{quote.product || "Producto no disponible"}</small></div><dl><div><dt>Valor nominal</dt><dd>{quote.face_amount_cents === null ? "No consta" : `$${(Number(quote.face_amount_cents) / 100).toLocaleString("es-CO")}`}</dd></div><div><dt>Prima mensual</dt><dd>{quote.monthly_premium_cents === null ? "No consta" : `$${(Number(quote.monthly_premium_cents) / 100).toLocaleString("es-CO")}`}</dd></div><div><dt>Prima anual</dt><dd>{quote.annual_premium_cents === null ? "No consta" : `$${(Number(quote.annual_premium_cents) / 100).toLocaleString("es-CO")}`}</dd></div></dl><div className="source-block"><strong>Fuente</strong><span>{quote.source.table} · {quote.source.record_id}</span><small>Registro {quote.source.client_record_id} · {dateLabel(quote.source.date)}</small></div></article>)}<div className="missing-block"><strong>Faltantes y limitaciones</strong><ul>{quotes.missing.map((item) => <li key={item}>{item}</li>)}</ul><span>{quotes.rules.reason}</span></div></div>}
+            </div>
+            <div className="panel-foot">Las cotizaciones son instantáneas analíticas; no confirman ofertas vigentes, cobertura ni aprobación.</div>
+          </aside>
         </main>
       </div>
     );

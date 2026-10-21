@@ -48,8 +48,10 @@ Los cuatro dueños conservan `accounts.role = 'agency_owner'`, `accounts.agency_
 y su vínculo en `agencies.owner_account_id`. También se conservan `appeal_officer`,
 `admin`, los roles de asiento y las relaciones de líderes y miembros de equipos.
 `data/test-users.json` enumera los 107 alias, correos, IDs sustituidos y roles.
-La pantalla inicial sigue siendo la base del reto; el dashboard de agencia y los
-reportes se implementarán sobre estos datos.
+La interfaz autenticada ofrece conversaciones persistidas, búsqueda y selección
+de clientes, contexto activo y consultas deterministas de expediente y
+cotizaciones con fuentes y datos faltantes. Los dashboards de agencia y reportes
+siguen fuera del flujo del chat.
 
 ## Datos y estructura
 

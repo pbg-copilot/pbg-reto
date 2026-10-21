@@ -5,6 +5,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/auth": "http://localhost:8008",
+      "/api": "http://localhost:8008",
       "/health": "http://localhost:8008",
     },
   },
