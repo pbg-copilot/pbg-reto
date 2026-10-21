@@ -1,0 +1,130 @@
+# Especificación funcional y técnica — Chat PBG
+
+**Estado:** propuesta derivada de la guía del reto y del simulacro de preparación.  
+**Fecha de referencia:** 20 de octubre de 2026.
+
+## 1. Propósito y alcance
+
+Implementar un asistente conversacional para agentes y agencias de seguros que permita consultar clientes y cotizaciones, identificar información faltante y gestionar citas. Las respuestas y acciones deben respetar los permisos del usuario conectado.
+
+Esta especificación separa los requisitos de `Reto_Chat_PBG.pdf` de las decisiones propuestas durante el simulacro. Los detalles dependientes del esquema local quedan como pendientes de verificación.
+
+### Conversaciones y expedientes
+
+- Crear, guardar, recuperar y seleccionar conversaciones y sus mensajes.
+- Mantener un único cliente activo por conversación. Registrar explícitamente los cambios de cliente.
+- Vincular consultas y evidencia con la conversación y el cliente correspondiente.
+- Al recuperar el historial, comprobar la pertenencia de la conversación al usuario y el acceso actual al cliente.
+- Al cambiar de cliente, cargar nuevamente la evidencia del expediente; nunca reutilizar hechos o cotizaciones del anterior.
+- Mostrar claramente el cliente activo y mantener aislados los contextos.
+
+### Consultas y cotizaciones
+
+- Consultar perfiles, notas, actividad, cotizaciones y citas existentes dentro del alcance autorizado.
+- Mostrar la procedencia de la información (identificador del registro/documento, fecha y cliente asociado).
+- Distinguir hechos registrados, resultados de reglas y datos faltantes.
+- Comparar cotizaciones existentes y explicar qué información falta para continuar.
+- Aplicar solo reglas explícitas, documentadas y versionadas. Si la regla es ausente, no vigente o insuficiente, indicarlo.
+- No inventar precios, coberturas, elegibilidad ni aprobaciones.
+
+### Agenda
+
+- Consultar, crear, modificar y cancelar citas mediante la API autenticada.
+- Antes de guardar, pedir confirmación explícita de cliente, agente, fecha, hora, duración y zona horaria.
+- La confirmación corresponde a esos valores exactos; cualquier cambio requiere nueva confirmación.
+- Convertir la hora local usando la zona IANA elegida. Persistir `start_at`/`end_at` como instantes `timestamptz`, junto con el identificador IANA; opcionalmente conservar hora local y offset resuelto para reconstruir la solicitud.
+- Rechazar horas locales ambiguas o inexistentes por cambio estacional, o pedir que se elija el instante.
+- Evitar cruces de citas por agente con rangos de tiempo y restricción de exclusión GiST (o mecanismo equivalente con garantía transaccional en PostgreSQL).
+- Usar clave de idempotencia única por operación lógica. El reintento con la misma clave devuelve el resultado ya registrado; los conflictos de horario se informan sin reintento ciego.
+
+### Persistencia y trazabilidad
+
+- Persistir conversaciones, mensajes y acciones en PostgreSQL mediante migraciones.
+- Para cada modificación registrar actor, acción, registro afectado, resultado y momento; vincular conversación y clave idempotente cuando aplique.
+- Registrar fuentes usadas para respaldar respuestas, sin tratar las referencias como autorización.
+
+## 2. Permisos y aislamiento
+
+- Derivar identidad y rol de la sesión autenticada. El cliente activo del navegador y el modelo no otorgan permisos.
+- Autorizar cada endpoint y cada llamada a herramienta en backend antes de leer datos o ejecutar cambios.
+- `agent`: sus datos; `agency_owner`: datos autorizados de su agencia; `admin`: alcance definido para ese rol.
+- Resolver alcance desde relaciones de negocio vigentes. No confiar en `role`, `agency_id`, propietario o cliente enviados por navegador o modelo.
+- Incluir alcance explícito en consultas SQL y volver a validarlo dentro de la transacción para las escrituras.
+- Al recuperar conversación comprobar tanto su propietario como el acceso actual al cliente vinculado.
+- Rechazar accesos fuera de alcance sin revelar campos del registro ajeno.
+- Preservar en auditoría el actor y alcance aplicado, sin que el historial conceda acceso retroactivo.
+
+### Pruebas de permisos
+
+- Un agente ve sus clientes, cotizaciones y citas; otro agente recibe rechazo sin datos.
+- Un dueño solo ve recursos autorizados de su agencia.
+- Cambiar IDs de cliente, cotización, cita o agencia en URL, cuerpo o argumentos de herramienta no amplía acceso.
+- Asignaciones múltiples y vencidas se evalúan según la política vigente del proyecto.
+- Probar búsqueda, detalle, historial y modificaciones; verificar código de respuesta y ausencia de nombres, importes, notas u otros datos privados en errores.
+
+## 3. Responsabilidades técnicas
+
+### Backend
+
+- Autenticar y autorizar solicitudes; resolver contexto desde referencias validadas.
+- Recuperar evidencia autorizada conservando su procedencia y aplicar reglas deterministas documentadas.
+- Validar confirmación, disponibilidad y permisos dentro de una transacción de agenda.
+- Persistir conversación, mensajes, claves de idempotencia y auditoría.
+- Producir respuestas estructuradas con evidencia y faltantes.
+
+### Modelo de lenguaje, si se habilita
+
+- Recibir únicamente evidencia y resultados de reglas ya autorizados por el backend.
+- Redactar, resumir y explicar; no acceder directamente a PostgreSQL, decidir permisos ni inferir precios, coberturas o aprobaciones ausentes.
+- Las herramientas son operaciones controladas por backend con esquemas estrictos; todos los argumentos se validan.
+- Ante fallo del proveedor, devolver error controlado sin conjeturas.
+- La versión mínima viable puede ser determinista y no usar un proveedor externo. Si se integra IA, documentar modelo y configuración por variables de entorno; no enviar datos personales a terceros sin autorización específica.
+
+### API y base de datos
+
+- Mantener frontend React/TypeScript y backend Fastify/TypeScript separados mediante API autenticada.
+- Reutilizar login/sesión/logout existentes (`POST /auth/get-toke`, `GET /auth/me`, `POST /auth/logout`).
+- Añadir servicios/endpoints para conversaciones, búsqueda/detalle de clientes, cotizaciones y agenda.
+- Conservar estructura de negocio original y relaciones; añadir tablas mediante migraciones, sin sustituir documentos originales por modelos ficticios.
+- Confirmar campos y estructura real de clientes/cotizaciones antes de definir consultas: el README local indica documentos flexibles en `public.pbg_state_documents`.
+
+## 4. Criterios de aceptación
+
+1. Iniciar sesión y recuperar una conversación guardada.
+2. Seleccionar un cliente permitido y resumir sus datos citando registros de respaldo.
+3. Consultar cotizaciones y explicar datos o reglas faltantes sin inventar resultados.
+4. Agendar cita confirmada y comprobarla en PostgreSQL.
+5. Consultar información de agencia con rol autorizado.
+6. Rechazar acceso a datos de otro agente o agencia.
+7. Manejar sesión vencida, consulta sin resultados y fallo del proveedor de IA.
+8. Evitar cruces y duplicados bajo concurrencia y reintentos.
+
+## 5. Entrega mínima priorizada
+
+1. Conversaciones y mensajes persistidos y recuperables bajo sesión autenticada.
+2. Búsqueda/selección de cliente con autorización por registro.
+3. Resumen de perfil y cotizaciones con fuentes y faltantes.
+4. Agenda transaccional con confirmación, zona horaria, bloqueo de solapamientos, idempotencia y auditoría.
+5. Manejo de errores y demo reproducible con datos locales autorizados.
+6. Integrar IA solo si aporta valor sin debilitar las garantías anteriores.
+
+## 6. Verificación manual de extremo a extremo
+
+1. Iniciar sesión con cuenta local documentada y crear conversación.
+2. Recargar y recuperar conversación y cliente activo.
+3. Seleccionar cliente permitido, consultar perfil/cotizaciones y contrastar IDs de evidencia con PostgreSQL.
+4. Agendar y confirmar cita; comprobar cita y auditoría en PostgreSQL.
+5. Repetir con la misma clave idempotente y comprobar que no hay duplicado; probar un horario en conflicto.
+6. Probar acceso fuera de alcance a cliente, cotización y cita, y comprobar rechazo sin filtración.
+7. Probar sesión vencida, resultado vacío y fallo simulado del proveedor.
+
+La demo no se conecta a producción ni ejecuta llamadas, correos o cobros.
+
+## 7. Pendientes y limitaciones a documentar
+
+- Confirmar cuentas, roles y relaciones en README/base local. La guía adjunta indica 350.217 registros; el README local también indica 350.217 distribuidos y 351.429 en el respaldo. Para el estado local usar la base y README; para los requisitos usar la guía.
+- Inspeccionar esquema de clientes, cotizaciones y citas, incluidas columnas JSON/JSONB y relaciones.
+- Definir alcance exacto del administrador y política de acceso tras cambio de agencia.
+- Confirmar reglas de opciones, responsable y vigencia. Sin reglas verificables no se emiten recomendaciones automáticas.
+- Confirmar horarios laborales, duración por tipo de cita y políticas de cancelación/modificación.
+- Declarar reglas no disponibles, semántica de campos no confirmada, medios binarios externos ausentes y funciones de IA no implementadas/validadas.
