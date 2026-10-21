@@ -3,6 +3,12 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build:backend": "npm --prefix backend run build",
+    "build:frontend": "npm --prefix frontend run build",
+    "check:backend": "npm --prefix backend run check",
+    "check:frontend": "npm --prefix frontend run check",
     "test": "node --test --test-concurrency=1 tests/*.test.mjs",
     "test:ui": "playwright test",
     "check:data": "node --test tests/data.test.mjs"

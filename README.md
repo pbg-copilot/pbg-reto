@@ -28,6 +28,27 @@ Los siguientes arranques conservan los datos y cambios locales.
 Los puertos se publican solo en loopback. Las opciones están en `.env.example`.
 Si se cambia el puerto web o el host, actualizar también `APP_ORIGIN`.
 
+## Organización del código
+
+- `frontend/` contiene la aplicación React y su configuración independiente.
+  `src/main.tsx` solo monta la aplicación; `src/App.tsx` contiene la pantalla,
+  `src/domain.tsx` los tipos y funciones puras de dominio, y `src/ui.tsx` los
+  iconos compartidos.
+- `backend/` contiene la API Fastify, su esquema y migraciones. `src/server.ts`
+  inicializa el servidor y registra rutas; `src/appointment-routes.ts` agrupa
+  los endpoints de agenda. `src/appointment-authorization.ts`,
+  `src/appointment-presenter.ts` y `src/appointment-audit-repository.ts`
+  separan autorización, representación y auditoría de citas. El asistente
+  separa configuración, proveedor, repositorio de evidencia y coordinación en
+  `src/assistant-config.ts`, `src/assistant-provider.ts`,
+  `src/assistant-evidence-repository.ts` y `src/assistant-service.ts`.
+  `src/authorization.ts`, `src/db.ts` y `src/timezones.ts` conservan
+  responsabilidades independientes.
+- Cada servicio tiene su propio `package.json`, TypeScript config y Dockerfile.
+  Desde la raíz se pueden iniciar o compilar por separado con `npm run
+  dev:backend`, `npm run dev:frontend`, `npm run build:backend` y
+  `npm run build:frontend`.
+
 ## Configurar OpenAI para el asistente
 
 La integración usa Chat Completions con el endpoint oficial de OpenAI. Necesitas
