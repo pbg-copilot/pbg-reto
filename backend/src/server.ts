@@ -4,6 +4,14 @@ import rateLimit from "@fastify/rate-limit";
 import { createHash, randomBytes } from "node:crypto";
 import { initializeDatabase, pool } from "./db.js";
 import { checkPassword, hashPassword } from "./passwords.js";
+import {
+  getAuthorizedConversation,
+  listAuthorizedConversations,
+  getAuthorizedAccount,
+  getAuthorizedAgency,
+  resolvePrincipal,
+  type Principal,
+} from "./authorization.js";
 const app = Fastify({
   logger: {
     level: "info",
@@ -15,6 +23,12 @@ const app = Fastify({
   },
   bodyLimit: 16384,
 });
+declare module "fastify" {
+  interface FastifyRequest {
+    principal: Principal | null;
+  }
+}
+app.decorateRequest("principal", null);
 await app.register(cookie);
 await app.register(rateLimit, { global: false });
 const ttlHours = Number(process.env.SESSION_TTL_HOURS || 8);
@@ -42,12 +56,48 @@ const tokenOf = (req: any): string => {
 async function currentAgent(req: any) {
   const token = tokenOf(req);
   if (!/^[A-Za-z0-9_-]{43}$/.test(token)) return null;
-  const { rows } = await pool.query(
-    "SELECT a.id,a.username,a.email,a.name,a.role,a.agency_id,g.name AS agency_name FROM reto.sessions s JOIN reto.agents a ON a.id=s.agent_id LEFT JOIN reto.agencies g ON g.id=a.agency_id WHERE s.token_hash=$1 AND s.expires_at>now()",
-    [digest(token)],
+  const principal =
+    req.principal ?? (await resolvePrincipal(pool, digest(token)));
+  if (!principal) return null;
+  const account = await getAuthorizedAccount(
+    pool,
+    principal,
+    principal.accountId,
   );
-  return rows[0] || null;
+  if (!account) return null;
+  const { rows } = await pool.query(
+    "SELECT a.id,a.username,a.email,a.name,a.role,a.agency_id FROM reto.agents a WHERE a.id=$1",
+    [principal.accountId],
+  );
+  if (!rows[0]) return null;
+  const agency = principal.agencyId
+    ? await getAuthorizedAgency(pool, principal, principal.agencyId)
+    : null;
+  return { ...rows[0], agency_name: agency?.name ?? null };
 }
+const publicRoutes = new Set([
+  "/health",
+  "/auth/get-toke",
+  "/auth/logout",
+]);
+app.addHook("preHandler", async (req, reply) => {
+  const routePath = req.routeOptions.url;
+  if (routePath && publicRoutes.has(routePath)) return;
+
+  const token = tokenOf(req);
+  if (!/^[A-Za-z0-9_-]{43}$/.test(token))
+    return reply.code(401).send({
+      error: "unauthorized",
+      message: "Inicia sesión para continuar.",
+    });
+
+  req.principal = await resolvePrincipal(pool, digest(token));
+  if (!req.principal)
+    return reply.code(401).send({
+      error: "unauthorized",
+      message: "Inicia sesión para continuar.",
+    });
+});
 app.get("/health", async (_req, reply) => {
   try {
     await pool.query("SELECT 1");
@@ -60,6 +110,51 @@ app.get("/health", async (_req, reply) => {
     });
   }
 });
+app.get("/api/conversations", async (req, reply) => {
+  const principal = req.principal;
+  if (!principal)
+    return reply.code(401).send({
+      error: "unauthorized",
+      message: "Inicia sesión para continuar.",
+    });
+  return {
+    conversations: await listAuthorizedConversations(pool, principal),
+  };
+});
+app.get<{ Params: { conversationId: string } }>(
+  "/api/conversations/:conversationId",
+  {
+    schema: {
+      params: {
+        type: "object",
+        additionalProperties: false,
+        required: ["conversationId"],
+        properties: {
+          conversationId: { type: "string", format: "uuid" },
+        },
+      },
+    },
+  },
+  async (req, reply) => {
+    const principal = req.principal;
+    if (!principal)
+      return reply.code(401).send({
+        error: "unauthorized",
+        message: "Inicia sesión para continuar.",
+      });
+    const conversation = await getAuthorizedConversation(
+      pool,
+      principal,
+      req.params.conversationId,
+    );
+    if (!conversation)
+      return reply.code(404).send({
+        error: "not_found",
+        message: "Conversación no encontrada.",
+      });
+    return { conversation };
+  },
+);
 const dummyHash = await hashPassword(randomBytes(24).toString("hex"));
 app.post<{ Body: { usuario: string; contrasena: string } }>(
   "/auth/get-toke",
@@ -80,7 +175,7 @@ app.post<{ Body: { usuario: string; contrasena: string } }>(
   async (req, reply) => {
     const user = req.body.usuario.trim().toLowerCase();
     const found = await pool.query(
-      "SELECT id,password_hash FROM reto.agents WHERE username=$1 OR email=$1",
+      "SELECT a.id,a.password_hash FROM reto.agents a JOIN onboarding.accounts account ON account.id=a.id WHERE (a.username=$1 OR a.email=$1) AND account.status='active' AND account.role IN ('agent','agency_owner','admin')",
       [user],
     );
     const account = found.rows[0];

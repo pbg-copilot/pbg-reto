@@ -98,3 +98,12 @@ En la réplica, `onboarding.accounts` contiene un único `role` y `agency_id` ac
 - Confirmar el mapeo de `ownerKey` a cuentas y la política de ownership/reasignación de libros.
 - Confirmar enlace y semántica de cotizaciones; hasta entonces se deniegan como cotizaciones de expediente.
 - Identificar la tabla aprobada de citas de seguro y quién puede delegar su gestión.
+
+## 9. Estado de implementación
+
+- `backend/src/authorization.ts` resuelve el principal desde el hash de sesión y ofrece consultas con alcance incorporado para conversaciones, cuentas y agencias. Las conversaciones se filtran por `owner_account_id`; la ruta individual devuelve el mismo 404 para un ID inexistente o ajeno.
+- Un hook de `backend/src/server.ts` exige una sesión activa y rol admitido en todas las rutas salvo salud, inicio y cierre de sesión. `/api/conversations` y `/api/conversations/:conversationId` usan ese principal y las consultas con alcance del módulo.
+- Las consultas de cuentas y agencias también toman sus IDs de objetivo como selectores y aplican en SQL el alcance derivado del principal. Los campos de agencia, propietario y rol nunca se aceptan como autoridad desde HTTP.
+- Los libros de clientes, cotizaciones y citas siguen inaccesibles porque el snapshot no confirma sus relaciones de negocio. No se devuelven filas de fuentes no verificadas.
+- No hay aún rutas de mutación. Cuando se añadan, deben cargar/autorizar el recurso dentro de la misma transacción que realiza el cambio. La ruta de conversación individual también falla cerrada mientras el cliente activo no pueda revalidarse con una relación de ownership confirmada.
+- El snapshot conserva un solo rol y agencia actuales por cuenta. Roles múltiples, vigencias y cambios históricos requieren una fuente autorizada antes de poder evaluarse.
