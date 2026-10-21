@@ -12,16 +12,18 @@ Esta especificación separa los requisitos de `Reto_Chat_PBG.pdf` de las decisio
 ### Conversaciones y expedientes
 
 - Crear, guardar, recuperar y seleccionar conversaciones y sus mensajes.
+- Permitir que el usuario cambie y guarde el nombre de sus conversaciones.
 - Mantener un único cliente activo por conversación. Registrar explícitamente los cambios de cliente.
 - Vincular consultas y evidencia con la conversación y el cliente correspondiente.
+- Mostrar en el historial solo mensajes del cliente activo. Al cambiar de cliente, limpiar la vista y cargar el historial asociado al nuevo contexto.
 - Al recuperar el historial, comprobar la pertenencia de la conversación al usuario y el acceso actual al cliente.
 - Al cambiar de cliente, cargar nuevamente la evidencia del expediente; nunca reutilizar hechos o cotizaciones del anterior.
-- Mostrar claramente el cliente activo y mantener aislados los contextos.
+- Mostrar claramente el cliente activo y mantener aislados los contextos. Conservar las referencias de procedencia en el backend para trazabilidad, pero no presentar IDs, rutas o fuentes internas en la interfaz.
 
 ### Consultas y cotizaciones
 
 - Consultar perfiles, notas, actividad, cotizaciones y citas existentes dentro del alcance autorizado.
-- Mostrar la procedencia de la información (identificador del registro/documento, fecha y cliente asociado).
+- Conservar la procedencia de la información (identificador del registro/documento, fecha y cliente asociado) en el backend; no exponerla en la interfaz.
 - Distinguir hechos registrados, resultados de reglas y datos faltantes.
 - Comparar cotizaciones existentes y explicar qué información falta para continuar.
 - Aplicar solo reglas explícitas, documentadas y versionadas. Si la regla es ausente, no vigente o insuficiente, indicarlo.
@@ -85,7 +87,7 @@ Esta especificación separa los requisitos de `Reto_Chat_PBG.pdf` de las decisio
 
 - Mantener frontend React/TypeScript y backend Fastify/TypeScript separados mediante API autenticada.
 - Reutilizar login/sesión/logout existentes (`POST /auth/get-toke`, `GET /auth/me`, `POST /auth/logout`).
-- Presentar historial por conversación, búsqueda/selección del cliente activo y consultas de expediente/cotizaciones como resultados con fuentes, faltantes y estados de carga, vacío y error. Al cambiar conversación o cliente, limpiar los resultados anteriores; ante `401`, volver al inicio de sesión.
+- Presentar historial por conversación, búsqueda/selección del cliente activo y consultas de expediente/cotizaciones con datos, faltantes y estados de carga, vacío y error; mantener la procedencia solo en backend. Al cambiar conversación o cliente, limpiar resultados y mostrar solo el historial de ese cliente; ante `401`, volver al inicio de sesión.
 - Permitir crear, reprogramar y cancelar citas desde el contexto del chat mediante una propuesta exacta que el usuario puede confirmar o descartar. Los campos modificados descartan la propuesta; los conflictos y reintentos conservan los controles de idempotencia del backend.
 - La API autenticada de conversaciones, su historial y el guardado de mensajes de usuario están documentados en [`api-conversations.md`](./api-conversations.md); las lecturas validan propiedad y ordenan por secuencia estable.
 - Añadir servicios/endpoints para conversaciones, búsqueda/detalle de clientes, cotizaciones y agenda. La ruta de cotizaciones, que exige coincidencia exacta de IDs y devuelve procedencia/faltantes, está documentada en [`api-conversations.md`](./api-conversations.md). La búsqueda/selección valida `ownerKey` por igualdad exacta con `onboarding.accounts.id` y falla cerrada si no resuelve.

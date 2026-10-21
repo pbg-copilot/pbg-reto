@@ -40,6 +40,25 @@ Response `201`:
 La creación vuelve a validar la sesión dentro de la transacción que inserta la
 fila.
 
+## `PATCH /api/conversations/:conversationId`
+
+Actualiza el nombre de una conversación que pertenece a la cuenta autenticada.
+El nombre se recorta, debe contener al menos un carácter y admite hasta 200
+caracteres. El backend actualiza `updated_at` dentro de una transacción; una
+conversación ajena devuelve `404`.
+
+Request:
+
+```json
+{ "title": "Jorge" }
+```
+
+Response `200`:
+
+```json
+{ "conversation": { "id": "uuid", "title": "Jorge" } }
+```
+
 ## `GET /api/conversations`
 
 Devuelve las conversaciones que pertenecen a la cuenta autenticada, ordenadas
@@ -102,9 +121,10 @@ posteriores validan nuevamente el acceso antes de recuperar la conversación.
 
 ## `GET /api/conversations/:conversationId?limit=50&beforeSequence=123`
 
-Devuelve la conversación y sus mensajes. El acceso se filtra por propietario en
-SQL y se vuelve a validar dentro de una transacción que bloquea la fila. Un ID
-inexistente, ajeno o con cliente/evidencia no verificable da el mismo `404`.
+Devuelve la conversación y los mensajes del cliente activo. El acceso se filtra
+por propietario en SQL y se vuelve a validar dentro de una transacción que
+bloquea la fila. Un ID inexistente, ajeno o cuyo cliente activo ya no sea
+accesible da el mismo `404`.
 
 ```json
 {
@@ -131,8 +151,10 @@ se ordenan por `sequence_no` ascendente. `limit` es opcional (por defecto 50,
 rango 1–100). `sequence_no` se entrega como cadena para conservar el entero de
 PostgreSQL. Cuando `hasMore` es `true`, usa `nextBeforeSequence` como
 `beforeSequence` para solicitar la página anterior, sin incluir el mensaje del
-cursor. El historial omite mensajes con referencias de cliente o evidencia
-hasta que exista una relación de ownership verificable.
+cursor. El historial solo devuelve mensajes asociados al cliente activo de la
+conversación. Los mensajes nuevos guardan ese contexto en la fila; para mensajes
+anteriores, la API lo deriva del último evento exitoso `client.selected` o
+`client.changed` previo al mensaje. Así, cambiar el cliente no mezcla historiales.
 
 ## `POST /api/conversations/:conversationId/messages`
 
@@ -144,7 +166,8 @@ Guarda un mensaje de usuario en una conversación activa:
 
 `content` debe contener texto no vacío (máximo 12.000 caracteres). No se acepta
 `sender_role`, propietario, referencias de cliente ni campos adicionales: el
-servidor asigna el emisor `user` y deja las referencias vacías.
+servidor asigna el emisor `user` y vincula el mensaje al cliente activo, si hay
+uno. El contexto no se toma del cuerpo de la solicitud.
 
 Response `201`:
 
@@ -187,8 +210,8 @@ fuente). Envía al proveedor solo esos campos, las limitaciones/faltantes
 derivados por el backend y la pregunta del usuario. No envía notas, citas,
 datos de otros clientes, credenciales ni historial; no pasa herramientas ni
 acceso al repositorio/base de datos al modelo. El prompt le limita a redactar
-evidencia y faltantes; el backend agrega a la respuesta los IDs de las fuentes
-consultadas.
+evidencia y faltantes. Los mensajes de usuario y asistente se guardan vinculados
+al cliente activo. La interfaz no muestra IDs ni rutas de procedencia.
 
 Antes de enviar los datos al proveedor, el backend vuelve a validar sesión,
 alcance y cliente activo, y usa la evidencia de esa lectura. Luego valida otra

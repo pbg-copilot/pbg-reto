@@ -27,9 +27,9 @@ La interfaz permite consultar perfil y cotizaciones sin proveedor de IA. Para re
 ### 1. Conversación, expediente y cotizaciones
 
 1. Inicia sesión y pulsa **Nueva conversación**.
-2. En **Buscar cliente**, escribe al menos dos caracteres y selecciona un resultado permitido. Anota el ID de conversación, la ruta del documento y el ID del cliente para las consultas SQL. El panel muestra el ID del cliente.
-3. Pulsa **Ver expediente** y **Ver cotizaciones**. Revisa fuentes y faltantes. Las cotizaciones se describen como instantáneas analíticas, no como ofertas vigentes, aprobadas o emitidas.
-4. Si la IA está habilitada, pregunta: “Resume los datos disponibles y enumera qué falta para evaluar las cotizaciones”. La respuesta debe mostrar IDs de fuentes. Si está deshabilitada, no se presenta una respuesta generada; las consultas deterministas siguen disponibles.
+2. En **Buscar cliente**, escribe al menos dos caracteres y selecciona un resultado permitido. La interfaz muestra el nombre del cliente activo, pero oculta sus IDs y rutas internas. Para contrastar SQL, obtén los identificadores desde las respuestas de API en la pestaña **Network** o consultando la base local.
+3. Pulsa **Ver expediente** y **Ver cotizaciones**. La interfaz muestra los datos y faltantes sin exponer IDs ni fuentes internas. Las cotizaciones se describen como instantáneas analíticas, no como ofertas vigentes, aprobadas o emitidas.
+4. Si la IA está habilitada, pregunta: “Resume los datos disponibles y enumera qué falta para evaluar las cotizaciones”. La respuesta resume la evidencia sin mostrar IDs ni fuentes internas. Si está deshabilitada, no se presenta una respuesta generada; las consultas deterministas siguen disponibles.
 5. Recarga y vuelve a abrir la conversación. Deben persistir historial y cliente activo, sin mezclar conversaciones.
 
 ### 2. Cita confirmada

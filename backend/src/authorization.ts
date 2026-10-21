@@ -109,14 +109,6 @@ async function queryAuthorizedConversation(
                )
           )
         )
-        AND NOT EXISTS (
-          SELECT 1
-            FROM reto.chat_messages AS m
-           WHERE m.conversation_id = c.id
-             AND (m.client_document_path IS NOT NULL
-               OR m.client_record_id IS NOT NULL
-               OR m.evidence_refs <> '[]'::jsonb)
-        )
       ${lock ? "FOR UPDATE" : ""}`,
     [conversationId, principal.accountId, principal.role, principal.agencyId],
   );
@@ -432,14 +424,6 @@ export async function listAuthorizedConversations(
                      AND owner.agency_id = $3)
                )
           )
-        )
-        AND NOT EXISTS (
-          SELECT 1
-            FROM reto.chat_messages AS m
-           WHERE m.conversation_id = c.id
-             AND (m.client_document_path IS NOT NULL
-               OR m.client_record_id IS NOT NULL
-               OR m.evidence_refs <> '[]'::jsonb)
         )
       ORDER BY c.updated_at DESC, c.id`,
     [principal.accountId, principal.role, principal.agencyId],
