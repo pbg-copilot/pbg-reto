@@ -86,7 +86,7 @@ Esta especificación separa los requisitos de `Reto_Chat_PBG.pdf` de las decisio
 - Mantener frontend React/TypeScript y backend Fastify/TypeScript separados mediante API autenticada.
 - Reutilizar login/sesión/logout existentes (`POST /auth/get-toke`, `GET /auth/me`, `POST /auth/logout`).
 - La API autenticada de conversaciones, su historial y el guardado de mensajes de usuario están documentados en [`api-conversations.md`](./api-conversations.md); las lecturas validan propiedad y ordenan por secuencia estable.
-- Añadir servicios/endpoints para conversaciones, búsqueda/detalle de clientes, cotizaciones y agenda.
+- Añadir servicios/endpoints para conversaciones, búsqueda/detalle de clientes, cotizaciones y agenda. La búsqueda/selección de clientes está implementada y documentada en [`api-conversations.md`](./api-conversations.md); valida `ownerKey` por igualdad exacta con `onboarding.accounts.id` y falla cerrada si no resuelve.
 - Conservar estructura de negocio original y relaciones; añadir tablas mediante migraciones, sin sustituir documentos originales por modelos ficticios.
 - El modelo inspeccionado de expedientes, cotizaciones, agencia y bookings, con sus relaciones y límites, está documentado en [`data-model.md`](./data-model.md). Las APIs deben conservar esas distinciones.
 
@@ -125,7 +125,7 @@ La demo no se conecta a producción ni ejecuta llamadas, correos o cobros.
 ## 7. Pendientes y limitaciones a documentar
 
 - Confirmar cuentas, roles y relaciones en README/base local. La guía adjunta indica 350.217 registros; el README local también indica 350.217 distribuidos y 351.429 en el respaldo. Para el estado local usar la base y README; para los requisitos usar la guía.
-- Confirmar formalmente si `leads-store/books` representa clientes activos de seguros y cómo se valida su `ownerKey`.
+- Confirmar con el propietario del dominio si `leads-store/books` representa clientes activos de seguros y si una transferencia de agencia preserva acceso histórico. La API ya usa igualdad exacta de `ownerKey` con `accounts.id` y calcula el alcance con la asignación actual.
 - Definir el enlace aprobado entre documentos de leads y filas de `analytics.quotes`; no hay FK declarada.
 - Identificar una fuente autorizada para citas de agentes de seguros; `teamops.bookings` describe flujos internos de demo/consultoría y no cubre ese caso por sí sola.
 - Confirmar la fuente autorizada para asignaciones múltiples/vigentes; el esquema actual solo refleja un rol/agencia actual.

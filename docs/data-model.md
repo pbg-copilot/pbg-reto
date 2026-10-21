@@ -55,6 +55,25 @@ onboarding.profiles.account_id → onboarding.accounts.id
 
 Hay 65 rutas con prefijo `leads-store/books/`; 62 tienen `document.leads` como arreglo. El objeto JSON observado tiene campos superiores `leads` y `ownerKey`. Los elementos del arreglo son objetos con un vocabulario de campos variable; entre los nombres observados están `id`, `name`, `phone`, `email`, `notes`, `stage`, `source`, `attribution`, `formAnswers`, `calls`, `sale`, `coverageSet` y `premiumSet`. La presencia de una clave no garantiza que exista en todos los elementos ni define por sí sola su significado.
 
+Las notas observadas son arreglos de objetos con texto (`text`, a veces bilingüe),
+`at` numérico o textual, y ocasionalmente `id` y `callId`. El endpoint de perfil
+solo convierte `at` numérico dentro de un rango válido en fecha y conserva la
+referencia a la ruta, cliente y nota. Las cadenas en `calls` carecen de una
+estructura confirmada para identificar y fechar eventos; no se presentan como
+actividad verificable. Las notas asociadas con `callId` se muestran como
+actividad parcial solo si también tienen una fecha verificable.
+
+### Vínculo implementado para búsqueda del chat
+
+La inspección estructural local de la copia pudo decodificar 62 documentos de
+libro; en los 62, `ownerKey` coincide exactamente con un `onboarding.accounts.id`.
+La búsqueda del chat usa esa igualdad exacta como vínculo de propiedad y exige
+que la cuenta propietaria esté activa. Los documentos/registros que no se puedan
+resolver mediante esa relación se omiten y no se pueden seleccionar. La regla
+se aplica así: `agent` solo consulta su propia cuenta; `agency_owner` consulta
+cuentas activas cuyo `agency_id` actual coincide con el suyo; `admin` puede leer
+los libros enlazados. No se usan coincidencias de nombre, correo o alias.
+
 `public.pbg_state_appends` almacena `sequence`, `path`, `content` y `created_at`; tiene FK `path → public.pbg_state_documents.path` con borrado/actualización en cascada. Puede aportar historial de cambios de documento, pero su contenido no está normalizado en columnas de negocio.
 
 `public.pbg_state_media` conserva rutas y metadatos (`object_key`, `sha256`, tamaño y fecha); no contiene los objetos binarios externos.
@@ -63,7 +82,7 @@ Hay 65 rutas con prefijo `leads-store/books/`; 62 tienen `document.leads` como a
 
 - Tratar cada libro como documento JSON flexible; validar en backend la forma del JSON antes de leer campos opcionales.
 - Usar `path` como referencia durable del documento. Para un elemento, conservar además su `id` observado y validar que siga en el documento cargado.
-- No asumir una FK relacional entre el `ownerKey` JSON y una cuenta. La relación requiere confirmar formato y política de ownership con datos estructurales adicionales.
+- `ownerKey` sigue siendo un campo JSON sin FK; la API aplica el vínculo exacto descrito arriba y falla cerrada cuando no encuentra una cuenta activa.
 - No devolver el documento completo: contiene datos personales. Proyectar una lista permitida de campos por caso de uso y rol.
 - Para notas o actividad, distinguir contenido actual del documento de entradas append-only y conservar su ruta/orden/fecha como procedencia.
 - Las rutas de medios no dan acceso a los binarios de S3/R2.
@@ -134,7 +153,7 @@ No pegar resultados que incluyan `document`, `content`, nombres, teléfonos, ema
 
 ## Decisiones y preguntas pendientes
 
-1. Confirmar formalmente si `leads-store/books` representa clientes activos de seguros y definir `ownerKey`/reasignaciones.
+1. Confirmar con el propietario del dominio si `leads-store/books` representa clientes activos de seguros y si la regla de propiedad por `ownerKey` debe cubrir transferencias históricas; la API solo aplica la cuenta/agencia actual.
 2. Definir el enlace válido entre libros y `analytics.quotes`, o confirmar que no hay enlace utilizable.
 3. Identificar la fuente aprobada de citas del agente para seguros; la tabla de teamops no satisface ese requisito según su `source` y modelo actuales.
 4. Confirmar reglas de recomendación, precios, cobertura y aprobación fuera de la estructura de datos.

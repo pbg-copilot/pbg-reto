@@ -135,7 +135,10 @@ No son fuentes de datos de negocio independientes.
 - `POST /auth/logout`: revoca la sesión y elimina la cookie; devuelve 204.
 - `POST/GET /api/conversations`, `GET /api/conversations/:conversationId` y
   `POST /api/conversations/:conversationId/messages`: crean, listan, recuperan
-  y guardan mensajes de usuario. Contrato y respuestas: [`docs/api-conversations.md`](docs/api-conversations.md).
+  y guardan conversaciones y mensajes. `GET /api/clients` busca libros con
+  ownership verificable y `POST /api/conversations/:conversationId/client`
+  asocia o cambia el cliente activo con auditoría. Contrato y respuestas:
+  [`docs/api-conversations.md`](docs/api-conversations.md).
 
 Al iniciar, la API aplica en una transacción las migraciones versionadas de
 `backend/migration_*.sql` después de preparar el esquema local `reto`. Registra

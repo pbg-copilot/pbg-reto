@@ -43,7 +43,7 @@ La política anterior no convierte tablas homónimas en datos válidos del exped
 
 ### Cliente y pertenencia
 
-- Un agente accede a un libro solo si el backend puede resolver su `ownerKey` a la cuenta autenticada mediante una regla confirmada. La coincidencia textual de email, alias, nombre o ID JSON no basta sin esa regla.
+- Para la búsqueda del chat, el backend vincula el `ownerKey` del libro con `onboarding.accounts.id` por igualdad exacta; el análisis de la copia pudo verificar esa igualdad en los 62 documentos decodificables. No se usan coincidencias de email, alias o nombre. Un libro sin una cuenta activa coincidente queda inaccesible.
 - Un dueño accede a expedientes solo si se puede probar simultáneamente la pertenencia del propietario a una cuenta activa con `agency_id` igual a su agencia actual y la pertenencia del expediente a ese propietario/agencia.
 - `accounts.agency_id → agencies.id` y `agencies.owner_account_id → accounts.id` tienen FKs declaradas. El alcance del dueño se calcula desde `accounts.agency_id` de cuentas activas. `agency_team_leads` no tiene FKs declaradas y no amplía el alcance bajo esta política; una futura delegación requeriría un permiso explícito y referencias verificadas. Las relaciones con `removed_at IS NOT NULL` nunca cuentan como activas.
 - Si la relación expediente↔cuenta/agencia no se puede probar, devolver sin resultados o acceso no disponible; no exponer el libro a un agente o agencia por defecto.
@@ -95,15 +95,15 @@ En la réplica, `onboarding.accounts` contiene un único `role` y `agency_id` ac
 
 ## 8. Decisiones pendientes del propietario de datos/producto
 
-- Confirmar el mapeo de `ownerKey` a cuentas y la política de ownership/reasignación de libros.
+- Confirmar con el propietario del dominio que los libros representan clientes activos de seguros y si una transferencia de agencia debe preservar acceso histórico; la implementación actual aplica la cuenta y agencia activas del propietario.
 - Confirmar enlace y semántica de cotizaciones; hasta entonces se deniegan como cotizaciones de expediente.
 - Identificar la tabla aprobada de citas de seguro y quién puede delegar su gestión.
 
 ## 9. Estado de implementación
 
-- `backend/src/authorization.ts` resuelve el principal desde el hash de sesión y ofrece consultas con alcance incorporado para conversaciones, cuentas y agencias. Las conversaciones se filtran por `owner_account_id`; la ruta individual devuelve el mismo 404 para un ID inexistente o ajeno.
-- Un hook de `backend/src/server.ts` exige una sesión activa y rol admitido en todas las rutas salvo salud, inicio y cierre de sesión. `/api/conversations` y `/api/conversations/:conversationId` usan ese principal y las consultas con alcance del módulo.
+- `backend/src/authorization.ts` resuelve el principal desde el hash de sesión y aplica el alcance a conversaciones, clientes, cuentas y agencias. Las conversaciones se filtran por `owner_account_id`; los clientes se vinculan por `ownerKey = accounts.id` y cuenta propietaria activa.
+- Un hook de `backend/src/server.ts` exige una sesión activa y rol admitido en todas las rutas salvo salud, inicio y cierre de sesión. `/api/clients` y `POST /api/conversations/:conversationId/client` buscan/seleccionan dentro del alcance; la selección vuelve a validar sesión, conversación y cliente dentro de una transacción.
 - Las consultas de cuentas y agencias también toman sus IDs de objetivo como selectores y aplican en SQL el alcance derivado del principal. Los campos de agencia, propietario y rol nunca se aceptan como autoridad desde HTTP.
-- Los libros de clientes, cotizaciones y citas siguen inaccesibles porque el snapshot no confirma sus relaciones de negocio. No se devuelven filas de fuentes no verificadas.
-- No hay aún rutas de mutación. Cuando se añadan, deben cargar/autorizar el recurso dentro de la misma transacción que realiza el cambio. La ruta de conversación individual también falla cerrada mientras el cliente activo no pueda revalidarse con una relación de ownership confirmada.
+- Los libros con `ownerKey` vinculable a una cuenta activa se pueden buscar y seleccionar. Cotizaciones y citas siguen inaccesibles porque el snapshot no confirma su vínculo de negocio con el cliente.
+- La selección/cambio de cliente actualiza la conversación y registra `reto.chat_actions` atómicamente. No hay aún mutaciones de clientes, cotizaciones o citas.
 - El snapshot conserva un solo rol y agencia actuales por cuenta. Roles múltiples, vigencias y cambios históricos requieren una fuente autorizada antes de poder evaluarse.
