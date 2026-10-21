@@ -47,6 +47,17 @@ extremos, y también el promedio.
 | AC-007.14 | **Ahora mismo**, en vivo y sin depender del rango. `GET /support/metrics/operations` (solo admin) devuelve tres listas, cada una con el total y los 5 más antiguos con su enlace: **sin atender**, **esperan al equipo** (el solicitante respondió después que el equipo) y **esperan al solicitante** (hay una solicitud de información sin respuesta). También la antigüedad de lo pendiente (<24 h, 1–3 d, 3–7 d, >7 d), la carga por admin (abiertos y en revisión), los tickets sin responsable y la salud (correos fallidos en 7 días, correos pendientes, incidentes activos y tickets vinculados). Se refresca cada minuto |
 | AC-007.15 | **En el rango**, además de lo anterior: la tendencia diaria (creados y cerrados por día) y la eficacia del asistente. Esta incluye el % resuelto sin ticket sobre las conversaciones terminadas, los motivos de escalamiento, los artículos más sugeridos y los artículos que **no** funcionaron (candidatos a revisar en el catálogo) |
 
+## Panel con gráficos, secciones y exportación · *Should* (agregado el 2026-10-21)
+
+| ID | Criterio |
+| --- | --- |
+| AC-007.16 | **Secciones en lugar de scroll.** `/admin/metricas` se organiza en pestañas (Tabs de shadcn): **Ahora mismo**, **Atención**, **Asistente IA** y **Fórmulas**. La pestaña activa y el rango quedan en la URL (`?seccion=…&dias=…` o `?desde=…&hasta=…`): se pueden compartir y el botón Atrás funciona. En el celular las pestañas se desplazan en horizontal |
+| AC-007.17 | **Rango elegible.** 7, 30 o 90 días, o **personalizado** con dos fechas (máximo un año). Una fecha inválida o un fin anterior al inicio muestran el error del servidor sin perder lo que se estaba viendo |
+| AC-007.18 | **Gráfico con métrica a elegir.** `GET /support/metrics` acepta `group=day|week|month` y devuelve `series` (por periodo): creados, cerrados, reaperturas, mediana de primera respuesta y de resolución, conversaciones, resueltas sin ticket, escaladas y costo de IA. La UI usa los charts de shadcn (Recharts): un selector de métrica, la agrupación y el tipo de gráfico (barras, líneas o área). Cada gráfico tiene un resumen en texto para lectores de pantalla |
+| AC-007.19 | **Distribución.** Un gráfico de barras con selector: por categoría, prioridad, estado o motivo de escalamiento |
+| AC-007.20 | **Exportar a Excel.** `GET /support/metrics/export?from&to&group` (solo admin) devuelve un `.xlsx` real con las hojas Resumen, Evolución, Por prioridad, Por categoría y Tickets (los creados en el rango: número, título, estado, categoría, prioridad, responsable, fechas, tiempos, motivo de cierre, reaperturas y origen). No incluye datos del solicitante, notas internas ni descripciones. Las celdas de texto son texto (no fórmulas). Rate limit de 10 por minuto. Un solicitante recibe 403 |
+| AC-007.21 | **Conexión con el servidor.** El encabezado muestra cuándo se actualizaron los datos («Actualizado hace 20 s»), si se están actualizando y un aviso si la última consulta falló («Sin conexión con el servidor; se muestran los últimos datos»), con un botón **Actualizar** |
+
 ## Copiloto del equipo · *Should*
 
 Decidido el 2026-10-21 (ver `docs/adr/0005-ai-capabilities-roadmap.md`). La IA ayuda
@@ -65,6 +76,6 @@ al admin, pero **no decide ni envía nada**.
 
 - Horario laboral y calendarios de feriados.
 - Alertas por vencimiento.
-- Exportar a CSV.
+- Exportar a CSV (se exporta a Excel, AC-007.20). Exportaciones programadas o por correo.
 - Fusionar duplicados (solo se muestran).
 - Clasificación o asignación automática con IA.

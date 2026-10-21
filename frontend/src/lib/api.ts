@@ -59,6 +59,34 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
   return data as T;
 }
 
+// Descarga un archivo generado por la API (por ejemplo, la exportación a Excel). Con fetch y no
+// con un enlace directo: un error (rango inválido, 429) llega como ApiError y la UI lo muestra,
+// en vez de descargar un JSON de error.
+export async function apiDownload(path: string, fallbackName: string, signal?: AbortSignal): Promise<string> {
+  let response: Response;
+  try {
+    response = await fetch(`/api${path}`, { credentials: "same-origin", signal });
+  } catch (error) {
+    if ((error as Error).name === "AbortError") throw error;
+    throw new ApiError(0, "network_error", NETWORK_ERROR);
+  }
+  if (!response.ok) {
+    const body = (safeJson(await response.text()) ?? {}) as Partial<ApiErrorBody>;
+    throw new ApiError(response.status, body.error ?? "internal_error", body.message ?? "No fue posible descargar el archivo.", body.details);
+  }
+  const name = /filename="([^"]+)"/.exec(response.headers.get("Content-Disposition") ?? "")?.[1] ?? fallbackName;
+  const url = URL.createObjectURL(await response.blob());
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  // Se revoca después del clic: algunos navegadores leen el blob de forma asíncrona.
+  setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  return name;
+}
+
 function safeJson(text: string): unknown {
   try {
     return JSON.parse(text);

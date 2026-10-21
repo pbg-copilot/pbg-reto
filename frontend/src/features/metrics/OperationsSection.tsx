@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatDateTime, formatRelative } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useOperations } from "./api";
+import { LiveStatus } from "./LiveStatus";
 
 // "Ahora mismo": lo que el equipo debería atender ya. En vivo, independiente del rango.
 export function OperationsSection() {
@@ -18,13 +19,13 @@ export function OperationsSection() {
 
   return (
     <section aria-labelledby="now-heading" className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 id="now-heading" className="text-xl font-semibold tracking-tight">
-          Ahora mismo
+      <div className="glass flex flex-wrap items-center justify-between gap-2 rounded-xl p-3">
+        <h2 id="now-heading" className="text-sm font-medium">
+          En vivo: lo que el equipo debería atender ya
         </h2>
-        <span className="text-xs text-muted-foreground">En vivo · se actualiza cada minuto</span>
+        <LiveStatus query={operations} live="se actualiza cada minuto" />
       </div>
-      {operations.isError && (
+      {operations.isError && !ops && (
         <Alert variant="destructive" role="alert">
           <AlertDescription>{operations.error.message}</AlertDescription>
         </Alert>

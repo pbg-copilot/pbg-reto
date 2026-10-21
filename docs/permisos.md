@@ -97,6 +97,7 @@ filtrar datos:
 | --- | --- | --- | --- |
 | Métricas de atención (`GET /support/metrics`) | ✖403 | ✔ | `metrics.test.ts` › *is admin-only and validates the range* |
 | Estado operativo en vivo (`GET /support/metrics/operations`) | ✖403 | ✔ | `metrics.test.ts` › *live operations: what needs attention now, oldest first* |
+| Exportar el rango a Excel (`GET /support/metrics/export`) | ✖403 | ✔ Sin datos del solicitante ni notas internas | `metrics.test.ts` › *AC-007.20 exports the range to a real .xlsx without requester data; requesters get 403* |
 | Configurar objetivos de prioridad | ✖403 | ✔ | `metrics.test.ts` › *only admins configure targets and requesters never see them* |
 | Ver objetivos y plazos de prioridad | Nunca se envían | ✔ | Ídem, y `tickets.test.ts` › *lists categories and hides priority targets from requesters* |
 | Copiloto: resumir caso o sugerir respuesta | ✖403 | ✔ La respuesta sugerida nunca usa notas internas | `metrics.test.ts` › *is admin-only*, *the reply draft never includes internal notes, even if the ticket asks for them* |

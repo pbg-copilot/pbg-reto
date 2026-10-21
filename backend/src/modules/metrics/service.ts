@@ -1,7 +1,8 @@
 import { sql } from "kysely";
-import { displayNumber, type AttentionItem, type Metrics, type Operations } from "@reto/shared";
+import { closureReasonLabel, displayNumber, statusLabel, type AttentionItem, type MetricGroup, type Metrics, type Operations, type SeriesPoint } from "@reto/shared";
 import type { Database } from "../../db/kysely.js";
 import { AppError } from "../../lib/errors.js";
+import { buildXlsx, type Sheet } from "../../lib/xlsx.js";
 import { costUsd } from "../assistant/pricing.js";
 
 // Fórmulas de specs/007-admin-metrics/spec.md, sobre los tickets creados en [from, to) en UTC.
@@ -57,9 +58,78 @@ const toCost = (rows: UsageRow[]) =>
   );
 const round = (value: number | null, digits = 1) => (value === null ? null : Number(value.toFixed(digits)));
 
+type Range = { from: string; to: string };
+type UsageByBucket = UsageRow & { bucket: string };
+
+// Serie por periodo (AC-007.18). `group` viene validado por zod (day | week | month), por eso
+// puede ir como literal. Cada métrica cuenta lo ocurrido dentro de [from, to).
+async function series(db: Database, range: Range, group: MetricGroup): Promise<SeriesPoint[]> {
+  const unit = sql.lit(group);
+  const step = sql.raw(`interval '1 ${group}'`);
+  const within = (column: string) => sql`${sql.ref(column)} >= ${range.from}::date AND ${sql.ref(column)} < ${range.to}::date`;
+  const bucketOf = (column: string) => sql`date_trunc(${unit}, ${sql.ref(column)})::date`;
+  const [counts, usage] = await Promise.all([
+    sql<Omit<SeriesPoint, "ai_cost_usd"> & { first_response_p50: number | null; resolution_p50: number | null }>`
+      WITH buckets AS (
+        SELECT b::date AS bucket
+        FROM generate_series(date_trunc(${unit}, ${range.from}::date::timestamp), (${range.to}::date - 1)::timestamp, ${step}) AS b
+      ),
+      created AS (
+        SELECT ${bucketOf("created_at")} AS bucket, count(*)::int AS created,
+          percentile_cont(0.5) WITHIN GROUP (ORDER BY CASE WHEN first_response_at IS NOT NULL THEN extract(epoch FROM first_response_at - created_at)::float8 END) AS frt,
+          percentile_cont(0.5) WITHIN GROUP (ORDER BY CASE WHEN status = 'closed' AND closure_reason = 'resolved' THEN extract(epoch FROM closed_at - created_at)::float8 END) AS rt
+        FROM helpdesk.tickets WHERE ${within("created_at")} GROUP BY 1
+      ),
+      closed AS (SELECT ${bucketOf("closed_at")} AS bucket, count(*)::int AS closed FROM helpdesk.tickets WHERE ${within("closed_at")} GROUP BY 1),
+      reopened AS (
+        SELECT ${bucketOf("created_at")} AS bucket, count(*)::int AS reopened
+        FROM helpdesk.ticket_events WHERE type = 'reopened' AND ${within("created_at")} GROUP BY 1
+      ),
+      conv AS (
+        SELECT ${bucketOf("created_at")} AS bucket, count(*)::int AS conversations,
+          count(*) FILTER (WHERE status = 'resolved')::int AS resolved,
+          count(*) FILTER (WHERE status = 'escalated')::int AS escalated
+        FROM helpdesk.conversations WHERE ${within("created_at")} GROUP BY 1
+      )
+      SELECT to_char(b.bucket, 'YYYY-MM-DD') AS bucket,
+        coalesce(created.created, 0) AS created, coalesce(closed.closed, 0) AS closed, coalesce(reopened.reopened, 0) AS reopened,
+        created.frt AS first_response_p50, created.rt AS resolution_p50,
+        coalesce(conv.conversations, 0) AS conversations, coalesce(conv.resolved, 0) AS resolved_without_ticket, coalesce(conv.escalated, 0) AS escalated
+      FROM buckets b
+      LEFT JOIN created USING (bucket) LEFT JOIN closed USING (bucket) LEFT JOIN reopened USING (bucket) LEFT JOIN conv USING (bucket)
+      ORDER BY b.bucket
+    `.execute(db),
+    // Costo de IA por periodo y modelo (chat + copiloto); el precio se aplica en JS.
+    sql<UsageByBucket>`
+      SELECT to_char(${bucketOf("created_at")}, 'YYYY-MM-DD') AS bucket, model,
+        sum((usage->>'input_tokens')::bigint) AS input, sum((usage->>'output_tokens')::bigint) AS output,
+        sum((usage->>'cache_read_input_tokens')::bigint) AS cache_read, sum((usage->>'cache_creation_input_tokens')::bigint) AS cache_write
+      FROM helpdesk.conversation_messages WHERE usage IS NOT NULL AND ${within("created_at")} GROUP BY 1, 2
+      UNION ALL
+      SELECT to_char(${bucketOf("created_at")}, 'YYYY-MM-DD') AS bucket, model,
+        sum((usage->>'input_tokens')::bigint), sum((usage->>'output_tokens')::bigint),
+        sum((usage->>'cache_read_input_tokens')::bigint), sum((usage->>'cache_creation_input_tokens')::bigint)
+      FROM helpdesk.ai_usage WHERE ${within("created_at")} GROUP BY 1, 2
+    `.execute(db),
+  ]);
+  const cost = new Map<string, number>();
+  for (const row of usage.rows) cost.set(row.bucket, (cost.get(row.bucket) ?? 0) + toCost([row]));
+  return counts.rows.map((row) => ({
+    ...row,
+    first_response_p50: round(row.first_response_p50 === null ? null : Number(row.first_response_p50), 0),
+    resolution_p50: round(row.resolution_p50 === null ? null : Number(row.resolution_p50), 0),
+    ai_cost_usd: Number((cost.get(row.bucket) ?? 0).toFixed(6)),
+  }));
+}
+
+const SOURCE_LABEL: Record<string, string> = { assistant: "Asistente", manual_form: "Formulario", human_request: "Pidió una persona" };
+const EXPORT_MAX_TICKETS = 20_000;
+const minutes = (seconds: number | null) => (seconds === null ? null : Math.round(seconds / 60));
+const hours = (seconds: number | null) => (seconds === null ? null : Number((seconds / 3600).toFixed(1)));
+
 export function createMetricsService(db: Database) {
   return {
-    async metrics(range: { from: string; to: string }): Promise<Metrics> {
+    async metrics(range: Range, group: MetricGroup = "day"): Promise<Metrics> {
       const inRange = sql`t.created_at >= ${range.from}::date AND t.created_at < ${range.to}::date`;
       const { rows: summaryRows } = await sql<Summary>`
         WITH t AS (SELECT * FROM helpdesk.tickets t WHERE ${inRange}),
@@ -121,7 +191,7 @@ export function createMetricsService(db: Database) {
       const usageSum = (column: string) => sql.raw(`sum((usage->>'${column}')::bigint)`);
       const messageWindow = sql`created_at >= ${range.from}::date AND created_at < ${range.to}::date`;
       // Tendencia diaria, eficacia del asistente y usos del copiloto en el mismo rango.
-      const [trend, assistant, escalations, topArticles, failedArticles, copilotUses] = await Promise.all([
+      const [trend, assistant, escalations, topArticles, failedArticles, copilotUses, points] = await Promise.all([
         // Dos agregados agrupados por día (no una subconsulta por día): ~14 ms con 20.000 tickets.
         sql<{ day: string; created: number; closed: number }>`
           WITH days AS (SELECT d::date AS day FROM generate_series(${range.from}::date, ${range.to}::date - 1, interval '1 day') AS d),
@@ -164,6 +234,7 @@ export function createMetricsService(db: Database) {
           GROUP BY 1 ORDER BY 3 DESC LIMIT 5
         `.execute(db),
         sql<{ n: number }>`SELECT count(*)::int AS n FROM helpdesk.ai_usage WHERE ${messageWindow}`.execute(db),
+        series(db, range, group),
       ]);
       const a = assistant.rows[0]!;
       const finished = a.resolved + a.escalated;
@@ -220,6 +291,7 @@ export function createMetricsService(db: Database) {
           copilot_uses: copilotUses.rows[0]?.n ?? 0,
         },
         trend: trend.rows,
+        series: { group, points },
         assistant: {
           conversations: a.conversations,
           resolved_without_ticket: a.resolved,
@@ -230,6 +302,143 @@ export function createMetricsService(db: Database) {
           failed_articles: failedArticles.rows,
         },
       };
+    },
+
+    // Exportación a Excel del rango (AC-007.20). Sin datos del solicitante, notas internas ni
+    // descripciones: solo lo que el panel ya muestra, más el detalle por ticket.
+    async exportWorkbook(range: Range, group: MetricGroup = "day"): Promise<Uint8Array> {
+      const m = await this.metrics(range, group);
+      const { rows: tickets } = await sql<{
+        number: number;
+        title: string;
+        status: keyof typeof statusLabel;
+        category: string;
+        priority: string;
+        assignee: string | null;
+        created_at: Date;
+        first_response_at: Date | null;
+        closed_at: Date | null;
+        closure_reason: keyof typeof closureReasonLabel | null;
+        reopened_count: number;
+        source: string;
+      }>`
+        SELECT t.number, t.title, t.status, c.name AS category, p.name AS priority, a.name AS assignee,
+               t.created_at, t.first_response_at, t.closed_at, t.closure_reason, t.reopened_count, t.source
+        FROM helpdesk.tickets t
+        JOIN helpdesk.categories c ON c.code = t.category_code
+        JOIN helpdesk.priorities p ON p.code = t.priority_code
+        LEFT JOIN reto.agents a ON a.id = t.assignee_id
+        WHERE t.created_at >= ${range.from}::date AND t.created_at < ${range.to}::date
+        ORDER BY t.created_at
+        LIMIT ${EXPORT_MAX_TICKETS + 1}
+      `.execute(db);
+      const truncated = tickets.length > EXPORT_MAX_TICKETS;
+      const seconds = (from: Date, to: Date | null) => (to ? (new Date(to).getTime() - new Date(from).getTime()) / 1000 : null);
+
+      const summary: Sheet = {
+        name: "Resumen",
+        columns: [{ header: "Indicador", width: 38 }, { header: "Valor", width: 22 }],
+        rows: [
+          ["Desde (incluido)", m.range.from],
+          ["Hasta (sin incluir)", m.range.to],
+          ["Generado (UTC)", new Date()],
+          ["Tickets creados", m.total],
+          ["Abiertos", m.by_status.open],
+          ["En revisión", m.by_status.in_review],
+          ["Cerrados", m.by_status.closed],
+          ["Sin atender", m.unattended],
+          ["Reabiertos", m.reopened],
+          ["Tasa de reapertura (%)", m.reopen_rate],
+          ["Primera respuesta · mediana (min)", minutes(m.first_response.p50)],
+          ["Primera respuesta · p90 (min)", minutes(m.first_response.p90)],
+          ["Resolución · mediana (h)", hours(m.resolution.p50)],
+          ["Resolución · p90 (h)", hours(m.resolution.p90)],
+          ["Conversaciones con el asistente", m.assistant.conversations],
+          ["Resueltas sin ticket (%)", m.assistant.deflection_rate],
+          ["Costo de IA · chat (US$)", m.ai.assistant_cost_usd],
+          ["Costo de IA · copiloto (US$)", m.ai.copilot_cost_usd],
+          ["Nota", "Tickets creados en el rango, tiempos en calendario y en UTC. Fórmulas en /admin/metricas → Fórmulas."],
+          ...(truncated ? [["Aviso", `La hoja Tickets muestra los primeros ${EXPORT_MAX_TICKETS}. Elige un rango más corto para ver el resto.`] as const] : []),
+        ].map((row) => [...row]),
+      };
+      const evolution: Sheet = {
+        name: "Evolución",
+        columns: [
+          { header: "Periodo (inicio)", width: 16 },
+          { header: "Creados" },
+          { header: "Cerrados" },
+          { header: "Reaperturas" },
+          { header: "Primera respuesta · mediana (min)", width: 30 },
+          { header: "Resolución · mediana (h)", width: 24 },
+          { header: "Conversaciones" },
+          { header: "Resueltas sin ticket", width: 20 },
+          { header: "Escaladas" },
+          { header: "Costo de IA (US$)", width: 18 },
+        ],
+        rows: m.series.points.map((p) => [
+          p.bucket,
+          p.created,
+          p.closed,
+          p.reopened,
+          minutes(p.first_response_p50),
+          hours(p.resolution_p50),
+          p.conversations,
+          p.resolved_without_ticket,
+          p.escalated,
+          p.ai_cost_usd,
+        ]),
+      };
+      const byPriority: Sheet = {
+        name: "Por prioridad",
+        columns: [
+          { header: "Prioridad" },
+          { header: "Tickets" },
+          { header: "Objetivo primera respuesta (min)", width: 30 },
+          { header: "Cumplimiento primera respuesta (%)", width: 32 },
+          { header: "Objetivo resolución (min)", width: 26 },
+          { header: "Cumplimiento resolución (%)", width: 28 },
+        ],
+        rows: m.by_priority.map((p) => [p.name, p.count, p.first_response_target_minutes, p.first_response_compliance, p.resolution_target_minutes, p.resolution_compliance]),
+      };
+      const byCategory: Sheet = {
+        name: "Por categoría",
+        columns: [{ header: "Categoría", width: 30 }, { header: "Tickets" }],
+        rows: m.by_category.map((c) => [c.name, c.count]),
+      };
+      const detail: Sheet = {
+        name: "Tickets",
+        columns: [
+          { header: "Número", width: 12 },
+          { header: "Título", width: 48 },
+          { header: "Estado", width: 12 },
+          { header: "Categoría", width: 26 },
+          { header: "Prioridad", width: 12 },
+          { header: "Responsable", width: 26 },
+          { header: "Creado (UTC)", width: 18 },
+          { header: "Primera respuesta (min)", width: 22 },
+          { header: "Cerrado (UTC)", width: 18 },
+          { header: "Motivo de cierre", width: 18 },
+          { header: "Resolución (h)", width: 14 },
+          { header: "Reaperturas", width: 12 },
+          { header: "Origen", width: 18 },
+        ],
+        rows: tickets.slice(0, EXPORT_MAX_TICKETS).map((t) => [
+          displayNumber(t.number),
+          t.title,
+          statusLabel[t.status],
+          t.category,
+          t.priority,
+          t.assignee,
+          new Date(t.created_at),
+          minutes(seconds(t.created_at, t.first_response_at)),
+          t.closed_at ? new Date(t.closed_at) : null,
+          t.closure_reason ? closureReasonLabel[t.closure_reason] : null,
+          t.status === "closed" && t.closure_reason === "resolved" ? hours(seconds(t.created_at, t.closed_at)) : null,
+          t.reopened_count,
+          SOURCE_LABEL[t.source] ?? t.source,
+        ]),
+      };
+      return buildXlsx([summary, evolution, byPriority, byCategory, detail]);
     },
 
     // Estado operativo en vivo (no depende del rango). Listas cortas (5) para actuar ya.

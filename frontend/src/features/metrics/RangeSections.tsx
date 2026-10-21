@@ -4,54 +4,6 @@ import { BookOpenCheckIcon, BotIcon, TriangleAlertIcon } from "lucide-react";
 import { escalationReasonLabel, type Metrics } from "@reto/shared";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-const dayLabel = new Intl.DateTimeFormat("es", { day: "numeric", month: "short", timeZone: "UTC" });
-
-// Creados y cerrados por día. Cada barra tiene su texto para lectores de pantalla.
-export function TrendCard({ trend }: { trend: Metrics["trend"] }) {
-  const max = Math.max(1, ...trend.flatMap((day) => [day.created, day.closed]));
-  const totals = trend.reduce((sum, day) => ({ created: sum.created + day.created, closed: sum.closed + day.closed }), { created: 0, closed: 0 });
-  const first = trend[0];
-  const last = trend.at(-1);
-  return (
-    <Card className="glass">
-      <CardHeader>
-        <CardTitle className="text-base">Tendencia diaria</CardTitle>
-        <CardDescription>
-          {totals.created} creados y {totals.closed} cerrados en el rango
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-2">
-        <div className="flex items-center gap-4 text-xs text-muted-foreground" aria-hidden="true">
-          <span className="flex items-center gap-1">
-            <span className="size-2.5 rounded-sm bg-brand" /> Creados
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="size-2.5 rounded-sm bg-success" /> Cerrados
-          </span>
-        </div>
-        <ol className="flex h-32 items-end gap-px" aria-label="Tickets por día">
-          {trend.map((day) => {
-            const label = `${dayLabel.format(new Date(`${day.day}T00:00:00Z`))}: ${day.created} creados, ${day.closed} cerrados`;
-            return (
-              <li key={day.day} className="flex h-full min-w-0 flex-1 items-end gap-px" title={label}>
-                <span className="sr-only">{label}</span>
-                <span className="w-1/2 rounded-t-sm bg-brand" style={{ height: `${(day.created / max) * 100}%` }} />
-                <span className="w-1/2 rounded-t-sm bg-success" style={{ height: `${(day.closed / max) * 100}%` }} />
-              </li>
-            );
-          })}
-        </ol>
-        {first && last && (
-          <div className="flex justify-between text-xs text-muted-foreground" aria-hidden="true">
-            <span>{dayLabel.format(new Date(`${first.day}T00:00:00Z`))}</span>
-            <span>{dayLabel.format(new Date(`${last.day}T00:00:00Z`))}</span>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
 // Eficacia del asistente: cuánto resuelve sin ticket, por qué escala y qué artículos fallan
 // (huecos del catálogo para revisar).
 export function AssistantCard({ assistant }: { assistant: Metrics["assistant"] }) {

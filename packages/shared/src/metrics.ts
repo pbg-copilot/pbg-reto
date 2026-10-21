@@ -4,10 +4,16 @@ import { z } from "zod";
 
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Usa el formato AAAA-MM-DD");
 
+export const METRIC_GROUPS = ["day", "week", "month"] as const;
+export type MetricGroup = (typeof METRIC_GROUPS)[number];
+export const metricGroupLabel: Record<MetricGroup, string> = { day: "Día", week: "Semana", month: "Mes" };
+
 export const metricsQuerySchema = z.object({
   from: day.optional().describe("Inicio del rango (incluido). Por defecto, hace 30 días"),
   to: day.optional().describe("Fin del rango (excluido). Por defecto, mañana"),
+  group: z.enum(METRIC_GROUPS).default("day").describe("Agrupación de la serie: día, semana (desde el lunes) o mes"),
 });
+export type MetricsQuery = z.input<typeof metricsQuerySchema>;
 
 // Tiempos en segundos. null si no hay tickets en el rango que cumplan la condición.
 const durationStats = z.object({
@@ -17,6 +23,20 @@ const durationStats = z.object({
   avg: z.number().nullable(),
 });
 export type DurationStats = z.infer<typeof durationStats>;
+
+const seriesPointSchema = z.object({
+  bucket: day.describe("Inicio del periodo"),
+  created: z.number().int(),
+  closed: z.number().int(),
+  reopened: z.number().int().describe("Reaperturas ocurridas en el periodo"),
+  first_response_p50: z.number().nullable().describe("Mediana de TPR (segundos) de los tickets creados en el periodo"),
+  resolution_p50: z.number().nullable().describe("Mediana de TR (segundos) de los tickets creados en el periodo"),
+  conversations: z.number().int(),
+  resolved_without_ticket: z.number().int(),
+  escalated: z.number().int(),
+  ai_cost_usd: z.number().describe("Chat + copiloto"),
+});
+export type SeriesPoint = z.infer<typeof seriesPointSchema>;
 
 export const metricsSchema = z.object({
   range: z.object({ from: day, to: day }),
@@ -49,6 +69,12 @@ export const metricsSchema = z.object({
   }),
   // Tickets creados y cerrados por día (UTC) dentro del rango.
   trend: z.array(z.object({ day, created: z.number().int(), closed: z.number().int() })),
+  // Serie por periodo para el gráfico con métrica a elegir (AC-007.18). Solo cuenta lo que
+  // ocurrió dentro de [from, to); el primer periodo puede empezar antes de `from`.
+  series: z.object({
+    group: z.enum(METRIC_GROUPS),
+    points: z.array(seriesPointSchema),
+  }),
   // Eficacia del asistente sobre las conversaciones iniciadas en el rango.
   assistant: z.object({
     conversations: z.number().int(),

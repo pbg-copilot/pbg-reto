@@ -276,17 +276,47 @@ test("AC-007.2 two admins take the same case: the second one is told and nothing
   expect(detail.assignee.id).toBe(me.agent.id);
 });
 
-test("AC-007.5/7.9 metrics page with formulas; the copilot draft fills the composer and is never sent", async ({ browser }) => {
+test("AC-007.5/7.9/7.16-21 dashboard sections, charts and Excel export without CSP violations; the copilot draft fills the composer and is never sent", async ({ browser }) => {
   test.setTimeout(90_000);
   const admin = await newContextPage(browser, "agente015");
+  // Recharts y los charts de shadcn no deben inyectar estilos sin nonce.
+  const violations = [];
+  admin.on("console", (message) => {
+    if (/Content Security Policy|Refused to (apply|load|execute)/i.test(message.text())) violations.push(message.text());
+  });
   await admin.goto("/admin/metricas");
   await expect(admin.getByRole("heading", { level: 1, name: "Panel de soporte" })).toBeVisible();
   await expect(admin.getByTestId("attention")).toContainText("Sin atender");
   await expect(admin.getByTestId("attention")).toContainText("Esperan al equipo");
-  await expect(admin.getByTestId("kpis")).toContainText("Costo de IA");
+  await expect(admin.getByTestId("live-status").first()).toContainText(/Actualizado|Actualizando/);
+
+  // Atención: KPIs, gráfico con métrica a elegir y distribución. La pestaña queda en la URL.
+  await admin.getByRole("tab", { name: "Atención" }).click();
+  await expect(admin).toHaveURL(/seccion=atencion/);
+  await expect(admin.getByTestId("kpis")).toContainText("Primera respuesta");
+  await expect(admin.getByTestId("evolution-chart").locator(".recharts-surface")).toBeVisible();
+  await admin.getByRole("combobox", { name: "Métrica" }).click();
+  await admin.getByRole("option", { name: "Resolución (mediana)" }).click();
+  await admin.getByRole("radio", { name: "Semana" }).click();
+  await expect(admin).toHaveURL(/agrupar=semana/);
+  await admin.getByRole("radio", { name: "Líneas" }).click();
+  await expect(admin.getByTestId("distribution-chart")).toBeVisible();
+
+  // Exportar el periodo elegido a Excel.
+  await admin.getByRole("radio", { name: "7 días" }).click();
+  const download = admin.waitForEvent("download");
+  await admin.getByRole("button", { name: "Exportar a Excel" }).click();
+  expect((await download).suggestedFilename()).toMatch(/^metricas-soporte-\d{4}-\d{2}-\d{2}-a-\d{4}-\d{2}-\d{2}\.xlsx$/);
+
+  await admin.getByRole("tab", { name: "Asistente IA" }).click();
+  await expect(admin.getByTestId("ai-kpis")).toContainText("Costo de IA");
   await expect(admin.getByTestId("assistant-effectiveness")).toContainText("Resueltas sin ticket");
-  await admin.getByText("¿Cómo se calcula?").click();
+  await admin.getByRole("tab", { name: "Fórmulas" }).click();
   await expect(admin.getByText(/Primer comentario/)).toBeVisible();
+  // Atrás vuelve a la pestaña anterior.
+  await admin.goBack();
+  await expect(admin.getByTestId("ai-kpis")).toBeVisible();
+  expect(violations).toEqual([]);
 
   const requester = await newContextPage(browser, "agente048");
   const id = await createTicket(requester, `${PREFIX} copiloto`);

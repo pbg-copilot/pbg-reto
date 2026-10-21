@@ -265,6 +265,25 @@ notificación de otra persona da 404.
   exportar el reporte» y «Error al exportar el reporte»). En el detalle de uno aparece
   el otro con su % de parecido.
 
+### Panel con gráficos y exportación (`agente009`, `/admin/metricas`)
+
+- [ ] **Pestañas.** Ahora mismo, Atención, Asistente IA y Fórmulas. Al cambiar de pestaña
+  la URL cambia (`?seccion=…`). Recargar mantiene la pestaña y Atrás vuelve a la anterior.
+- [ ] **Métrica a elegir.** En Atención → Evolución, cambiar la métrica (por ejemplo
+  «Resolución (mediana)»), la agrupación (Semana) y el tipo (Líneas). El tooltip muestra
+  el periodo y el valor con su unidad.
+- [ ] **Agrupación automática.** Con 90 días, sin tocar la agrupación, queda «Semana».
+- [ ] **Rango personalizado.** «Personalizado» → dos fechas. Una fecha de fin anterior al
+  inicio muestra el error y no cambia lo que se ve.
+- [ ] **Exportar a Excel.** Elegir 30 días → **Exportar a Excel** → se descarga
+  `metricas-soporte-AAAA-MM-DD-a-AAAA-MM-DD.xlsx`. Abrirlo: cinco hojas, con encabezado
+  fijo y filtros; las fechas se pueden ordenar. No hay nombres de solicitantes.
+- [ ] **Sin conexión.** `docker compose stop backend` → **Actualizar** → «Sin conexión con
+  el servidor» y los datos siguen a la vista. `docker compose start backend` →
+  **Actualizar** → vuelve el punto verde.
+- [ ] **Celular.** Las pestañas se desplazan en horizontal, los KPIs van de a dos y no hay
+  scroll horizontal en la página.
+
 ## 10. Paginación y rendimiento
 
 Hay pocos datos de demo, así que algunas listas tienen una sola página. Para ver la

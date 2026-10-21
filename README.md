@@ -92,7 +92,20 @@ Las pruebas manuales paso a paso, con las cuentas para cada una, están en
 ### Métricas de atención
 
 En `/admin/metricas` (solo admin) se ven los tickets **creados** en el rango (7, 30 o 90
-días), en tiempo calendario y en UTC. Los objetivos se configuran en `/admin/prioridades`.
+días, o personalizado de hasta un año), en tiempo calendario y en UTC. Los objetivos se
+configuran en `/admin/prioridades`.
+
+- **Secciones en pestañas:** Ahora mismo (en vivo), Atención, Asistente IA y Fórmulas. La
+  pestaña, el rango y la agrupación quedan en la URL (`?seccion=atencion&dias=90`).
+- **Gráficos** (charts de shadcn sobre Recharts): una métrica a elegir (creados y
+  cerrados, primera respuesta, resolución, reaperturas, conversaciones, costo de IA),
+  agrupada por día, semana o mes, en barras, líneas o área. Otro gráfico muestra la
+  distribución por categoría, prioridad, estado o motivo de escalamiento.
+- **Exportar a Excel:** un `.xlsx` del periodo elegido con Resumen, Evolución, Por
+  prioridad, Por categoría y Tickets. No incluye datos del solicitante, notas internas ni
+  descripciones.
+- **Conexión con el servidor:** «Actualizado hace…», el botón Actualizar y un aviso si se
+  corta (se siguen viendo los últimos datos). «Ahora mismo» se refresca cada minuto.
 
 | Métrica | Fórmula |
 | --- | --- |

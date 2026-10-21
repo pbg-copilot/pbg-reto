@@ -11,3 +11,5 @@ const bySession = (request: FastifyRequest) => {
 export const mutationRateLimit = { max: 120, timeWindow: "1 minute", keyGenerator: bySession };
 export const chatRateLimit = { max: 20, timeWindow: "1 minute", keyGenerator: bySession };
 export const uploadRateLimit = { max: 20, timeWindow: "1 minute", keyGenerator: bySession };
+// Exportar a Excel arma el libro completo del rango: se limita aparte (AC-007.20).
+export const exportRateLimit = { max: 10, timeWindow: "1 minute", keyGenerator: bySession };

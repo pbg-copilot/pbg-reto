@@ -1,18 +1,30 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Metrics, Operations, Priority, UpdatePriorityBody } from "@reto/shared";
-import { api } from "@/lib/api";
+import type { MetricGroup, Metrics, Operations, Priority, UpdatePriorityBody } from "@reto/shared";
+import { api, apiDownload } from "@/lib/api";
 import { supportKeys } from "@/features/tickets/api";
 
 export const metricsKeys = {
-  range: (from: string, to: string) => ["metrics", from, to] as const,
+  range: (from: string, to: string, group: MetricGroup) => ["metrics", from, to, group] as const,
 };
 
-export function useMetrics(from: string, to: string) {
+const rangeQuery = (from: string, to: string, group: MetricGroup) => new URLSearchParams({ from, to, group }).toString();
+
+// El rango no es en vivo: se cachea un minuto y se vuelve a pedir al volver a la pestaña.
+export function useMetrics(from: string, to: string, group: MetricGroup) {
   return useQuery({
-    queryKey: metricsKeys.range(from, to),
-    queryFn: ({ signal }) => api<Metrics>(`/support/metrics?from=${from}&to=${to}`, { signal }),
+    queryKey: metricsKeys.range(from, to, group),
+    queryFn: ({ signal }) => api<Metrics>(`/support/metrics?${rangeQuery(from, to, group)}`, { signal }),
     placeholderData: keepPreviousData,
     staleTime: 60_000,
+    refetchOnWindowFocus: true,
+  });
+}
+
+// Exportar a Excel (AC-007.20): el servidor arma el .xlsx del mismo rango y agrupación.
+export function useExportMetrics() {
+  return useMutation({
+    mutationFn: ({ from, to, group }: { from: string; to: string; group: MetricGroup }) =>
+      apiDownload(`/support/metrics/export?${rangeQuery(from, to, group)}`, `metricas-soporte-${from}-a-${to}.xlsx`),
   });
 }
 

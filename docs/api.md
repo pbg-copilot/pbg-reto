@@ -151,6 +151,7 @@ Los tickets y los artículos tienen `version`, un entero que sube con cada cambi
 | `POST /support/conversations/:id/messages` y `/resolution` | 20 por minuto | Sesión |
 | Subida de adjuntos | 20 por minuto | Sesión |
 | Copiloto (resumen y borrador) | 10 por minuto | Sesión |
+| Exportar métricas a Excel | 10 por minuto | Sesión |
 | Resto de mutaciones | 120 por minuto | Sesión |
 
 Al superarlo responde 429 `too_many_requests`. Los contadores viven en la memoria de
@@ -259,6 +260,8 @@ curl -s $API/notifications/unread-count -H "$AUTH"                # contador de 
 curl -s -X POST $API/notifications/read-all -H "$AUTH"
 curl -s "$API/support/metrics?from=2026-10-01&to=2026-10-22" -H "$AUTH"   # solo admin
 curl -s $API/support/metrics/operations -H "$AUTH"                         # solo admin
+curl -s "$API/support/metrics?from=2026-07-01&to=2026-10-22&group=week" -H "$AUTH" | jq .series   # serie por semana
+curl -s -OJ "$API/support/metrics/export?from=2026-10-01&to=2026-10-22" -H "$AUTH"    # .xlsx del periodo
 ```
 
 ## Índice de endpoints
@@ -332,7 +335,8 @@ curl -s $API/support/metrics/operations -H "$AUTH"                         # sol
 | `GET /support/categories` · `GET /support/priorities` | sesión | Catálogos (el solicitante no ve objetivos) |
 | `PATCH /support/priorities/:code` | admin | Configurar objetivos de una prioridad |
 | `GET /support/admins` | admin | Admins asignables con su carga |
-| `GET /support/metrics` | admin | Métricas de atención del rango |
+| `GET /support/metrics` | admin | Métricas de atención del rango; `group=day\|week\|month` para la serie |
+| `GET /support/metrics/export` | admin | El mismo rango en un `.xlsx` (cinco hojas) |
 | `GET /support/metrics/operations` | admin | Estado operativo en vivo |
 | `POST /tickets/:id/copilot/summary` | admin | Resumir el caso |
 | `POST /tickets/:id/copilot/reply-draft` | admin | Sugerir una respuesta pública (nunca se envía sola) |

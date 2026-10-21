@@ -1,7 +1,9 @@
 import type Anthropic from "@anthropic-ai/sdk";
+import { strFromU8, unzipSync } from "fflate";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildApp, type App } from "../src/app.js";
 import { db } from "../src/db/kysely.js";
+import { XLSX_CONTENT_TYPE } from "../src/lib/xlsx.js";
 import { createFakeProvider } from "../src/modules/assistant/fake-provider.js";
 import { AssistantUnavailableError, type AssistantProvider } from "../src/modules/assistant/provider.js";
 import { buildTestApp, closeDb, loginAs, testEnv, TEST_USERS, uniqueKey } from "./helpers.js";
@@ -238,6 +240,43 @@ describe("AC-007.4 / AC-007.7 formulas with fixed dates", () => {
   it("T007.1 the unattended filter finds the open ticket without a team reply", async () => {
     const list = (await get(admin, `/tickets?unattended=true&q=${encodeURIComponent(`${tag} C`)}`)).json();
     expect(list.items.map((t: { title: string }) => t.title)).toEqual([`${tag} C`]);
+  });
+
+  it("AC-007.18 series per period: totals match the range and weeks start on Monday", async () => {
+    type Point = Record<string, number>;
+    const sum = (points: Point[], key: string) => points.reduce((total, point) => total + point[key]!, 0);
+    const byDay = (await get(admin, `/support/metrics?${range}`)).json();
+    expect(byDay.series.group).toBe("day");
+    expect(byDay.series.points).toHaveLength(31);
+    // A: creado el 1/3, respondió a los 30 min y se resolvió a las 2 h.
+    expect(byDay.series.points[0]).toMatchObject({ bucket: "2001-03-01", created: 1, closed: 1, first_response_p50: 1800, resolution_p50: 7200 });
+    expect(sum(byDay.series.points, "created")).toBe(7);
+    expect(sum(byDay.series.points, "conversations")).toBe(3);
+    expect(sum(byDay.series.points, "ai_cost_usd")).toBeCloseTo(0.2, 6);
+
+    const byWeek = (await get(admin, `/support/metrics?${range}&group=week`)).json();
+    // El 1/3/2001 fue jueves: la primera semana empieza el lunes 26/2.
+    expect(byWeek.series.points[0].bucket).toBe("2001-02-26");
+    expect(sum(byWeek.series.points, "created")).toBe(7);
+    expect((await get(admin, `/support/metrics?${range}&group=year`)).statusCode).toBe(400);
+  });
+
+  it("AC-007.20 exports the range to a real .xlsx without requester data; requesters get 403", async () => {
+    const res = await get(admin, `/support/metrics/export?${range}&group=week`);
+    expect(res.statusCode).toBe(200);
+    expect(res.headers["content-type"]).toBe(XLSX_CONTENT_TYPE);
+    expect(res.headers["content-disposition"]).toContain('filename="metricas-soporte-2001-03-01-a-2001-04-01.xlsx"');
+    const files = unzipSync(new Uint8Array(res.rawPayload));
+    const workbook = strFromU8(files["xl/workbook.xml"]!);
+    for (const name of ["Resumen", "Evolución", "Por prioridad", "Por categoría", "Tickets"]) expect(workbook).toContain(`name="${name}"`);
+    const detail = strFromU8(files["xl/worksheets/sheet5.xml"]!);
+    expect(detail).toContain(`${tag} A`);
+    expect(detail).not.toContain("Fixture de métricas.");
+    // El nombre real se lee de la base: no se copian datos de la réplica al repositorio.
+    const owner = await db.selectFrom("reto.agents").select("name").where("id", "=", requester.id).executeTakeFirstOrThrow();
+    const everything = Object.values(files).map((file) => strFromU8(file)).join("");
+    expect(everything).not.toContain(owner.name);
+    expect((await get(requester, `/support/metrics/export?${range}`)).statusCode).toBe(403);
   });
 });
 

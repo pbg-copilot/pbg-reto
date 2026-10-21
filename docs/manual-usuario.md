@@ -138,17 +138,25 @@ solicitante). Los enlaces del panel de métricas abren la bandeja con estos filt
 
 ### Métricas (`/admin/metricas`) y prioridades (`/admin/prioridades`)
 
-- **Ahora mismo** (en vivo): sin atender, esperan al equipo, esperan al solicitante,
-  antigüedad de lo pendiente, carga del equipo y salud del servicio (entregas fallidas,
-  incidentes activos). Cada tarjeta muestra los 5 más antiguos y un enlace a la bandeja
-  ya filtrada.
-- **Por rango** (7, 30 o 90 días):
-  - creados y cerrados por día;
-  - tiempo de primera respuesta y de resolución (mediana, p90 y promedio);
-  - tasa de reapertura;
-  - cumplimiento de objetivos;
-  - efectividad del asistente: resueltas sin ticket y artículos que no funcionaron;
-  - **costo real de IA**, separado entre chat y copiloto.
+El panel está en pestañas, para no tener que bajar por una página larga. La pestaña y el
+rango quedan en la URL: se puede compartir el enlace y Atrás vuelve a la pestaña anterior.
+
+| Pestaña | Qué muestra |
+| --- | --- |
+| **Ahora mismo** (en vivo, cada minuto) | Sin atender, esperan al equipo, esperan al solicitante, antigüedad de lo pendiente, carga del equipo y salud del servicio. Cada tarjeta muestra los 5 más antiguos y un enlace a la bandeja ya filtrada |
+| **Atención** | KPIs del rango (abiertos, en revisión, sin atender, reapertura, primera respuesta y resolución). **Evolución**: se elige la métrica, la agrupación (día, semana o mes) y el tipo de gráfico. **Distribución** por categoría, prioridad, estado o motivo de escalamiento. Cumplimiento por prioridad |
+| **Asistente IA** | Conversaciones, costo de IA, costo por conversación y usos del copiloto. Evolución de conversaciones (resueltas o escaladas) y del costo. Artículos más sugeridos y artículos que no funcionaron |
+| **Fórmulas** | Cómo se calcula cada número |
+
+- **Periodo:** 7, 30 o 90 días, o **Personalizado** con dos fechas (hasta un año). Si no se
+  elige la agrupación, se ajusta sola: por día hasta un mes, por semana hasta seis meses y
+  por mes en adelante.
+- **Exportar a Excel:** descarga un `.xlsx` del periodo con Resumen, Evolución, Por
+  prioridad, Por categoría y Tickets. No incluye datos del solicitante, notas internas ni
+  descripciones.
+- **Conexión:** arriba se ve «Actualizado hace…», con el botón **Actualizar**. Si la API
+  no responde, aparece «Sin conexión con el servidor» y se siguen mostrando los últimos
+  datos.
 - En **Prioridades** se configuran los objetivos de primera respuesta y resolución. El
   solicitante nunca ve objetivos ni plazos.
 
@@ -163,7 +171,7 @@ solicitante). Los enlaces del panel de métricas abren la bandeja con estos filt
 | 12–14 | **D4** | `agente099` reabre con motivo y responde | «El historial queda completo. La nota interna y su adjunto nunca le llegan: se filtran en la consulta, no en la pantalla.» |
 | 14–16 | **D5** | `agente016` abre la URL del ticket y la del adjunto. En su chat, la instrucción maliciosa | «Un recurso ajeno responde 404, no 403, para no revelar que existe. El dueño de la agencia no tiene acceso. El modelo no tiene herramientas para cerrar ni para ver datos de otros: aunque lo intente, no puede.» |
 | 16–19 | **D6** | (a) `AI_FAKE_FAILURE=true docker compose up -d backend` y escribir en Soporte. (b) `docker compose stop mailpit`, cambiar un estado, ver **Entregas** y `start`. (c) Dos admins sobre el mismo ticket | «El soporte no depende de la IA. Los correos se reintentan con backoff y se entregan una vez. Dos admins no se pisan: el segundo ve el conflicto y decide.» |
-| 19–20 | Cierre | Métricas → costo de IA. Swagger `/docs` | «Cada respuesta guarda sus tokens: el costo real ronda medio milésimo de dólar por mensaje. Todo está documentado en OpenAPI y cubierto por tests.» |
+| 19–20 | Cierre | Métricas → Asistente IA (costo real) → **Exportar a Excel**. Swagger `/docs` | «Cada respuesta guarda sus tokens: el costo real ronda medio milésimo de dólar por mensaje. Todo está documentado en OpenAPI y cubierto por tests.» |
 
 **Después de D6a**, volver a la IA real con `docker compose up -d backend`.
 

@@ -38,6 +38,17 @@
   Test con fixtures de conversaciones resueltas, escaladas, con artículo y con fallo.
   → AC-007.15
 
+## Panel con gráficos, secciones y exportación (Should)
+
+- [x] **T007.16** `group` y `series` en `GET /support/metrics`. Test con fixtures:
+  totales por periodo y agrupación por semana. → AC-007.18
+- [x] **T007.17** `GET /support/metrics/export` con un escritor `.xlsx` propio sobre
+  `fflate`. Test: es un zip válido con las cinco hojas, el texto va como texto y el
+  solicitante recibe 403. → AC-007.20
+- [x] **T007.18** UI: pestañas en la URL, rango personalizado, gráfico con métrica a
+  elegir, distribución, botón de exportar e indicador de conexión. Test de UI del panel
+  actualizado. → AC-007.16, AC-007.17, AC-007.19, AC-007.21
+
 ## Notas de implementación
 
 - **T007.1.** La bandeja ya tenía de la 002 los filtros (responsable, antigüedad, «Sin
@@ -56,3 +67,13 @@
   - Los autores van como «Solicitante» o «Equipo», sin nombres.
 - **Verificado con Haiku real.** «Sugerir respuesta» (test de UI) y «Resumir caso»
   (captura).
+- **T007.16–18 (gráficos, secciones y exportación).**
+  - Los charts de shadcn usan Recharts 3. La config de cada gráfico no lleva colores: así
+    `ChartStyle` no inyecta un `<style>` sin nonce. Los colores son los tokens
+    `--color-chart-*`. El test de UI del panel verifica que no haya violaciones de CSP.
+  - Las pestañas usan `activationMode="manual"`. En modo automático, Radix avisa al
+    presionar y al enfocar, y quedaban dos entradas en el historial, así que Atrás no
+    cambiaba de pestaña.
+  - El `.xlsx` se arma con un escritor propio sobre `fflate` 0.8.2, sin dependencias. El
+    texto va como cadena en línea, así que no hay inyección de fórmulas como en un CSV.
+  - `trend` se mantiene por compatibilidad; los gráficos usan `series`.

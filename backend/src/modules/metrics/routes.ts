@@ -1,5 +1,8 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
+import { z } from "zod";
 import { apiErrorSchema, metricsQuerySchema, metricsSchema, operationsSchema } from "@reto/shared";
+import { exportRateLimit } from "../../lib/rate-limit.js";
+import { XLSX_CONTENT_TYPE } from "../../lib/xlsx.js";
 import { resolveRange, type MetricsService } from "./service.js";
 
 const security: Record<string, string[]>[] = [{ bearer: [] }, { cookie: [] }];
@@ -19,7 +22,33 @@ const metricsRoutes: FastifyPluginAsyncZod<{ service: MetricsService }> = async 
         response: { 200: metricsSchema, 400: apiErrorSchema, 401: apiErrorSchema, 403: apiErrorSchema },
       },
     },
-    async (request) => service.metrics(resolveRange(request.query.from, request.query.to)),
+    async (request) => service.metrics(resolveRange(request.query.from, request.query.to), request.query.group),
+  );
+
+  app.get(
+    "/support/metrics/export",
+    {
+      preValidation: app.requireAdmin,
+      config: { rateLimit: exportRateLimit },
+      schema: {
+        tags: ["métricas"],
+        security,
+        summary: "Exportar el rango a Excel (solo admin)",
+        description:
+          "Devuelve un .xlsx con las hojas Resumen, Evolución, Por prioridad, Por categoría y Tickets (los creados en [from, to), hasta 20.000). Sin datos del solicitante, notas internas ni descripciones. 10 por minuto.",
+        querystring: metricsQuerySchema,
+        response: { 200: z.unknown().describe("Archivo .xlsx"), 400: apiErrorSchema, 401: apiErrorSchema, 403: apiErrorSchema, 429: apiErrorSchema },
+      },
+    },
+    async (request, reply) => {
+      const range = resolveRange(request.query.from, request.query.to);
+      const file = await service.exportWorkbook(range, request.query.group);
+      return reply
+        .header("Content-Type", XLSX_CONTENT_TYPE)
+        .header("Content-Disposition", `attachment; filename="metricas-soporte-${range.from}-a-${range.to}.xlsx"`)
+        .header("Cache-Control", "private, no-store")
+        .send(Buffer.from(file));
+    },
   );
 
   app.get(
