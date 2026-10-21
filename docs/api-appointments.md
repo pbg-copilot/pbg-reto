@@ -77,3 +77,48 @@ horarios de los conflictos; no incluyen datos del cliente.
 - `404 not_found`: agente inexistente, inactivo o fuera del alcance.
 - `409 ambiguous_local_time`: hora repetida; la respuesta trae los instantes
   UTC posibles.
+
+## Crear, reprogramar y cancelar
+
+Las mutaciones requieren dos pasos en la misma conversación activa y con un
+cliente seleccionado y autorizado. Los roles `agent` y `agency_owner` pueden
+actuar dentro de su alcance; `admin` conserva lectura global, pero no muta la
+agenda desde el chat.
+
+### 1. Preparar la confirmación exacta
+
+`POST /api/conversations/{conversationId}/appointments/confirm` acepta una
+acción `create`, `reschedule` o `cancel`. Para crear se envían
+`agentAccountId`, `localStart`, `durationMinutes` y `timeZone`. Para reprogramar
+se envía `appointmentId` y el nuevo horario; el agente puede omitirse para
+conservar el actual. Para cancelar basta `appointmentId`.
+
+La API verifica sesión, conversación, cliente y alcance del agente y devuelve
+una propuesta con ruta e ID del cliente, ID del agente, acción e intervalo
+resuelto en UTC, zona IANA, hora local y offset. Esta operación no modifica la cita. La confirmación
+vence en cinco minutos y queda ligada a esos valores. Si cambia el cliente, el
+agente deja de estar autorizado o cambia la cita que se va a reprogramar o
+cancelar, la propuesta queda obsoleta y se debe preparar otra.
+
+### 2. Ejecutar la confirmación
+
+`POST /api/conversations/{conversationId}/appointments` recibe
+`confirmationId` y una `idempotencyKey` UUID. La API vuelve a validar permisos,
+cliente, vigencia y estado de la cita, y aplica el cambio dentro de una
+transacción. Reutilizar la misma clave en la misma conversación con la misma
+confirmación devuelve el resultado original; usarla con otros datos o en otra
+conversación devuelve `409 idempotency_key_reused`.
+
+Una restricción de exclusión GiST de PostgreSQL impide intervalos superpuestos
+para el mismo agente entre citas confirmadas, incluso con solicitudes
+concurrentes. Ante el conflicto se revierte el cambio de cita, se invalida la
+confirmación y se registra el resultado `slot_taken`; la respuesta es `409` y
+no contiene una escritura parcial. El resultado exitoso registra actor, rol,
+alcance, cita y resultado en `reto.chat_actions`; el snapshot mínimo permite
+responder de forma idempotente.
+
+Errores relevantes: `401 unauthorized`, `404 not_found`, `409
+conversation_archived`, `client_not_selected`, `confirmation_expired`,
+`confirmation_already_used`, `stale_confirmation`, `slot_taken` e
+`idempotency_key_reused`. Los errores de validación de hora y zona se describen
+en la sección de disponibilidad.

@@ -69,7 +69,7 @@ Esta especificación separa los requisitos de `Reto_Chat_PBG.pdf` de las decisio
 
 - Autenticar y autorizar solicitudes; resolver contexto desde referencias validadas.
 - Recuperar evidencia autorizada conservando su procedencia y aplicar reglas deterministas documentadas.
-- Validar confirmación, disponibilidad y permisos dentro de una transacción de agenda.
+- Preparar confirmaciones exactas de agenda, exigir su aceptación antes de guardar, y revalidar cliente, agente, horario, zona y estado dentro de la transacción. PostgreSQL impide solapamientos activos por agente; las claves idempotentes reproducen el resultado auditado.
 - Persistir conversación, mensajes, claves de idempotencia y auditoría.
 - Producir respuestas estructuradas con evidencia y faltantes.
 

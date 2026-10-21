@@ -143,7 +143,9 @@ No son fuentes de datos de negocio independientes.
   y faltantes; la API las define como instantáneas analíticas, no como ofertas
   vigentes o aprobadas. Las reglas siguen sin estar disponibles.
   `/api/appointments/availability` resuelve horas locales con zona IANA a
-  instantes UTC y consulta conflictos del calendario propio de Chat PBG.
+  instantes UTC y consulta conflictos del calendario propio de Chat PBG. Las
+  rutas de agenda preparan una confirmación exacta antes de crear, reprogramar
+  o cancelar; PostgreSQL aplica exclusión de solapamientos e idempotencia.
   Contratos y respuestas:
   [`docs/api-conversations.md`](docs/api-conversations.md).
   [`docs/api-appointments.md`](docs/api-appointments.md).
@@ -152,9 +154,10 @@ Al iniciar, la API aplica en una transacción las migraciones versionadas de
 `backend/migration_*.sql` después de preparar el esquema local `reto`. Registra
 versión y checksum en `reto.schema_migrations`; los archivos aplicados no se
 pueden modificar silenciosamente. La primera migración añade `reto.chat_conversations`,
-`reto.chat_messages` y `reto.chat_actions`; la segunda añade `reto.chat_appointments`,
-sin alterar las tablas originales de negocio. Las tablas se describen en las
-migraciones y la documentación del modelo.
+`reto.chat_messages` y `reto.chat_actions`; la segunda añade `reto.chat_appointments`
+y la tercera las confirmaciones e invariantes de concurrencia, sin alterar las
+tablas originales de negocio. Las tablas se describen en las migraciones y la
+documentación del modelo.
 
 ```sh
 curl http://localhost:8008/auth/get-toke \

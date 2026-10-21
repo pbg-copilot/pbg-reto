@@ -111,8 +111,13 @@ La migración `002_chat_appointments` crea la fuente de citas del reto, separada
 de `teamops.bookings`. Conserva agente, conversación, cliente opcional, intervalo
 absoluto (`start_at`/`end_at` como `timestamptz`), zona IANA, hora local original,
 offset resuelto y estado. La API de disponibilidad consulta los intervalos
-confirmados de esta tabla. La creación y cancelación de citas se implementan en
-la issue 10; hasta entonces la tabla puede no tener filas.
+confirmados de esta tabla. La migración `003_appointment_confirmation_and_overlap`
+añade `reto.chat_appointment_confirmations`, que guarda por cinco minutos la
+propuesta exacta de crear, reprogramar o cancelar antes de modificar una cita.
+Cada cita conserva la última confirmación aplicada. La misma migración instala
+una restricción de exclusión GiST que impide solapamientos activos por agente.
+La operación y su resultado mínimo se guardan en `reto.chat_actions`, junto con
+actor, alcance, clave idempotente y snapshot de respuesta.
 
 La consulta calcula conflictos con intervalos semiabiertos `[inicio, fin)` y no
 impone todavía una política de horario laboral, feriados o bloqueos externos.
