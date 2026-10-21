@@ -29,9 +29,9 @@
 
 Los roles no listados en la matriz (incluido `appeal_officer` del respaldo) no tienen acceso al chat ni a sus datos hasta que una política explícita les conceda capacidades. Un rol desconocido o nulo se deniega por defecto.
 
-### Regla de cotizaciones y citas hasta confirmar sus fuentes
+### Regla de cotizaciones y citas
 
-La política anterior no convierte tablas homónimas en datos válidos del expediente. Como documenta `data-model.md`, `analytics.quotes` no tiene una FK al libro del cliente y `teamops.bookings` corresponde a flujos internos, no a citas de seguros confirmadas. Mientras el propietario de datos no valide una relación estable y su semántica, las consultas de cotizaciones de cliente o citas de seguro no devuelven esos registros. El control de acceso no puede sustituir la validación de significado.
+La ruta de cotizaciones devuelve solo filas de `analytics.quotes` cuyos `lead_id` y `account_id` coinciden exactamente con el ID del cliente activo y el propietario activo del libro. Además aplica el alcance de la sesión antes de consultar. La decisión de producto del MVP es exponerlas como instantáneas analíticas, no como ofertas vigentes/aprobadas; no infiere coberturas ni elegibilidad. `teamops.bookings` sigue siendo un flujo interno, no una fuente confirmada de citas de seguros. El control de acceso y la coincidencia de IDs no sustituyen una fuente autoritativa si en el futuro se agregan acciones comerciales.
 
 ## 3. Cómo se calcula el alcance
 
@@ -96,7 +96,7 @@ En la réplica, `onboarding.accounts` contiene un único `role` y `agency_id` ac
 ## 8. Decisiones pendientes del propietario de datos/producto
 
 - Confirmar con el propietario del dominio que los libros representan clientes activos de seguros y si una transferencia de agencia debe preservar acceso histórico; la implementación actual aplica la cuenta y agencia activas del propietario.
-- Confirmar enlace y semántica de cotizaciones; hasta entonces se deniegan como cotizaciones de expediente.
+- Una futura función que afirme emisión, vigencia o aprobación de cotizaciones requiere estados y fuente autoritativa; la consulta analítica actual no hace esas afirmaciones.
 - Identificar la tabla aprobada de citas de seguro y quién puede delegar su gestión.
 
 ## 9. Estado de implementación

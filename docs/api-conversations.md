@@ -192,14 +192,95 @@ modo que el estado no depende de la página de notas solicitada. Las cadenas de
 el respaldo no confirma su formato ni fechas; en ese caso la respuesta marca
 la actividad como parcial o no disponible y explica la limitación.
 
+## `GET /api/conversations/:conversationId/quotes`
+
+Consulta registros analíticos para el cliente activo. La ruta revalida la
+sesión, la propiedad de la conversación y el acceso al cliente activo. Solo
+incluye filas cuando `analytics.quotes.lead_id` coincide exactamente con el ID
+del cliente y `analytics.quotes.account_id` con la cuenta propietaria activa del
+libro. La consulta conserva el alcance del agente, dueño de agencia o
+administrador; no busca por nombre ni mezcla cuentas. La coincidencia exacta es
+la asociación que adopta este MVP: una instantánea analítica vinculada por IDs,
+no una oferta emitida. Esta convención permite consultar los datos sin atribuir
+al respaldo significado comercial que no contiene.
+
+```json
+{
+  "client_record_id": "record-id",
+  "quotes_status": "loaded",
+  "quotes": [{
+    "id": "quote-id",
+    "carrier": "...",
+    "product": "...",
+    "face_amount_cents": "...",
+    "monthly_premium_cents": "...",
+    "annual_premium_cents": "...",
+    "recorded_at": "...",
+    "source": {
+      "type": "analytics_quote_snapshot",
+      "table": "analytics.quotes",
+      "record_id": "quote-id",
+      "client_record_id": "record-id",
+      "date": "...",
+      "match_basis": "exact_lead_id_and_owner_account_id"
+    }
+  }],
+  "comparison_status": "observed_fields_only",
+  "comparison": {
+    "quote_ids": ["quote-id"],
+    "records": [{
+      "quote_id": "quote-id",
+      "carrier": "...",
+      "product": "...",
+      "face_amount_cents": "...",
+      "monthly_premium_cents": "...",
+      "annual_premium_cents": "...",
+      "recorded_at": "...",
+      "source_record_id": "quote-id"
+    }],
+    "fields": ["carrier", "product", "face_amount_cents", "monthly_premium_cents", "annual_premium_cents", "recorded_at"],
+    "interpretation": "stored_values_only"
+  },
+  "rules": { "status": "unavailable", "version": null, "reason": "..." },
+  "record_semantics": {
+    "kind": "analytics_snapshot",
+    "meaning": "Valores analíticos asociados por IDs exactos; no son oferta vigente, aprobada o emitida.",
+    "fields": {
+      "face_amount_cents": "Valor nominal almacenado; no confirma cobertura contratada.",
+      "monthly_premium_cents": "Importe mensual almacenado; no confirma tarifa vigente.",
+      "annual_premium_cents": "Importe anual almacenado; no confirma tarifa vigente.",
+      "recorded_at": "Fecha de registro analítico; no es fecha de emisión o vigencia."
+    }
+  },
+  "source": {
+    "table": "analytics.quotes",
+    "relationship_status": "exact_key_match_association_only"
+  },
+  "missing": ["..."]
+}
+```
+
+Con varias filas, `comparison_status` es `observed_fields_only`; con una es
+`single_record` y sin coincidencias es `empty` (`quotes_status: empty`). La
+respuesta enumera reglas, vigencia y aprobación que no constan. La decisión del
+MVP es tratar cada fila como instantánea analítica asociada por IDs exactos;
+esta decisión no confirma la validez comercial de las filas. Solo proyecta los
+campos mostrados; no expone identificadores internos de sesión/intento ni
+`derived`. No interpreta primas como precios vigentes ni infiere coberturas,
+elegibilidad o aprobación. Si la conversación no tiene cliente activo responde
+`409 client_not_selected`; una conversación ajena o un cliente que ya no se
+puede autorizar devuelve `404 not_found`.
+
 ## Errores
 
 - `400 invalid_request`: cuerpo inválido o contenido vacío.
 - `401 unauthorized`: falta una sesión válida, venció o la cuenta ya no está activa.
 - `404 not_found`: conversación o cliente inexistente, ajeno o no verificable.
+- `409 client_not_selected`: la consulta de perfil o cotizaciones requiere cliente activo.
 - `409 conversation_archived`: intento de agregar mensajes o cambiar el cliente de una conversación archivada.
 - `500 internal_error`: fallo inesperado; no incluye campos de la conversación.
 
-Las respuestas solo incluyen los campos proyectados del cliente autorizado. Las
-cotizaciones y citas siguen inaccesibles porque sus relaciones con clientes no
-están confirmadas por el modelo de datos local.
+Las respuestas solo incluyen los campos proyectados del cliente autorizado.
+La ruta de cotizaciones devuelve únicamente coincidencias exactas de ID de
+cliente y cuenta propietaria, marcadas como instantáneas analíticas. No hay
+fuente confirmada de citas de seguros.

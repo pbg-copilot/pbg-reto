@@ -99,7 +99,9 @@ los libros enlazados. No se usan coincidencias de nombre, correo o alias.
 - Los importes están expresados en centavos; `derived` requiere confirmar semántica antes de interpretarlo.
 - Es un conjunto de analítica/telemetría de cotización; el esquema no expone condiciones completas, coberturas ofertadas ni reglas de suscripción.
 
-**Uso permitido en el MVP:** no presentar estas filas como cotizaciones del cliente hasta confirmar qué sistema las produjo, qué significa cada ID y cómo se relaciona `lead_id` con los libros. No usar valores de prima como precio vigente ni como cotización aprobada.
+**Decisión de dominio para el MVP:** interpretar cada fila únicamente como una instantánea analítica de valores registrados, asociada técnicamente a un lead cuando `lead_id` coincide exactamente con el ID del lead del libro activo y `account_id` coincide exactamente con su propietario activo. La API también aplica el alcance de agente/agencia de la sesión. La respuesta usa `analytics_snapshot` y `exact_key_match_association_only`; no llama a la fila oferta emitida, vigente o aprobada. La ruta omite filas con propietario no resoluble, ID de cliente duplicado en el libro o cuenta fuera del alcance. No usa `derived` ni otros campos internos.
+
+Significado de campos en esta API: `carrier` y `product` son etiquetas tal como se almacenaron; `face_amount_cents` es el valor nominal registrado, no cobertura contratada; los importes mensual/anual son valores almacenados, no tarifas vigentes; `created_at` es fecha de registro analítico, no fecha de emisión o vigencia. La comparación es lado a lado de valores existentes, no una clasificación ni recomendación. El enlace exacto es una convención prudente del MVP, no una FK declarada ni garantía de validez comercial.
 
 ## Agenda y bookings
 
@@ -124,7 +126,7 @@ En las tablas y metadatos inspeccionados no se identificó un catálogo versiona
 Hasta recibir reglas documentadas con versión y responsable:
 
 - resumir solo datos almacenados con fuente;
-- describir cotizaciones como registros analíticos cuya relación/semántica debe confirmarse;
+- describir filas devueltas por la API como instantáneas analíticas asociadas por coincidencia exacta de IDs;
 - enumerar información faltante;
 - no recomendar una opción ni inferir aprobación, cobertura o precio vigente.
 
@@ -154,7 +156,7 @@ No pegar resultados que incluyan `document`, `content`, nombres, teléfonos, ema
 ## Decisiones y preguntas pendientes
 
 1. Confirmar con el propietario del dominio si `leads-store/books` representa clientes activos de seguros y si la regla de propiedad por `ownerKey` debe cubrir transferencias históricas; la API solo aplica la cuenta/agencia actual.
-2. Definir el enlace válido entre libros y `analytics.quotes`, o confirmar que no hay enlace utilizable.
+2. Si se requiere presentar las instantáneas como ofertas comerciales, obtener una fuente documental que defina estados de emisión, vigencia y aprobación; el MVP no depende de esa interpretación.
 3. Identificar la fuente aprobada de citas del agente para seguros; la tabla de teamops no satisface ese requisito según su `source` y modelo actuales.
 4. Confirmar reglas de recomendación, precios, cobertura y aprobación fuera de la estructura de datos.
 5. Definir proyección de campos por rol y política de retención de mensajes/evidencia, minimizando datos personales.

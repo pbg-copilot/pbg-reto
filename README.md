@@ -137,7 +137,12 @@ No son fuentes de datos de negocio independientes.
   `POST /api/conversations/:conversationId/messages`: crean, listan, recuperan
   y guardan conversaciones y mensajes. `GET /api/clients` busca libros con
   ownership verificable y `POST /api/conversations/:conversationId/client`
-  asocia o cambia el cliente activo con auditoría. Contrato y respuestas:
+  asocia o cambia el cliente activo con auditoría. La ruta
+  `/api/conversations/:conversationId/quotes` devuelve registros analíticos que
+  coinciden exactamente por ID de cliente y cuenta propietaria, con referencias
+  y faltantes; la API las define como instantáneas analíticas, no como ofertas
+  vigentes o aprobadas. Las reglas siguen sin estar disponibles.
+  Contrato y respuestas:
   [`docs/api-conversations.md`](docs/api-conversations.md).
 
 Al iniciar, la API aplica en una transacción las migraciones versionadas de
