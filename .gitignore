@@ -8,6 +8,8 @@ dist/
 .DS_Store
 playwright-report/
 test-results/
+# Sesiones guardadas por el setup de las E2E
+tests/e2e/.auth/
 .private/
 *.dump
 *.backup

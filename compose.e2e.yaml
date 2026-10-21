@@ -1,0 +1,11 @@
+# Solo para `pnpm test:e2e` (spec 008): el mismo stack con el asistente simulado, para que los
+# casos D1–D6 sean deterministas y no gasten tokens. El script tests/e2e/run.mjs lo aplica y
+# al terminar vuelve a levantar el backend con la configuración normal del .env.
+services:
+  backend:
+    environment:
+      AI_PROVIDER: fake
+      AI_FAKE_FAILURE: "false"
+  worker:
+    environment:
+      AI_PROVIDER: fake

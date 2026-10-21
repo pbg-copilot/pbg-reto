@@ -16,7 +16,8 @@
     "db:migrate": "pnpm --filter @reto/backend db:migrate",
     "test": "node --test --test-concurrency=1 tests/*.test.mjs",
     "test:unit": "pnpm -r --if-present test",
-    "test:ui": "playwright test",
+    "test:ui": "node tests/e2e/run.mjs --ui",
+    "test:e2e": "node tests/e2e/run.mjs",
     "check:data": "node --test tests/data.test.mjs"
   },
   "devDependencies": {
