@@ -40,8 +40,17 @@ Si se cambia el puerto web o el host, actualizar también `APP_ORIGIN`.
   de agenda; `src/hooks/useClientContext.ts` gestiona búsqueda, selección y
   carga de perfil/cotizaciones. `App.tsx` conecta estos hooks con la vista.
 - `backend/` contiene la API Fastify, su esquema y migraciones. `src/server.ts`
-  inicializa el servidor y registra rutas; `src/appointment-routes.ts` agrupa
-  los endpoints de agenda. `src/appointment-authorization.ts`,
+  configura el servidor, sus hooks y dependencias, y registra los módulos de
+  rutas. `src/auth-routes.ts`, `src/conversation-routes.ts`,
+  `src/client-context-routes.ts`, `src/assistant-routes.ts` y
+  `src/chat-message-routes.ts` agrupan autenticación, conversaciones,
+  contexto del cliente, asistente y mensajes; `src/appointment-chat-routes.ts`
+  gestiona el flujo conversacional de agenda. `src/appointment-routes.ts`
+  registra los módulos de disponibilidad, consulta, confirmación y ejecución
+  de citas (`src/appointment-availability-routes.ts`,
+  `src/appointment-query-routes.ts`, `src/appointment-confirmation-routes.ts`
+  y `src/appointment-execution-routes.ts`). `src/route-dependencies.ts` define las
+  dependencias compartidas de rutas. `src/appointment-authorization.ts`,
   `src/appointment-presenter.ts` y `src/appointment-audit-repository.ts`
   separan autorización, representación y auditoría de citas. El asistente
   separa configuración, proveedor, repositorio de evidencia y coordinación en
