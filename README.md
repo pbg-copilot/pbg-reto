@@ -170,6 +170,15 @@ Si se cambia el puerto web o el host, actualizar también `APP_ORIGIN`.
   coordina las operaciones con acceso completo o solo propiedad, conservando sus
   distintos contratos. `npm run test:authorization` compila y comprueba los ciclos
   de transacción y la regresión de citas mediante conexiones simuladas.
+- El listado de citas se compone en `modules/appointments/appointment-query-composition.ts`.
+  `routes/appointment-query-routes.ts` conserva el esquema HTTP;
+  `services/appointment-query-service.ts` comprueba el cliente activo y filtra
+  las citas según el acceso a cada agente, mediante contratos inyectados.
+  `repositories/appointment-query-repository.ts` consulta las citas confirmadas
+  de ese cliente, incluidas las creadas desde otras conversaciones, con el mismo
+  orden por fecha e identificador. Las lecturas usan una transacción autorizada;
+  `presentation/appointment-query-response.ts` mantiene los errores y la
+  representación pública de fechas y citas.
 - La disponibilidad se compone en `modules/appointments/appointment-availability-composition.ts`.
   `routes/appointment-availability-routes.ts` conserva el esquema HTTP;
   `services/appointment-availability-service.ts` resuelve el horario y coordina
