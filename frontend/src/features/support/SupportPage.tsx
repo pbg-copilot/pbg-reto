@@ -49,14 +49,15 @@ export function SupportPage() {
     return <NotFoundPage message="No encontramos esta conversación." />;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="flex flex-col gap-1">
+        <div className="flex min-w-0 flex-col gap-1">
           <span className="eyebrow text-primary">Centro de ayuda</span>
-          <h1 className="text-3xl font-bold tracking-tight">Soporte</h1>
-          <p className="text-muted-foreground">Cuéntale al asistente qué pasa. Si no hay una solución conocida, crea un ticket por ti.</p>
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Soporte</h1>
+          <p className="text-sm text-muted-foreground sm:text-base">Cuéntale al asistente qué pasa. Si no hay una solución conocida, crea un ticket por ti.</p>
         </div>
-        <Button size="lg" variant="outline" asChild>
+        {/* En el celular "Tickets" ya está en la navegación: se ahorra una fila. */}
+        <Button size="lg" variant="outline" className="hidden sm:inline-flex" asChild>
           <Link to="/tickets">
             <TicketIcon data-icon="inline-start" aria-hidden="true" />
             Mis tickets
@@ -64,21 +65,21 @@ export function SupportPage() {
         </Button>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
-        <aside className="flex flex-col gap-3" aria-label="Conversaciones recientes">
-          <Button asChild>
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 sm:gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
+        <aside className="flex min-w-0 flex-col gap-3" aria-label="Conversaciones recientes">
+          <Button asChild className="touch-manipulation">
             <Link to="/soporte">
               <MessageSquarePlusIcon data-icon="inline-start" aria-hidden="true" />
               Nueva conversación
             </Link>
           </Button>
-          <ul className="flex gap-2 overflow-x-auto lg:flex-col lg:overflow-visible">
+          <ul className="-mx-1 flex snap-x gap-2 overflow-x-auto overscroll-x-contain px-1 pb-1 [scrollbar-width:none] lg:mx-0 lg:flex-col lg:overflow-visible lg:px-0 lg:pb-0 [&::-webkit-scrollbar]:hidden">
             {(conversations.data?.pages.flatMap((page) => page.items) ?? []).map((item) => (
-              <li key={item.id} className="min-w-52 lg:min-w-0">
+              <li key={item.id} className="w-56 shrink-0 snap-start lg:w-auto lg:shrink">
                 <Link
                   to={`/soporte/c/${item.id}`}
                   className={cn(
-                    "glass flex flex-col gap-1 rounded-xl px-3 py-2 text-sm transition-colors hover:bg-accent",
+                    "glass flex min-w-0 touch-manipulation flex-col gap-1 rounded-xl px-3 py-2 text-sm transition-colors hover:bg-accent",
                     item.id === id && "border-brand/50 bg-accent",
                   )}
                 >
@@ -252,19 +253,19 @@ function ChatPanel({ conversation, onCreated }: { conversation?: Conversation; o
   }
 
   return (
-    <Card className="glass flex min-h-[60vh] flex-col gap-0 py-0">
-      <CardHeader className="border-b py-4">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <LifeBuoyIcon aria-hidden="true" className="size-4 text-brand" />
-          {conversation?.title ?? "Nueva conversación"}
+    <Card className="glass flex min-w-0 flex-col gap-0 py-0 sm:min-h-[60vh]">
+      <CardHeader className="border-b py-3 sm:py-4">
+        <CardTitle className="flex min-w-0 items-center gap-2 text-base">
+          <LifeBuoyIcon aria-hidden="true" className="size-4 shrink-0 text-brand" />
+          <span className="truncate">{conversation?.title ?? "Nueva conversación"}</span>
         </CardTitle>
       </CardHeader>
 
       <CardContent className="flex min-h-0 flex-1 flex-col px-0">
         <MessageScrollerProvider autoScroll>
-          <MessageScroller className="h-[52vh] min-h-80">
+          <MessageScroller className="h-[52dvh] min-h-64 sm:h-[52vh] sm:min-h-80">
             <MessageScrollerViewport>
-              <MessageScrollerContent className="flex flex-col gap-5 px-4 py-6">
+              <MessageScrollerContent className="flex min-w-0 flex-col gap-4 px-3 py-4 break-words sm:gap-5 sm:px-4 sm:py-6">
                 {messages.length === 0 && !pendingText && (
                   <MessageScrollerItem messageId="empty">
                     <Empty>
@@ -324,7 +325,7 @@ function ChatPanel({ conversation, onCreated }: { conversation?: Conversation; o
         </MessageScrollerProvider>
       </CardContent>
 
-      <div className="flex flex-col gap-3 border-t p-4">
+      <div className="flex flex-col gap-3 border-t p-3 sm:p-4">
         {unavailable && (
           <Alert role="alert" className="border-gold/50 bg-gold-soft">
             <AlertTitle>El asistente no está disponible en este momento</AlertTitle>
@@ -373,9 +374,16 @@ function ChatPanel({ conversation, onCreated }: { conversation?: Conversation; o
                 onKeyDown={onKeyDown}
                 maxLength={4000}
                 rows={3}
-                placeholder="Escribe tu mensaje. Enter para enviar, Shift+Enter para una línea nueva."
+                enterKeyHint="send"
+                autoComplete="off"
+                className="min-h-16 text-base sm:min-h-20 md:text-sm"
+                placeholder="Escribe tu mensaje…"
+                aria-describedby="chat-hint"
                 disabled={busy}
               />
+              <p id="chat-hint" className="hidden text-xs text-muted-foreground sm:block">
+                Enter para enviar · Shift+Enter para una línea nueva
+              </p>
             </Field>
             <StagedAttachments
               attachments={staged}
@@ -390,7 +398,7 @@ function ChatPanel({ conversation, onCreated }: { conversation?: Conversation; o
                 {uploadError}
               </p>
             )}
-            <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex flex-wrap gap-2">
                 <AttachButton onPick={(files) => void pickFiles(files)} disabled={busy} />
                 {conversation && messages.some((m) => m.role === "user") && (
@@ -400,7 +408,7 @@ function ChatPanel({ conversation, onCreated }: { conversation?: Conversation; o
                   </Button>
                 )}
               </div>
-              <Button type="submit" disabled={busy || !draft.trim()}>
+              <Button type="submit" size="lg" className="w-full touch-manipulation sm:w-auto" disabled={busy || !draft.trim()}>
                 {busy ? <Spinner aria-label="Enviando" data-icon="inline-start" /> : <SendIcon data-icon="inline-start" aria-hidden="true" />}
                 Enviar
               </Button>

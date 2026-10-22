@@ -14,6 +14,8 @@ function RequireAdmin() {
 export const router = createBrowserRouter([
   {
     element: <AppShell />,
+    // Mientras carga la primera pantalla diferida (evita el aviso de HydrateFallback).
+    hydrateFallbackElement: <div className="min-h-dvh bg-background" aria-busy="true" />,
     children: [
       { index: true, element: <HomePage /> },
       {
