@@ -428,7 +428,9 @@ uv run --with cryptography --with pyahocorasick python -m unittest discover -s t
 $LASTEXITCODE
 ```
 
-`npm test` y `npm run test:ui` necesitan la app local iniciada. Playwright requiere Chromium instalado (una vez por máquina). La suite UI existente cubre login, persistencia de sesión, logout y vista móvil; no sustituye el recorrido manual del chat, cliente, citas, conflictos e idempotencia descrito en la guía. Conserva en pantalla la salida y el código de cada comando; éxito corresponde a código `0` y cero pruebas fallidas.
+`npm test` y `npm run test:ui` necesitan la app local iniciada. Playwright requiere Chromium instalado (una vez por máquina). La suite UI cubre login, sesión, logout, modal, consultas, ficha, citas por chat y vista móvil. `npm run test:demo` ejecuta solo el recorrido API/SQL de cliente, historial, cotizaciones, agenda, idempotencia, conflictos, aislamiento, sesión vencida y fallo del proveedor en loopback. También forma parte de `npm test`.
+
+Ejecuta las suites en secuencia: renuevan las sesiones de las cuentas de prueba. Las demos conservan conversaciones y auditoría identificadas por su título y cancelan las citas que crean para liberar el horario. No llaman al proveedor externo configurado. La guía detalla sus efectos y las limitaciones verificadas. Conserva en pantalla la salida y el código de cada comando; éxito corresponde a código `0` y cero pruebas fallidas.
 
 ## Regenerar desde un respaldo privado
 

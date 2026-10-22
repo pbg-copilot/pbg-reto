@@ -116,6 +116,9 @@ export function useConversationWorkspace({ api, agentId, effectsRef }: Options) 
   }
 
   function activateConversation(conversationId: string) {
+    // Selecting the current conversation must not invalidate its pending load:
+    // the history effect only runs when the selected ID actually changes.
+    if (conversationId === activeConversationRef.current) return;
     title.cancelRenameConversation();
     contextRequest.current += 1;
     effectsRef.current.resetAppointmentWorkflow();
