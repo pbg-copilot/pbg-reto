@@ -98,6 +98,14 @@ Si se cambia el puerto web o el host, actualizar también `APP_ORIGIN`.
   coordina las operaciones con acceso completo o solo propiedad, conservando sus
   distintos contratos. `npm run test:authorization` compila y comprueba los ciclos
   de transacción y la regresión de citas mediante conexiones simuladas.
+- La agenda por chat se compone en `modules/appointments/appointment-chat-composition.ts`.
+  `routes/appointment-chat-routes.ts` conserva el esquema HTTP y delega al
+  servicio `services/appointment-chat-service.ts`, que valida el cliente esperado,
+  comprueba las evidencias y coordina las etapas del diálogo. El repositorio
+  `repositories/appointment-chat-repository.ts` consulta citas y confirmaciones y
+  persiste el estado y ambos mensajes dentro de la misma transacción autorizada.
+  Los textos están en `presentation/appointment-chat-text.ts`; la traducción
+  de resultados a HTTP está en `presentation/appointment-chat-response.ts`.
 - La preparación de confirmaciones se compone en
   `modules/appointments/appointment-confirmation-composition.ts`.
   `routes/appointment-confirmation-routes.ts` conserva el esquema HTTP y delega
