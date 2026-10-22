@@ -71,6 +71,13 @@ Si se cambia el puerto web o el host, actualizar también `APP_ORIGIN`.
   el esquema y las migraciones, que permanecen en la raíz de `backend/`.
   Las rutas de recursos se resuelven respecto a ese directorio tanto desde
   los fuentes como desde `dist/`.
+- El expediente del cliente se compone en `modules/clients/client-profile-composition.ts`.
+  `routes/client-profile-routes.ts` valida parámetros y mantiene la transacción
+  autorizada; `services/client-profile-service.ts` prepara notas, actividad,
+  paginación y datos faltantes mediante el contrato `ClientProfileRepository`.
+  `repositories/client-profile-repository.ts` implementa las consultas PostgreSQL
+  con sus filtros de alcance, y `presentation/client-profile-presenter.ts`
+  conserva la estructura pública de la respuesta.
 - `shared/auth/authorization.ts` conserva el punto de entrada público y compone
   las implementaciones. Los tipos están en `authorization-types.ts`; el ciclo de
   transacción está en `authenticated-transaction.ts`, con resolución de sesión
