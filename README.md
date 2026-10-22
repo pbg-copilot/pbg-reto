@@ -88,6 +88,16 @@ Si se cambia el puerto web o el host, actualizar también `APP_ORIGIN`.
   coordina las operaciones con acceso completo o solo propiedad, conservando sus
   distintos contratos. `npm run test:authorization` compila y comprueba los ciclos
   de transacción y la regresión de citas mediante conexiones simuladas.
+- La preparación de confirmaciones se compone en
+  `modules/appointments/appointment-confirmation-composition.ts`.
+  `routes/appointment-confirmation-routes.ts` conserva el esquema HTTP y delega
+  al servicio `services/appointment-confirmation-service.ts`, que valida los
+  campos por acción, resuelve el horario y prepara la revisión dentro de una
+  transacción autorizada. Sus contratos permiten inyectar transacciones,
+  acceso y repositorio. `repositories/appointment-confirmation-repository.ts`
+  bloquea la cita existente y guarda la confirmación; el adaptador
+  `presentation/appointment-confirmation-response.ts` mantiene los códigos,
+  mensajes y datos públicos, incluidas las alternativas para horas ambiguas.
 - La ejecución de citas se compone en
   `backend/src/modules/appointments/appointment-execution-composition.ts`.
   `routes/appointment-execution-routes.ts` valida HTTP y delega al servicio;
