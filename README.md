@@ -44,9 +44,11 @@ Si se cambia el puerto web o el host, actualizar también `APP_ORIGIN`.
   rutas. `src/auth-routes.ts`, `src/conversation-routes.ts`,
   `src/conversation-management-routes.ts`, `src/client-search-routes.ts` y
   `src/client-selection-routes.ts` separan autenticación, gestión de
-  conversaciones y selección de clientes. `src/client-context-routes.ts`,
-  `src/assistant-routes.ts` y `src/chat-message-routes.ts` gestionan el
-  contexto del cliente, el asistente y los mensajes; `src/appointment-chat-routes.ts`
+  conversaciones y selección de clientes. `src/client-context-routes.ts`
+  registra los handlers de `src/client-profile-routes.ts` y
+  `src/client-quote-routes.ts`; `src/assistant-routes.ts` y
+  `src/chat-message-routes.ts` gestionan el asistente y los mensajes.
+  `src/appointment-chat-routes.ts`
   y `src/appointment-chat-state-routes.ts` gestionan los flujos conversacionales
   de agenda. `src/appointment-routes.ts`
   registra los módulos de disponibilidad, consulta, confirmación y ejecución
