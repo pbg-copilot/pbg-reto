@@ -1,0 +1,142 @@
+/* Adapt to the dialog's dimensions, including resizing on a wide screen. */
+.workspace-modal-backdrop {
+  --workspace-edge: 20px;
+  padding: var(--workspace-edge);
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  height: 100dvh;
+}
+.workspace-modal {
+  container: chat-workspace / size;
+  min-width: min(360px, 100%);
+  min-height: min(320px, 100%);
+  max-width: 100%;
+  max-height: 100%;
+}
+.workspace-modal-header { flex: 0 0 auto; min-height: 66px; }
+.workspace-modal-header { cursor: grab; user-select: none; }
+.workspace-modal-header .modal-brand { touch-action: none; }
+.modal-move-handle { flex: 0 0 34px; padding: 0; border: 0; font-size: 22px; cursor: grab; touch-action: none; }
+.modal-move-handle:focus-visible { outline-offset: 2px; }
+.workspace-modal-backdrop[data-moving],
+.workspace-modal-backdrop[data-moving] .workspace-modal-header,
+.workspace-modal-backdrop[data-moving] .modal-move-handle { cursor: grabbing; user-select: none; }
+.modal-brand { min-width: 0; flex-shrink: 1; }
+.modal-brand > div { min-width: 0; }
+.modal-brand-mark, .workspace-submenu button { flex-shrink: 0; }
+.workspace-submenu { min-width: 0; overflow-x: auto; }
+.workspace-modal-body { min-width: 0; overflow: hidden; }
+.workspace-modal-body > .chat-shell { min-width: 0; grid-template-columns: 260px minmax(0, 1fr) var(--context-panel-width); }
+.workspace-modal-body > .chat-shell.no-active-conversation { grid-template-columns: 260px minmax(0, 1fr); }
+.workspace-modal-body .context-panel { display: block; min-height: 0; overflow-y: auto; }
+.workspace-modal-body .context-panel > .panel-section:first-child { grid-row: auto; }
+.workspace-modal-body .conversation-rail .conversation-list { display: grid; overflow: auto; }
+.workspace-modal-body .conversation-entry { width: auto; flex: initial; }
+.workspace-modal-body .chat-heading { flex: 0 0 auto; flex-wrap: wrap; padding: 16px 20px; }
+.workspace-modal-body .chat-heading > div { min-width: 0; flex: 1; }
+.workspace-modal-body .chat-heading h2 { overflow-wrap: anywhere; }
+.workspace-modal-body .chat-feed { min-height: 0; max-height: none; flex: 1 1 0; padding: 20px; }
+.workspace-modal-body .composer { flex: 0 0 auto; padding: 12px 20px; }
+.workspace-modal-body .composer textarea { display: block; }
+.workspace-modal-body .composer-bottom { flex-wrap: wrap; }
+.workspace-modal-body .composer-bottom > span { max-width: 100%; }
+.workspace-modal-body .composer-bottom button { margin-left: auto; }
+.workspace-modal-body .message, .workspace-modal-body .message-content { min-width: 0; }
+.workspace-modal-body .message-meta { flex-wrap: wrap; }
+.workspace-modal-body .module-content { min-width: 0; min-height: 0; height: 100%; overflow: auto; padding: 24px; overflow-wrap: anywhere; }
+.workspace-modal-body .module-heading h2 { font-size: clamp(20px, 2.5cqw, 26px); }
+.workspace-modal-body .appointment-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.workspace-modal-body .appointment-fields label { min-width: 0; }
+.workspace-modal-body :where(input, select, textarea) { max-width: 100%; }
+.workspace-modal-body .appointment-fields :where(input, select),
+.workspace-modal-body .follow-up-form input { width: 100%; }
+.workspace-modal-body .active-client { flex-wrap: wrap; }
+.workspace-modal-body .active-client-details { flex-basis: 100px; }
+.workspace-modal-body .active-client strong { max-width: 100%; }
+.workspace-modal-body .follow-ups-heading,
+.workspace-modal-body .follow-up-form > div,
+.workspace-modal-body .follow-up-list li { flex-wrap: wrap; }
+.workspace-modal-body .profile-fields > div,
+.workspace-modal-body .quote-item dl > div { min-width: 0; flex-wrap: wrap; }
+.workspace-modal-body :where(dd, dt, .briefing-list, .module-empty, .panel-empty) { min-width: 0; overflow-wrap: anywhere; }
+.workspace-modal .appointment-reminder-popup { max-height: calc(100% - 40px); overflow-y: auto; }
+.workspace-modal-footer {
+  position: relative;
+  display: flex;
+  flex: 0 0 34px;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  padding: 0 38px 0 14px;
+  border-top: 1px solid #e1e8e9;
+  background: #fff;
+  color: #6b7e82;
+  font-size: 12px;
+}
+.workspace-modal-footer > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.modal-reset-size { flex-shrink: 0; padding: 4px 0; border: 0; background: transparent; color: #087d73; font-size: 12px; }
+.modal-resize-handle {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #4d7778;
+  cursor: nwse-resize;
+  touch-action: none;
+}
+.modal-resize-handle:hover { background: #e7f5f2; }
+.modal-resize-handle:focus-visible { outline-offset: -3px; }
+.workspace-modal-backdrop[data-resizing] { cursor: nwse-resize; user-select: none; }
+
+@container chat-workspace (max-width: 1100px) {
+  .workspace-modal-body > .chat-shell { grid-template-columns: 220px minmax(0, 1fr) 240px; }
+  .workspace-modal-body > .chat-shell.no-active-conversation { grid-template-columns: 220px minmax(0, 1fr); }
+  .workspace-modal-header { gap: 8px; }
+  .modal-brand { flex-basis: 160px; }
+  .appointment-reminder-popup { width: min(240px, 100%); }
+  .workspace-modal-body .context-panel { padding: 16px 12px; }
+  .query-action-grid, .briefing-facts { grid-template-columns: minmax(0, 1fr); }
+}
+
+@container chat-workspace (max-width: 900px) {
+  .workspace-modal-header { flex-wrap: wrap; padding-block: 10px; }
+  .modal-brand { flex: 1 1 auto; }
+  .workspace-submenu { order: 3; flex: 1 0 100%; width: 100%; }
+  .workspace-submenu button { padding-inline: 9px; }
+  .workspace-modal-body { overflow: auto; }
+  .workspace-modal-body > .chat-shell { display: flex; flex-direction: column; height: auto; min-height: 100%; overflow: visible; }
+  .workspace-modal-body .chat-main { order: 0; flex-shrink: 0; min-height: 420px; border-right: 0; }
+  .workspace-modal-body .chat-feed { flex-basis: auto; min-height: 160px; max-height: max(160px, 50cqh); }
+  .workspace-modal-body .context-panel { order: 1; flex-shrink: 0; overflow: visible; border-left: 0; border-top: 1px solid #e1e8e9; }
+  .workspace-modal-body .conversation-sidebar { order: 2; flex-shrink: 0; min-height: 220px; max-height: 340px; border-right: 0; border-top: 1px solid #e1e8e9; }
+  .workspace-modal-body .conversation-rail .rail-foot { display: none; }
+  .workspace-modal-body .module-content { height: auto; overflow: visible; }
+}
+
+@container chat-workspace (max-width: 600px) {
+  .workspace-modal .workspace-modal-body :is(input, select, textarea) { font-size: 16px; }
+  .workspace-modal-body .module-content,
+  .workspace-modal-body .composer,
+  .workspace-modal-body .chat-feed { padding: 14px; }
+  .workspace-modal-body .appointment-form-card, .briefing-card { padding: 14px; }
+  .workspace-modal-body .appointment-fields { grid-template-columns: minmax(0, 1fr); }
+  .workspace-modal-body .appointment-fields label:nth-child(3) { grid-column: auto; }
+  .workspace-modal-body .chat-welcome { padding: 24px 16px; }
+  .workspace-modal-footer > span { display: none; }
+}
+
+/* A short dialog scrolls as a whole so the composer and forms remain reachable. */
+@container chat-workspace (min-width: 901px) and (max-height: 520px) {
+  .workspace-modal-body { overflow: auto; }
+  .workspace-modal-body > .chat-shell { height: auto; min-height: 420px; overflow: visible; }
+}
+
+@media (max-width: 600px) {
+  .workspace-modal-backdrop { --workspace-edge: 8px; }
+}

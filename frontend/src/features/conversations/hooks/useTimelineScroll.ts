@@ -41,6 +41,15 @@ export function useTimelineScroll({ messages, loading, visible, contextKey }: Op
       feed.scrollTop = feed.scrollHeight;
     }
     rememberPosition();
+    const observer = new ResizeObserver(() => {
+      const previousSize = snapshot.current;
+      if (!previousSize || previousSize.contextKey !== contextKey) return;
+      if (previousSize.height - previousSize.top - previousSize.viewportHeight < 80)
+        feed.scrollTop = feed.scrollHeight;
+      rememberPosition();
+    });
+    observer.observe(feed);
+    return () => observer.disconnect();
   }, [messages, loading, visible, contextKey]);
 
   return { feedRef, onScroll: rememberPosition };

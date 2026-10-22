@@ -37,6 +37,17 @@ Si se cambia el puerto web o el host, actualizar también `APP_ORIGIN`.
   selecciona el módulo central y `ConversationPanel.tsx` presenta el chat.
   `app/hooks/useChatWorkspace.ts` coordina las funcionalidades;
   `app/hooks/useAssistantChat.ts` gestiona las preguntas y el estado del proveedor.
+- El modal se mueve arrastrando la cabecera o su control de agarre y cambia de
+  tamaño desde la esquina inferior derecha. Ambos controles admiten las flechas
+  del teclado (Shift aumenta el paso). El botón «Restablecer ventana» o la tecla
+  Inicio sobre esos controles recupera el tamaño y la posición iniciales.
+  `shared/ui/useDialogGeometry.ts` coordina movimiento y redimensionado, y
+  `shared/ui/dialog-geometry.ts` calcula los límites de la pantalla. La posición
+  y el tamaño se conservan al cerrar y abrir durante la sesión y se ajustan al
+  cambiar la ventana del navegador. El fondo no tiene desenfoque.
+  `shared/styles/workspace-layout.css`
+  adapta paneles, formularios y contenido mediante consultas al tamaño del modal,
+  y habilita el desplazamiento cuando el espacio es reducido.
 - `frontend/src/features/` agrupa `auth`, `conversations`, `clients`,
   `appointments` y `follow-ups`. Cada funcionalidad contiene sus componentes,
   hooks, servicios HTTP y lógica de dominio donde corresponde. Por ejemplo,
@@ -103,6 +114,13 @@ Si se cambia el puerto web o el host, actualizar también `APP_ORIGIN`.
   `repositories/client-profile-repository.ts` implementa las consultas PostgreSQL
   con sus filtros de alcance, y `presentation/client-profile-presenter.ts`
   conserva la estructura pública de la respuesta.
+- La autenticación se compone en `modules/auth/auth-composition.ts`.
+  `routes/auth-routes.ts` mantiene las rutas, la validación HTTP, el límite de
+  intentos y las cookies. `services/auth-service.ts` coordina credenciales,
+  usuario actual y cierre de sesión mediante contratos de repositorio, acceso,
+  tokens y verificación de contraseñas. `repositories/auth-repository.ts`
+  conserva las consultas y la renovación transaccional de sesiones. El hash
+  auxiliar se prepara una vez al registrar las rutas.
 - `shared/auth/authorization.ts` conserva el punto de entrada público y compone
   las implementaciones. Los tipos están en `authorization-types.ts`; el ciclo de
   transacción está en `authenticated-transaction.ts`, con resolución de sesión
