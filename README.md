@@ -187,6 +187,16 @@ Si se cambia el puerto web o el host, actualizar también `APP_ORIGIN`.
   consulta del agente, obtiene los cruces y cuenta las citas confirmadas.
   `presentation/appointment-availability-response.ts` conserva los errores de
   zona horaria, los estados de calendario y el significado de `no_conflict`.
+- La restauración de citas pendientes por chat se compone en
+  `modules/appointments/appointment-chat-state-composition.ts`.
+  `routes/appointment-chat-state-routes.ts` conserva el esquema HTTP;
+  `services/appointment-chat-state-service.ts` comprueba el acceso, recupera el
+  estado y coordina la limpieza de estados obsoletos dentro de una transacción
+  autorizada. El repositorio mantiene los filtros de conversación, usuario,
+  cliente, estado y vencimiento de la confirmación. Los modelos están en
+  `domain/appointment-chat-state.ts`; el adaptador
+  `presentation/appointment-chat-state-response.ts` prepara el intervalo y
+  conserva las respuestas `idle`, `details` y `confirmation`.
 - La agenda por chat se compone en `modules/appointments/appointment-chat-composition.ts`.
   `routes/appointment-chat-routes.ts` conserva el esquema HTTP y delega al
   servicio `services/appointment-chat-service.ts`, que valida el cliente esperado,
