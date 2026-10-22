@@ -133,7 +133,7 @@ menos un tercio, porque el prompt caching funciona desde la segunda llamada y el
 | --- | --- | --- |
 | Captura compartida con el asistente (visión) | ~1.500 tokens de entrada ≈ US$0.00015 por turno | Solo si la persona marca el consentimiento; se reenvía en los turnos siguientes de esa conversación |
 | Diagnóstico de cuenta y propuestas de acción | Unos cientos de tokens por uso | Cuando el asistente usa la herramienta |
-| Copiloto: «Resumir caso» o «Sugerir respuesta» | ≈ US$0.0002 por uso (medido) | Solo cuando un admin pulsa el botón |
+| Copiloto: «Diagnosticar caso» o «Sugerir respuesta» | ≈ US$0.0002 por uso (medido) | Solo cuando un admin pulsa el botón |
 | Posibles duplicados | US$0 | Es una búsqueda en la base, sin IA |
 
 ## 9. Cómo se mide en la práctica

@@ -121,7 +121,7 @@ solicitante). Los enlaces del panel de métricas abren la bandeja con estos filt
 | Acciones de estado | **Pasar a En revisión** y **Cerrar ticket**. Cerrar desde En revisión pide el resumen de la resolución. Cerrar desde Abierto pide un motivo explícito, por ejemplo duplicado (con el ticket original) o reporte inválido |
 | Panel lateral | Responsable (**Asignarme** o elegir un admin), prioridad, categoría, etiquetas e incidente conocido |
 | Cuadro de respuesta | **Respuesta al solicitante** (pública) o **Nota interna** (solo la ve el equipo y no genera avisos). También **Pedir información al solicitante** |
-| Copiloto | **Resumir caso** (usa todo, incluidas las notas internas) y **Sugerir respuesta** (nunca usa notas internas y se carga en el cuadro para editarla; no se envía sola). **Posibles duplicados** busca tickets abiertos parecidos sin usar IA |
+| Copiloto | **Diagnosticar caso**: problema, posible causa (hipótesis), posible solución basada en el catálogo y qué falta confirmar; usa todo, incluidas las notas internas, y **Sugerir respuesta** (nunca usa notas internas y se carga en el cuadro para editarla; no se envía sola). **Posibles duplicados** busca tickets abiertos parecidos sin usar IA |
 | Entregas | Estado de cada aviso por canal (En la app / Correo): Pendiente, Entregada o Fallida, con **Reintentar** si falló |
 | Conversación de origen | Enlace de solo lectura al chat que originó el ticket |
 | Crear artículo desde este ticket | En un ticket resuelto, arma un borrador para el catálogo con los datos personales enmascarados y sin notas internas |
@@ -179,7 +179,7 @@ rango quedan en la URL: se puede compartir el enlace y Atrás vuelve a la pesta�
 **Después de D6a**, volver a la IA real con `docker compose up -d backend`.
 
 **Si queda tiempo**, mostrar:
-- el copiloto (**Resumir caso** y **Sugerir respuesta**) en un ticket con varios
+- el copiloto (**Diagnosticar caso** y **Sugerir respuesta**) en un ticket con varios
   comentarios;
 - una propuesta del asistente: «agrega a mi ticket TCK-…: uso Chrome» → **Confirmar**;
 - la visión: adjuntar una captura con el consentimiento marcado;

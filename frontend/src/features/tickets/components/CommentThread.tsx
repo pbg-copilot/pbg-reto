@@ -6,6 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { formatDateTime, formatRelative, initials } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { Markdown } from "@/components/Markdown";
+
+// Negritas, listas o títulos: se renderiza como Markdown (sin HTML crudo ni imágenes).
+const looksLikeMarkdown = (text: string) => /(\*\*[^*]+\*\*|^\s*[-*] \S|^\s*\d+\. \S|^#{1,3} )/m.test(text);
 
 export function CommentThread({
   comments,
@@ -72,7 +76,8 @@ export function CommentThread({
                   {comment.edited_at && " · editado"}
                 </time>
               </div>
-              <p className="text-sm whitespace-pre-wrap">{comment.body}</p>
+              {/* Las respuestas y notas del copiloto vienen en Markdown; el texto común se muestra tal cual. */}
+              {looksLikeMarkdown(comment.body) ? <Markdown>{comment.body}</Markdown> : <p className="text-sm whitespace-pre-wrap">{comment.body}</p>}
               <div className="mt-2 empty:hidden">
                 <AttachmentList
                   attachments={attachments.filter((attachment) => attachment.comment_id === comment.id)}

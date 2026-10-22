@@ -49,6 +49,8 @@
   elegir, distribución, botón de exportar e indicador de conexión. Test de UI del panel
   actualizado. → AC-007.16, AC-007.17, AC-007.19, AC-007.21
 
+- [x] **T007.19** Escala de criticidad visible (badge con color, ícono y texto) y diagnóstico del copiloto con el catálogo. Tests: `metrics.test.ts` (copiloto) y `notifications-plan.test.ts` (correo con prioridad). → AC-007.8, AC-007.22
+
 ## Notas de implementación
 
 - **T007.1.** La bandeja ya tenía de la 002 los filtros (responsable, antigüedad, «Sin

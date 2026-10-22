@@ -37,7 +37,7 @@ export function CopilotPanel({ ticket, onUseDraft }: { ticket: TicketDetail; onU
 
   function saveSummary(markdown: string) {
     addNote.mutate(
-      { body: { body: `Resumen del copiloto (IA):\n\n${markdown}`, visibility: "internal", requests_info: false }, idempotencyKey: newIdempotencyKey() },
+      { body: { body: `Diagnóstico del copiloto (IA, sin confirmar):\n\n${markdown}`, visibility: "internal", requests_info: false }, idempotencyKey: newIdempotencyKey() },
       { onSuccess: () => toast.success("Resumen guardado como nota interna") },
     );
   }
@@ -49,7 +49,7 @@ export function CopilotPanel({ ticket, onUseDraft }: { ticket: TicketDetail; onU
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" size="sm" disabled={busy} onClick={() => summary.mutate()}>
           {summary.isPending ? <Spinner data-icon="inline-start" aria-hidden="true" /> : <FileTextIcon data-icon="inline-start" aria-hidden="true" />}
-          Resumir caso
+          Diagnosticar caso
         </Button>
         {ticket.permissions.can_comment && (
           <Button variant="outline" size="sm" disabled={busy} onClick={requestDraft}>
@@ -69,7 +69,7 @@ export function CopilotPanel({ ticket, onUseDraft }: { ticket: TicketDetail; onU
         <div className="flex flex-col gap-2 rounded-xl border border-dashed border-gold/50 bg-gold-soft/40 p-3 text-sm" data-testid="copilot-summary">
           <span className="eyebrow flex items-center gap-1 text-gold-foreground">
             <SparklesIcon aria-hidden="true" className="size-3" />
-            Borrador de IA · interno
+            Diagnóstico de IA · interno · la causa es una hipótesis
           </span>
           <Markdown>{summary.data.markdown}</Markdown>
           <div className="flex flex-wrap gap-2">
