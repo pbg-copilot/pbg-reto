@@ -3,9 +3,9 @@ import type { RouteDependencies } from "../../../shared/http/route-dependencies.
 import { registerAppointmentAvailabilityRoutes } from "./appointment-availability-routes.js";
 import { registerAppointmentQueryRoutes } from "./appointment-query-routes.js";
 import { registerAppointmentConfirmationRoutes } from "./appointment-confirmation-routes.js";
-import { registerAppointmentExecutionRoutes } from "./appointment-execution-routes.js";
+import { registerAppointmentExecutionRoutes, type AppointmentExecutionRouteDependencies } from "./appointment-execution-routes.js";
 
-export function registerAppointmentRoutes(app: FastifyInstance, dependencies: RouteDependencies) {
+export function registerAppointmentRoutes(app: FastifyInstance, dependencies: RouteDependencies & AppointmentExecutionRouteDependencies) {
   registerAppointmentAvailabilityRoutes(app, dependencies);
   registerAppointmentQueryRoutes(app, dependencies);
   registerAppointmentConfirmationRoutes(app, dependencies);

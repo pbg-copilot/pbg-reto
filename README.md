@@ -55,6 +55,15 @@ Si se cambia el puerto web o el host, actualizar también `APP_ORIGIN`.
   el esquema y las migraciones, que permanecen en la raíz de `backend/`.
   Las rutas de recursos se resuelven respecto a ese directorio tanto desde
   los fuentes como desde `dist/`.
+- La ejecución de citas se compone en
+  `backend/src/modules/appointments/appointment-execution-composition.ts`.
+  `routes/appointment-execution-routes.ts` valida HTTP y delega al servicio;
+  `services/appointment-execution-service.ts` aplica el flujo de confirmación,
+  idempotencia y auditoría mediante contratos inyectados. El repositorio
+  PostgreSQL conserva bloqueos y savepoints dentro de la transacción autorizada.
+  `presentation/appointment-execution-response.ts` traduce los resultados a los
+  códigos y cuerpos HTTP existentes. `npm run test:appointments` compila el
+  backend y ejecuta las pruebas aisladas de ese flujo, con PostgreSQL simulado.
 - Las dependencias específicas se agrupan por funcionalidad; lo reutilizable se
   coloca en `shared/`. La coordinación entre funcionalidades pertenece a `app/`
   en frontend y al punto de composición en backend. Se crean subcarpetas solo

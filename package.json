@@ -10,6 +10,7 @@
     "check:backend": "npm --prefix backend run check",
     "check:frontend": "npm --prefix frontend run check",
     "test": "node --test --test-concurrency=1 tests/*.test.mjs",
+    "test:appointments": "npm --prefix backend run test:appointments",
     "test:ui": "playwright test",
     "check:data": "node --test tests/data.test.mjs"
   },

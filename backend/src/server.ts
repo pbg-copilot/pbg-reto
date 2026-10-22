@@ -9,6 +9,7 @@ import { PostgresAssistantEvidenceRepository } from "./modules/assistant/reposit
 import { AssistantService } from "./modules/assistant/services/assistant-service.js";
 import { registerAppointmentChatRoutes } from "./modules/appointments/routes/appointment-chat-routes.js";
 import { registerAppointmentRoutes } from "./modules/appointments/routes/appointment-routes.js";
+import { createAppointmentExecutionService } from "./modules/appointments/appointment-execution-composition.js";
 import { registerAuthRoutes } from "./modules/auth/routes/auth-routes.js";
 import { registerAssistantRoutes } from "./modules/assistant/routes/assistant-routes.js";
 import { registerChatMessageRoutes } from "./modules/conversations/routes/chat-message-routes.js";
@@ -73,7 +74,7 @@ const routeDependencies: RouteDependencies = { pool, digest, tokenOf };
 registerConversationRoutes(app, routeDependencies);
 registerFollowUpRoutes(app, routeDependencies);
 registerClientContextRoutes(app, routeDependencies);
-registerAppointmentRoutes(app, routeDependencies);
+registerAppointmentRoutes(app, { ...routeDependencies, appointmentExecution: createAppointmentExecutionService(pool) });
 registerAssistantRoutes(app, { ...routeDependencies, assistantConfig, assistantService });
 registerChatMessageRoutes(app, routeDependencies);
 registerAppointmentChatRoutes(app, routeDependencies);
