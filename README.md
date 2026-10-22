@@ -113,6 +113,14 @@ Si se cambia el puerto web o el host, actualizar también `APP_ORIGIN`.
   coordina las operaciones con acceso completo o solo propiedad, conservando sus
   distintos contratos. `npm run test:authorization` compila y comprueba los ciclos
   de transacción y la regresión de citas mediante conexiones simuladas.
+- La disponibilidad se compone en `modules/appointments/appointment-availability-composition.ts`.
+  `routes/appointment-availability-routes.ts` conserva el esquema HTTP;
+  `services/appointment-availability-service.ts` resuelve el horario y coordina
+  las lecturas mediante contratos de transacción y repositorio. El repositorio
+  `repositories/appointment-availability-repository.ts` aplica el alcance de
+  consulta del agente, obtiene los cruces y cuenta las citas confirmadas.
+  `presentation/appointment-availability-response.ts` conserva los errores de
+  zona horaria, los estados de calendario y el significado de `no_conflict`.
 - La agenda por chat se compone en `modules/appointments/appointment-chat-composition.ts`.
   `routes/appointment-chat-routes.ts` conserva el esquema HTTP y delega al
   servicio `services/appointment-chat-service.ts`, que valida el cliente esperado,
