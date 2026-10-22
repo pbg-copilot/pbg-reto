@@ -15,3 +15,6 @@ tests/e2e/.auth/
 *.backup
 *.sql
 !backend/schema.sql
+
+# Archivos generados localmente (por ejemplo, scripts/adjuntos-de-prueba.sh)
+tmp/

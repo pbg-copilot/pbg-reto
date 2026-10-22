@@ -13,3 +13,4 @@ data/postgres
 specs
 docs
 tests
+tmp/

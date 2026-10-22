@@ -221,6 +221,46 @@ notificación de otra persona da 404.
 - [ ] **Al escalar.** Pulsa «Hablar con una persona» → el ticket nuevo tiene la
   captura en «Evidencias» con la marca «Desde el chat».
 
+### Criticidad y correo de asignación
+
+- [ ] **Escala de criticidad.** En Tickets, la columna Prioridad muestra Baja (gris),
+  Media (azul petróleo), Alta (dorado) y Urgente (rojo), cada una con su ícono de señal.
+  Lo mismo en el detalle, en el selector «Prioridad» y en «Ahora mismo».
+- [ ] **Correo de asignación.** `agente009` cambia la prioridad de un ticket a Urgente y
+  lo asigna a `agente105`. En Mailpit (http://localhost:8025) llega a
+  `agente105@reto.example` el correo «Te asignaron TCK-… · Prioridad Urgente», con la
+  píldora roja «4 de 4» y el botón «Ver el ticket». En la campana de `agente105`, la
+  notificación muestra el badge rojo.
+
+
+### Pruebas de seguridad con archivos
+
+Generar los archivos (quedan en `tmp/adjuntos-prueba/`, fuera de git):
+`bash scripts/adjuntos-de-prueba.sh`. Son inofensivos: imitan la firma de archivos
+peligrosos, pero no ejecutan nada. Subirlos en un ticket propio con `agente099`.
+
+| Archivo | Qué simula | Resultado esperado | Para la captura |
+| --- | --- | --- | --- |
+| `01-captura-valida.png`, `02-informe-valido.pdf`, `03-registro-valido.log` | Evidencia normal | Se adjuntan; la imagen tiene vista previa | La lista de adjuntos |
+| `04-ejecutable-disfrazado.png` | Un ejecutable de Windows (`MZ`) renombrado a `.png` | **415**: «no es un tipo admitido o su contenido no coincide con la extensión». El servidor mira los *magic bytes*, no el nombre | El aviso de error |
+| `05-html-disfrazado.png` | Una página con `<script>` renombrada a `.png` | **415**, igual que el anterior | El aviso |
+| `06-binario-como-texto.txt` | Un binario con bytes nulos como `.txt` | **415**: el texto debe ser UTF-8 sin bytes nulos | El aviso |
+| `07-imagen-con-script.svg` | Un SVG con `<script>` (XSS clásico) | El navegador lo frena antes de subir: SVG no está en la lista blanca. Con `curl`, el servidor da **415** | El mensaje del selector |
+| `08-muy-grande.pdf` | 11 MB | El navegador lo frena (máximo 10 MB). Con `curl`, **413** | El mensaje |
+| `09-"><img src=x onerror=alert(1)>.png` | Un nombre con HTML | Se acepta (es un PNG real); el nombre se guarda saneado y se muestra como texto, sin ejecutar nada | El nombre en la lista |
+
+Más pruebas que no necesitan archivos:
+- **Descarga ajena (404).** Con `agente099`, copiar el enlace de un adjunto
+  (`/api/attachments/<id>/download`). Abrirlo con `agente016` en otro navegador →
+  404. Ser dueño de la agencia no da acceso.
+- **Adjunto interno.** `agente009` deja una nota interna con un `.log`. Con `agente099`,
+  el archivo no aparece en el ticket y su enlace da 404.
+- **Ruta en el nombre.** Con `curl`,
+  `-F 'files=@tmp/adjuntos-prueba/01-captura-valida.png;filename=../../etc/passwd.png'`
+  → se guarda como `passwd.png`, sin la ruta.
+- **El servidor vuelve a validar.** Las validaciones del navegador son solo comodidad.
+  Con `curl` (ver `docs/api.md`, «Adjuntos»), el `.svg` da 415 y el de 11 MB da 413.
+
 ## 9. Métricas y copiloto (spec 007)
 
 - [ ] **Tomar caso.** Con `agente009`, en Tickets, un ticket abierto sin responsable
@@ -254,7 +294,7 @@ notificación de otra persona da 404.
   demás, «Sin objetivo definido».
 - [ ] **El solicitante no ve plazos.** Con `agente099` no aparece ningún objetivo en
   ninguna pantalla.
-- [ ] **Resumir caso.** En el detalle de un ticket, tarjeta «Copiloto» → «Resumir caso».
+- [ ] **Diagnosticar caso.** En el detalle de un ticket, tarjeta «Copiloto» → «Diagnosticar caso». Muestra cuatro secciones: Problema, Posible causa «(sin confirmar)», Posible solución (nombra el artículo del catálogo si aplica) y Falta confirmar.
   - Muestra viñetas marcadas «Borrador de IA · interno».
   - «Guardar como nota interna» lo deja como nota.
 - [ ] **Sugerir respuesta.** Llena el compositor con un borrador y el aviso «revísalo y
