@@ -55,6 +55,13 @@ Si se cambia el puerto web o el host, actualizar también `APP_ORIGIN`.
   `frontend/src/shared/` contiene el cliente HTTP y su contrato `ApiRequest`,
   tipos compartidos, presentación, controles de interfaz y estilos. El punto
   de entrada sigue siendo `src/main.tsx`.
+- `features/clients/hooks/useClientContext.ts` compone la búsqueda y los detalles
+  del cliente y coordina su selección con el historial y la agenda.
+  `useClientSearch.ts` controla la espera de búsqueda y descarta respuestas
+  antiguas; `useClientDetails.ts` gestiona perfil, cotizaciones y su estado de
+  carga. Las llamadas HTTP están en `features/clients/services/client-api.ts`
+  y se reutilizan al preparar la ficha. La selección vuelve a comprobar el
+  contexto después de recuperar el historial antes de continuar con las cargas.
 - `features/conversations/hooks/useConversationWorkspace.ts` coordina la
   conversación activa, su historial y la restauración del contexto del cliente.
   Delega la búsqueda con espera de 250 ms y descarte de respuestas antiguas a
