@@ -4,7 +4,7 @@ import type { AuthenticatedTransactionRunner } from "../../../shared/auth/authen
 
 type ConversationLookup = (db: Database, principal: Principal, conversationId: string) => Promise<AuthorizedConversation | null>;
 type ConversationOperation<T> = (client: PoolClient, conversation: AuthorizedConversation, principal: Principal) => Promise<T>;
-type ConversationTransactionResult<T> =
+export type ConversationTransactionResult<T> =
   | { authenticated: false }
   | { authenticated: true; authorized: false }
   | { authenticated: true; authorized: true; result: T };

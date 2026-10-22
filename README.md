@@ -71,6 +71,16 @@ Si se cambia el puerto web o el host, actualizar también `APP_ORIGIN`.
   el esquema y las migraciones, que permanecen en la raíz de `backend/`.
   Las rutas de recursos se resuelven respecto a ese directorio tanto desde
   los fuentes como desde `dist/`.
+- La gestión de conversaciones se compone en
+  `modules/conversations/conversation-management-composition.ts`.
+  `routes/conversation-management-routes.ts` conserva los esquemas HTTP;
+  `services/conversation-management-service.ts` coordina listado, creación,
+  renombrado e historial mediante contratos de repositorio y transacciones.
+  `repositories/conversation-management-repository.ts` reúne la persistencia y
+  mantiene el filtrado del historial por cliente activo. La composición adapta
+  por separado las transacciones de sesión, propiedad y acceso al expediente;
+  `presentation/conversation-management-response.ts` traduce sus resultados a
+  los códigos y respuestas existentes.
 - El expediente del cliente se compone en `modules/clients/client-profile-composition.ts`.
   `routes/client-profile-routes.ts` valida parámetros y mantiene la transacción
   autorizada; `services/client-profile-service.ts` prepara notas, actividad,
