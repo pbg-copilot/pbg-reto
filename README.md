@@ -107,6 +107,15 @@ Si se cambia el puerto web o el host, actualizar también `APP_ORIGIN`.
   por separado las transacciones de sesión, propiedad y acceso al expediente;
   `presentation/conversation-management-response.ts` traduce sus resultados a
   los códigos y respuestas existentes.
+- Las respuestas del asistente se componen en
+  `modules/assistant/assistant-conversation-composition.ts`.
+  `routes/assistant-routes.ts` conserva los esquemas, el límite de solicitudes
+  y el estado del proveedor. `services/assistant-conversation-service.ts`
+  coordina dos lecturas autorizadas de evidencia, la redacción externa y la
+  comprobación del contexto antes de guardar. Los contratos permiten sustituir
+  transacciones, recuperación/redacción y persistencia. El repositorio guarda
+  ambos mensajes y actualiza la conversación en una misma transacción;
+  `presentation/assistant-conversation-response.ts` mantiene códigos y mensajes.
 - Los seguimientos se componen en `modules/follow-ups/follow-up-composition.ts`.
   `routes/follow-up-routes.ts` conserva los esquemas HTTP y delega al servicio
   `services/follow-up-service.ts`, que coordina consulta, creación y cierre
