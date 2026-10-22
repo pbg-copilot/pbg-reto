@@ -55,6 +55,16 @@ Si se cambia el puerto web o el host, actualizar también `APP_ORIGIN`.
   el esquema y las migraciones, que permanecen en la raíz de `backend/`.
   Las rutas de recursos se resuelven respecto a ese directorio tanto desde
   los fuentes como desde `dist/`.
+- `shared/auth/authorization.ts` conserva el punto de entrada público y compone
+  las implementaciones. Los tipos están en `authorization-types.ts`; el ciclo de
+  transacción está en `authenticated-transaction.ts`, con resolución de sesión
+  inyectable. `modules/auth/repositories/` contiene sesión, cuentas y agencias;
+  `modules/clients/repositories/client-access-repository.ts` contiene las lecturas
+  de clientes y `modules/conversations/repositories/conversation-access-repository.ts`
+  las de conversaciones. `modules/conversations/services/conversation-transactions.ts`
+  coordina las operaciones con acceso completo o solo propiedad, conservando sus
+  distintos contratos. `npm run test:authorization` compila y comprueba los ciclos
+  de transacción y la regresión de citas mediante conexiones simuladas.
 - La ejecución de citas se compone en
   `backend/src/modules/appointments/appointment-execution-composition.ts`.
   `routes/appointment-execution-routes.ts` valida HTTP y delega al servicio;
