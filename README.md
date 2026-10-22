@@ -30,49 +30,35 @@ Si se cambia el puerto web o el host, actualizar también `APP_ORIGIN`.
 
 ## Organización del código
 
-- `frontend/` contiene la aplicación React y su configuración independiente.
-  `src/main.tsx` solo monta la aplicación; `src/App.tsx` compone sesión,
-  conversación y módulos de interfaz. `src/domain.ts` contiene tipos y
-  `src/appointment-domain.ts` la lógica pura de citas. `src/api-client.ts`,
-  `src/appointment-api.ts` y `src/auth-service.ts` aíslan las solicitudes HTTP
-  y la sesión. `src/hooks/useSession.ts`,
-  `src/hooks/useConversationWorkspace.ts`,
-  `src/hooks/useAppointmentWorkflow.ts` y `src/hooks/useClientContext.ts`
-  coordinan los flujos de sesión, conversación, agenda y cliente.
-  `src/hooks/useFollowUps.ts`, `src/follow-up-api.ts` y
-  `src/follow-up-domain.ts` aíslan estado, solicitudes y fechas de seguimientos.
-  `src/FollowUpsPanel.tsx` y `src/AppointmentReminderPopup.tsx` presentan los
-  pendientes y avisos de citas.
-  `src/ClientContextPanel.tsx`, `src/ConversationTimeline.tsx`,
-  `src/MessageComposer.tsx`, los módulos de agenda y consulta, y
-  `src/presentation.tsx` contienen componentes de presentación. Los estilos se
-  separan en `src/base.css`, `src/features.css` y `src/chat-workspace.css`,
-  cargados en orden por `src/styles.css`.
-- `backend/` contiene la API Fastify, su esquema y migraciones. `src/server.ts`
-  configura el servidor, sus hooks y dependencias, y registra los módulos de
-  rutas. `src/auth-routes.ts`, `src/conversation-routes.ts`,
-  `src/conversation-management-routes.ts`, `src/client-search-routes.ts` y
-  `src/client-selection-routes.ts` separan autenticación, gestión de
-  conversaciones y selección de clientes. `src/client-context-routes.ts`
-  registra los handlers de `src/client-profile-routes.ts` y
-  `src/client-quote-routes.ts`; `src/assistant-routes.ts` y
-  `src/chat-message-routes.ts` gestionan el asistente y los mensajes.
-  `src/appointment-chat-routes.ts`
-  y `src/appointment-chat-state-routes.ts` gestionan los flujos conversacionales
-  de agenda. `src/appointment-routes.ts`
-  registra los módulos de disponibilidad, consulta, confirmación y ejecución
-  de citas (`src/appointment-availability-routes.ts`,
-  `src/appointment-query-routes.ts`, `src/appointment-confirmation-routes.ts`
-  y `src/appointment-execution-routes.ts`). `src/route-dependencies.ts` define las
-  dependencias compartidas de rutas. `src/appointment-authorization.ts`,
-  `src/appointment-presenter.ts` y `src/appointment-audit-repository.ts`
-  separan autorización, representación y auditoría de citas. El asistente
-  separa configuración, proveedor, repositorio de evidencia y coordinación en
-  `src/assistant-config.ts`, `src/assistant-provider.ts`,
-  `src/assistant-evidence-repository.ts` y `src/assistant-service.ts`.
-  `src/authorization.ts`, `src/db.ts` y `src/timezones.ts` conservan
-  responsabilidades independientes. `src/follow-up-routes.ts` valida el
-  contexto y delega persistencia y auditoría en `src/follow-up-repository.ts`.
+- `frontend/src/app/` compone la aplicación. `App.tsx` gestiona la entrada por
+  sesión y reinicia el espacio al cambiar de sesión; `AuthenticatedWorkspace.tsx`
+  contiene la página principal y mantiene montado `ChatWorkspace.tsx` al cerrar
+  el modal, conservando conversación, módulo y posición. `WorkspaceCenter.tsx`
+  selecciona el módulo central y `ConversationPanel.tsx` presenta el chat.
+  `app/hooks/useChatWorkspace.ts` coordina las funcionalidades;
+  `app/hooks/useAssistantChat.ts` gestiona las preguntas y el estado del proveedor.
+- `frontend/src/features/` agrupa `auth`, `conversations`, `clients`,
+  `appointments` y `follow-ups`. Cada funcionalidad contiene sus componentes,
+  hooks, servicios HTTP y lógica de dominio donde corresponde. Por ejemplo,
+  `features/clients/hooks/useClientBriefing.ts` gestiona la carga de la ficha.
+  `frontend/src/shared/` contiene el cliente HTTP y su contrato `ApiRequest`,
+  tipos compartidos, presentación, controles de interfaz y estilos. El punto
+  de entrada sigue siendo `src/main.tsx`.
+- `backend/src/server.ts` configura Fastify y registra las funcionalidades.
+  `backend/src/modules/` agrupa `auth`, `conversations`, `clients`,
+  `appointments`, `follow-ups` y `assistant`. Sus handlers están en `routes/`
+  dentro de cada módulo; los servicios, repositorios, modelos y presentadores
+  están junto a la funcionalidad que los utiliza. Se conservan las URLs de la API.
+- `backend/src/shared/` contiene autorización y contraseñas en `auth/`, las
+  dependencias y tipos de Fastify en `http/`, y zonas horarias en `time/`.
+  `backend/src/infrastructure/database/db.ts` configura PostgreSQL e inicializa
+  el esquema y las migraciones, que permanecen en la raíz de `backend/`.
+  Las rutas de recursos se resuelven respecto a ese directorio tanto desde
+  los fuentes como desde `dist/`.
+- Las dependencias específicas se agrupan por funcionalidad; lo reutilizable se
+  coloca en `shared/`. La coordinación entre funcionalidades pertenece a `app/`
+  en frontend y al punto de composición en backend. Se crean subcarpetas solo
+  cuando contienen código; mover un handler no implica extraer todavía sus reglas.
 - Cada servicio tiene su propio `package.json`, TypeScript config y Dockerfile.
   Desde la raíz se pueden iniciar o compilar por separado con `npm run
   dev:backend`, `npm run dev:frontend`, `npm run build:backend` y

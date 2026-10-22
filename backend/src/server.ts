@@ -2,21 +2,21 @@ import Fastify from "fastify";
 import cookie from "@fastify/cookie";
 import rateLimit from "@fastify/rate-limit";
 import { createHash } from "node:crypto";
-import { initializeDatabase, pool } from "./db.js";
-import { loadAssistantConfig } from "./assistant-config.js";
-import { OpenAiCompatibleAssistantProvider } from "./assistant-provider.js";
-import { PostgresAssistantEvidenceRepository } from "./assistant-evidence-repository.js";
-import { AssistantService } from "./assistant-service.js";
-import { registerAppointmentChatRoutes } from "./appointment-chat-routes.js";
-import { registerAppointmentRoutes } from "./appointment-routes.js";
-import { registerAuthRoutes } from "./auth-routes.js";
-import { registerAssistantRoutes } from "./assistant-routes.js";
-import { registerChatMessageRoutes } from "./chat-message-routes.js";
-import { registerClientContextRoutes } from "./client-context-routes.js";
-import { registerConversationRoutes } from "./conversation-routes.js";
-import { registerFollowUpRoutes } from "./follow-up-routes.js";
-import { resolvePrincipal } from "./authorization.js";
-import type { RouteDependencies } from "./route-dependencies.js";
+import { initializeDatabase, pool } from "./infrastructure/database/db.js";
+import { loadAssistantConfig } from "./modules/assistant/config/assistant-config.js";
+import { OpenAiCompatibleAssistantProvider } from "./modules/assistant/providers/assistant-provider.js";
+import { PostgresAssistantEvidenceRepository } from "./modules/assistant/repositories/assistant-evidence-repository.js";
+import { AssistantService } from "./modules/assistant/services/assistant-service.js";
+import { registerAppointmentChatRoutes } from "./modules/appointments/routes/appointment-chat-routes.js";
+import { registerAppointmentRoutes } from "./modules/appointments/routes/appointment-routes.js";
+import { registerAuthRoutes } from "./modules/auth/routes/auth-routes.js";
+import { registerAssistantRoutes } from "./modules/assistant/routes/assistant-routes.js";
+import { registerChatMessageRoutes } from "./modules/conversations/routes/chat-message-routes.js";
+import { registerClientContextRoutes } from "./modules/clients/routes/client-context-routes.js";
+import { registerConversationRoutes } from "./modules/conversations/routes/conversation-routes.js";
+import { registerFollowUpRoutes } from "./modules/follow-ups/routes/follow-up-routes.js";
+import { resolvePrincipal } from "./shared/auth/authorization.js";
+import type { RouteDependencies } from "./shared/http/route-dependencies.js";
 
 const app = Fastify({
   logger: { level: "info", redact: ["req.headers.authorization", "req.headers.cookie", "res.headers.set-cookie"] },

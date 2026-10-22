@@ -103,7 +103,7 @@ En la réplica, `onboarding.accounts` contiene un único `role` y `agency_id` ac
 
 ## 9. Estado de implementación
 
-- `backend/src/authorization.ts` resuelve el principal desde el hash de sesión y aplica el alcance a conversaciones, clientes, cuentas y agencias. Las conversaciones se filtran por `owner_account_id`; los clientes se vinculan por `ownerKey = accounts.id` y cuenta propietaria activa.
+- `backend/src/shared/auth/authorization.ts` resuelve el principal desde el hash de sesión y aplica el alcance a conversaciones, clientes, cuentas y agencias. Las conversaciones se filtran por `owner_account_id`; los clientes se vinculan por `ownerKey = accounts.id` y cuenta propietaria activa.
 - Un hook de `backend/src/server.ts` exige una sesión activa y rol admitido en todas las rutas salvo salud, inicio y cierre de sesión. `/api/clients` y `POST /api/conversations/:conversationId/client` buscan/seleccionan dentro del alcance; la selección vuelve a validar sesión, conversación y cliente dentro de una transacción.
 - Las consultas de cuentas y agencias también toman sus IDs de objetivo como selectores y aplican en SQL el alcance derivado del principal. Los campos de agencia, propietario y rol nunca se aceptan como autoridad desde HTTP.
 - Los libros con `ownerKey` vinculable a una cuenta activa se pueden buscar y seleccionar. Cotizaciones y citas siguen inaccesibles porque el snapshot no confirma su vínculo de negocio con el cliente.

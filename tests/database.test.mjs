@@ -2,8 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 const check = String.raw`
-import {pool} from './dist/db.js';
-import {checkPassword} from './dist/passwords.js';
+import {pool} from './dist/infrastructure/database/db.js';
+import {checkPassword} from './dist/shared/auth/passwords.js';
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 const manifest=JSON.parse(readFileSync('/app/data/manifest.json','utf8'));
