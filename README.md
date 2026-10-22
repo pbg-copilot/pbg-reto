@@ -107,6 +107,14 @@ Si se cambia el puerto web o el host, actualizar también `APP_ORIGIN`.
   por separado las transacciones de sesión, propiedad y acceso al expediente;
   `presentation/conversation-management-response.ts` traduce sus resultados a
   los códigos y respuestas existentes.
+- El guardado de mensajes de usuario se compone en
+  `modules/conversations/chat-message-composition.ts`.
+  `routes/chat-message-routes.ts` conserva el esquema HTTP;
+  `services/chat-message-service.ts` valida el contenido y el estado de la
+  conversación mediante contratos de transacción y repositorio. El repositorio
+  guarda el mensaje con el cliente activo y actualiza la conversación en la
+  misma transacción autorizada, incluso si aún no se seleccionó un cliente.
+  `presentation/chat-message-response.ts` conserva los códigos y mensajes HTTP.
 - Las respuestas del asistente se componen en
   `modules/assistant/assistant-conversation-composition.ts`.
   `routes/assistant-routes.ts` conserva los esquemas, el límite de solicitudes
