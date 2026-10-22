@@ -44,6 +44,15 @@ Si se cambia el puerto web o el host, actualizar también `APP_ORIGIN`.
   `frontend/src/shared/` contiene el cliente HTTP y su contrato `ApiRequest`,
   tipos compartidos, presentación, controles de interfaz y estilos. El punto
   de entrada sigue siendo `src/main.tsx`.
+- `features/appointments/hooks/useAppointmentWorkflow.ts` compone los hooks
+  `useAppointmentList`, `useAppointmentForm` y `useAppointmentChat`. Los flujos
+  manual y por chat comparten confirmación, clave idempotente y estado de
+  escritura mediante `useAppointmentOperation`; ambos utilizan los servicios
+  HTTP de `features/appointments/services/appointment-api.ts`.
+  `features/appointments/domain/appointment-form.ts` valida los campos requeridos
+  y prepara los datos del formulario sin depender de React. Con Node.js 24,
+  `npm run test:appointment-workflow` comprueba tipos, preparación, fechas y
+  contratos de solicitudes, sin conectarse al proveedor ni a PostgreSQL.
 - `backend/src/server.ts` configura Fastify y registra las funcionalidades.
   `backend/src/modules/` agrupa `auth`, `conversations`, `clients`,
   `appointments`, `follow-ups` y `assistant`. Sus handlers están en `routes/`

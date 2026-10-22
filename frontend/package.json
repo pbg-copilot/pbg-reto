@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "check": "tsc --noEmit",
+    "test:appointments": "npm run check && node --test ../tests/unit/appointment-workflow.test.mjs",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview"
   },
