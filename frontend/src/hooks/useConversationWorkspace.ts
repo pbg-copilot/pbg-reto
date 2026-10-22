@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type Dispatch, type FormEvent, type MutableRefObject, type SetStateAction } from "react";
+import { useCallback, useEffect, useRef, useState, type Dispatch, type FormEvent, type MutableRefObject, type SetStateAction } from "react";
 import { ApiError } from "../api-client";
 import type { ApiRequest } from "../appointment-api";
 import type { Client, Conversation, Message } from "../domain";
@@ -39,6 +39,11 @@ export function createConversationWorkspaceEffects(): ConversationWorkspaceEffec
 
 export function useConversationWorkspace({ api, agentId, effectsRef }: Options) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [conversationSearch, setConversationSearch] = useState("");
+  const [conversationSearchResults, setConversationSearchResults] = useState<Conversation[] | null>(null);
+  const [conversationSearchLoading, setConversationSearchLoading] = useState(false);
+  const [conversationSearchError, setConversationSearchError] = useState("");
+  const [conversationSearchRevision, setConversationSearchRevision] = useState(0);
   const [activeConversationId, setActiveConversationId] = useState("");
   const [renamingConversationId, setRenamingConversationId] = useState("");
   const [conversationTitleDraft, setConversationTitleDraft] = useState("");
@@ -54,11 +59,19 @@ export function useConversationWorkspace({ api, agentId, effectsRef }: Options) 
   const [notice, setNotice] = useState("");
   const contextRequest = useRef(0);
   const activeConversationRef = useRef("");
+  const searchRequest = useRef(0);
+  const refreshConversationSearch = useCallback(() => {
+    setConversationSearchRevision((revision) => revision + 1);
+  }, []);
 
   function reset() {
     contextRequest.current += 1;
     activeConversationRef.current = "";
     setConversations([]);
+    setConversationSearch("");
+    setConversationSearchResults(null);
+    setConversationSearchLoading(false);
+    setConversationSearchError("");
     setActiveConversationId("");
     setRenamingConversationId("");
     setConversationTitleDraft("");
@@ -77,12 +90,14 @@ export function useConversationWorkspace({ api, agentId, effectsRef }: Options) 
   }
 
   async function createConversation() {
+    setConversationSearch("");
     try {
       const result = await api<{ conversation: Conversation }>("/api/conversations", {
         method: "POST",
         body: JSON.stringify({ title: "Nueva conversación" }),
       });
       setConversations((current) => [result.conversation, ...current]);
+      setConversationSearchRevision((revision) => revision + 1);
       activateConversation(result.conversation.id);
     } catch (cause) {
       if (!(cause instanceof ApiError && cause.status === 401))
@@ -104,6 +119,7 @@ export function useConversationWorkspace({ api, agentId, effectsRef }: Options) 
       setConversations((current) => [result.conversation, ...current.filter((item) => item.id !== conversationId)]);
       setRenamingConversationId("");
       setConversationTitleDraft("");
+      setConversationSearchRevision((revision) => revision + 1);
     } catch (cause) {
       if (!(cause instanceof ApiError && cause.status === 401))
         setConversationError(cause instanceof Error ? cause.message : "No se pudo cambiar el nombre.");
@@ -191,6 +207,35 @@ export function useConversationWorkspace({ api, agentId, effectsRef }: Options) 
   }, [agentId, api]);
 
   useEffect(() => {
+    const query = conversationSearch.trim();
+    const requestId = ++searchRequest.current;
+    setConversationSearchError("");
+    if (!query) {
+      setConversationSearchResults(null);
+      setConversationSearchLoading(false);
+      return;
+    }
+    setConversationSearchResults([]);
+    setConversationSearchLoading(true);
+    const timer = window.setTimeout(() => {
+      void api<{ conversations: Conversation[] }>(
+        `/api/conversations?search=${encodeURIComponent(query)}`,
+      ).then((result) => {
+        if (requestId === searchRequest.current) setConversationSearchResults(result.conversations);
+      }).catch((cause) => {
+        if (requestId === searchRequest.current && !(cause instanceof ApiError && cause.status === 401))
+          setConversationSearchError(cause instanceof Error ? cause.message : "No se pudo buscar en las conversaciones.");
+      }).finally(() => {
+        if (requestId === searchRequest.current) setConversationSearchLoading(false);
+      });
+    }, 250);
+    return () => {
+      window.clearTimeout(timer);
+      if (requestId === searchRequest.current) searchRequest.current += 1;
+    };
+  }, [agentId, api, conversationSearch, conversationSearchRevision]);
+
+  useEffect(() => {
     if (!activeConversationId) {
       setMessages([]);
       setMessagesHasMore(false);
@@ -241,7 +286,11 @@ export function useConversationWorkspace({ api, agentId, effectsRef }: Options) 
   }, [activeConversationId, agentId, api]);
 
   return {
-    conversations, setConversations, activeConversationId, setActiveConversationId,
+    conversations, setConversations,
+    visibleConversations: conversationSearch.trim() ? conversationSearchResults ?? [] : conversations,
+    conversationSearch, setConversationSearch, conversationSearchLoading, conversationSearchError,
+    refreshConversationSearch,
+    activeConversationId, setActiveConversationId,
     renamingConversationId, conversationTitleDraft, renamingConversationBusy,
     setConversationTitleDraft, messages, setMessages, messagesHasMore, setMessagesHasMore,
     messagesCursor, setMessagesCursor, historyLoading, conversationLoading, conversationError,

@@ -1,5 +1,6 @@
 import type { Message } from "./domain";
 import { assistantDisplayText, dateLabel, formattedText } from "./presentation";
+import { useTimelineScroll } from "./hooks/useTimelineScroll";
 
 type Props = {
   messages: Message[];
@@ -8,11 +9,14 @@ type Props = {
   historyLoading: boolean;
   notice: string;
   onLoadOlder: () => void;
+  visible: boolean;
+  contextKey: string;
 };
 
-export function ConversationTimeline({ messages, loading, hasMore, historyLoading, notice, onLoadOlder }: Props) {
+export function ConversationTimeline({ messages, loading, hasMore, historyLoading, notice, onLoadOlder, visible, contextKey }: Props) {
+  const { feedRef, onScroll } = useTimelineScroll({ messages, loading, visible, contextKey });
   return (
-    <div className="chat-feed" aria-live="polite">
+    <div ref={feedRef} onScroll={onScroll} className="chat-feed" aria-live="polite">
       {loading && <div className="feed-state"><span className="loader" /> Cargando historial y contexto…</div>}
       {!loading && hasMore && <button className="load-older" onClick={onLoadOlder} disabled={historyLoading}>{historyLoading ? "Cargando…" : "Cargar mensajes anteriores"}</button>}
       {!loading && messages.length === 0 && <div className="feed-state empty-chat"><strong>Esta conversación está lista.</strong><span>Busca un cliente para fijarlo como contexto. El historial y los resultados se mantienen separados por conversación.</span></div>}

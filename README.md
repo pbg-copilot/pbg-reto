@@ -39,6 +39,10 @@ Si se cambia el puerto web o el host, actualizar también `APP_ORIGIN`.
   `src/hooks/useConversationWorkspace.ts`,
   `src/hooks/useAppointmentWorkflow.ts` y `src/hooks/useClientContext.ts`
   coordinan los flujos de sesión, conversación, agenda y cliente.
+  `src/hooks/useFollowUps.ts`, `src/follow-up-api.ts` y
+  `src/follow-up-domain.ts` aíslan estado, solicitudes y fechas de seguimientos.
+  `src/FollowUpsPanel.tsx` y `src/AppointmentReminderPopup.tsx` presentan los
+  pendientes y avisos de citas.
   `src/ClientContextPanel.tsx`, `src/ConversationTimeline.tsx`,
   `src/MessageComposer.tsx`, los módulos de agenda y consulta, y
   `src/presentation.tsx` contienen componentes de presentación. Los estilos se
@@ -67,7 +71,8 @@ Si se cambia el puerto web o el host, actualizar también `APP_ORIGIN`.
   `src/assistant-config.ts`, `src/assistant-provider.ts`,
   `src/assistant-evidence-repository.ts` y `src/assistant-service.ts`.
   `src/authorization.ts`, `src/db.ts` y `src/timezones.ts` conservan
-  responsabilidades independientes.
+  responsabilidades independientes. `src/follow-up-routes.ts` valida el
+  contexto y delega persistencia y auditoría en `src/follow-up-repository.ts`.
 - Cada servicio tiene su propio `package.json`, TypeScript config y Dockerfile.
   Desde la raíz se pueden iniciar o compilar por separado con `npm run
   dev:backend`, `npm run dev:frontend`, `npm run build:backend` y
@@ -212,7 +217,11 @@ No son fuentes de datos de negocio independientes.
 - `POST /auth/logout`: revoca la sesión y elimina la cookie; devuelve 204.
 - `POST/GET /api/conversations`, `GET /api/conversations/:conversationId` y
   `POST /api/conversations/:conversationId/messages`: crean, listan, recuperan
-  y guardan conversaciones y mensajes. `GET /api/clients` busca libros con
+  y guardan conversaciones y mensajes. `GET /api/conversations?search=...`
+  encuentra conversaciones por título, cliente activo o contenido visible.
+  Los agentes pueden crear y completar seguimientos por cliente con
+  `/api/conversations/:id/follow-ups`; quedan guardados en PostgreSQL y
+  auditados. `GET /api/clients` busca libros con
   ownership verificable y `POST /api/conversations/:conversationId/client`
   asocia o cambia el cliente activo con auditoría. La ruta
   `/api/conversations/:conversationId/quotes` devuelve registros analíticos que
@@ -232,9 +241,10 @@ Al iniciar, la API aplica en una transacción las migraciones versionadas de
 versión y checksum en `reto.schema_migrations`; los archivos aplicados no se
 pueden modificar silenciosamente. La primera migración añade `reto.chat_conversations`,
 `reto.chat_messages` y `reto.chat_actions`; la segunda añade `reto.chat_appointments`
-y la tercera las confirmaciones e invariantes de concurrencia, sin alterar las
-tablas originales de negocio. Las tablas se describen en las migraciones y la
-documentación del modelo.
+y la tercera las confirmaciones e invariantes de concurrencia. La cuarta añade
+el estado conversacional de agenda y la quinta los seguimientos pendientes. Las
+migraciones no modifican las tablas originales de negocio. Las tablas se
+describen en las migraciones y la documentación del modelo.
 
 ```sh
 curl http://localhost:8008/auth/get-toke \

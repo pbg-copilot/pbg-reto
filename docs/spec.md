@@ -13,6 +13,7 @@ Esta especificación separa los requisitos de `Reto_Chat_PBG.pdf` de las decisio
 
 - Crear, guardar, recuperar y seleccionar conversaciones y sus mensajes.
 - Permitir que el usuario cambie y guarde el nombre de sus conversaciones.
+- Buscar conversaciones por título, datos del cliente activo y contenido visible del historial, respetando el contexto de cliente actual.
 - Mantener un único cliente activo por conversación. Registrar explícitamente los cambios de cliente.
 - Vincular consultas y evidencia con la conversación y el cliente correspondiente.
 - Mostrar en el historial solo mensajes del cliente activo. Al cambiar de cliente, limpiar la vista y cargar el historial asociado al nuevo contexto.
@@ -39,6 +40,12 @@ Esta especificación separa los requisitos de `Reto_Chat_PBG.pdf` de las decisio
 - Rechazar horas locales ambiguas o inexistentes por cambio estacional, o pedir que se elija el instante.
 - Evitar cruces de citas por agente con rangos de tiempo y restricción de exclusión GiST (o mecanismo equivalente con garantía transaccional en PostgreSQL).
 - Usar clave de idempotencia única por operación lógica. El reintento con la misma clave devuelve el resultado ya registrado; los conflictos de horario se informan sin reintento ciego.
+- Mostrar un aviso descartable cuando una cita del cliente activo está programada para el día siguiente en la zona horaria de esa cita.
+
+### Seguimientos pendientes
+
+- Permitir que un agente registre un seguimiento breve asociado al cliente activo y una fecha local, consultar sus pendientes y marcarlos como completados.
+- Persistir los seguimientos en PostgreSQL y auditar creación y cierre; el backend deriva el cliente de la conversación y rechaza cambios de contexto entre formulario y escritura.
 
 ### Persistencia y trazabilidad
 
@@ -106,6 +113,7 @@ Esta especificación separa los requisitos de `Reto_Chat_PBG.pdf` de las decisio
 6. Rechazar acceso a datos de otro agente o agencia.
 7. Manejar sesión vencida, consulta sin resultados y fallo del proveedor de IA.
 8. Evitar cruces y duplicados bajo concurrencia y reintentos.
+9. Encontrar conversaciones por cliente, título y contenido; registrar y completar seguimientos asociados al cliente, y descartar el aviso de cita para mañana.
 
 ## 5. Entrega mínima priorizada
 

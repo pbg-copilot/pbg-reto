@@ -3,7 +3,19 @@ import type { RouteDependencies } from "./route-dependencies.js";
 import { listAuthorizedConversations, withAuthenticatedTransaction, withOwnedConversationTransaction, withAuthorizedConversationTransaction } from "./authorization.js";
 
 export function registerConversationManagementRoutes(app: FastifyInstance, { pool, digest, tokenOf }: RouteDependencies): void {
-  app.get("/api/conversations", async (req, reply) => {
+  app.get<{
+    Querystring: { search?: string };
+  }>("/api/conversations", {
+    schema: {
+      querystring: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          search: { type: "string", minLength: 1, maxLength: 120 },
+        },
+      },
+    },
+  }, async (req, reply) => {
     const principal = req.principal;
     if (!principal)
       return reply.code(401).send({
@@ -11,7 +23,11 @@ export function registerConversationManagementRoutes(app: FastifyInstance, { poo
         message: "Inicia sesión para continuar.",
       });
     return {
-      conversations: await listAuthorizedConversations(pool, principal),
+      conversations: await listAuthorizedConversations(
+        pool,
+        principal,
+        req.query.search?.trim() || undefined,
+      ),
     };
   });
   app.post<{ Body: { title?: string } }>(

@@ -119,6 +119,20 @@ una restricción de exclusión GiST que impide solapamientos activos por agente.
 La operación y su resultado mínimo se guardan en `reto.chat_actions`, junto con
 actor, alcance, clave idempotente y snapshot de respuesta.
 
+### Seguimientos pendientes: `reto.chat_follow_ups`
+
+La migración `005_follow_ups` crea recordatorios asociados a una conversación,
+la ruta del documento y el ID del cliente activo, el agente creador, una
+descripción breve y una fecha local de vencimiento (`date`). El estado distingue
+pendientes de completados; las acciones de creación y cierre se auditan en
+`reto.chat_actions`. Las consultas y cambios vuelven a validar el alcance de la
+conversación y la pareja de cliente activa; el servidor no acepta que el cuerpo
+elija otro cliente. La lectura y el cierre se filtran por agente creador y cliente,
+de modo que un pendiente aparece en todas las conversaciones del mismo agente
+con ese cliente. La conversación de origen se conserva para trazabilidad y el
+cierre se audita en la conversación desde la que se ejecuta. Por ahora, solo
+agentes pueden crear o completar seguimientos.
+
 La consulta calcula conflictos con intervalos semiabiertos `[inicio, fin)` y no
 impone todavía una política de horario laboral, feriados o bloqueos externos.
 No se reutilizan bookings históricos del equipo como agenda de seguros.

@@ -73,6 +73,48 @@ Cada elemento usa el objeto `conversation` descrito en la respuesta de creación
 Se omiten conversaciones cuyo cliente o evidencia vinculada no pueda validarse
 con el snapshot actual.
 
+El parámetro opcional `search` (1–120 caracteres) busca parcialmente, sin
+distinguir mayúsculas, en el título, los mensajes visibles para el contexto
+actual y el nombre, correo o teléfono del cliente activo. El backend conserva
+el alcance de la sesión y no considera mensajes de otros clientes que hayan
+estado asociados previamente a la conversación.
+
+```http
+GET /api/conversations?search=llamar%20a%20Jorge
+```
+
+## Seguimientos del cliente
+
+`GET /api/conversations/:conversationId/follow-ups` lista recordatorios
+pendientes creados por el usuario autenticado para la pareja cliente/documento
+activa. Incluye los registrados desde otras conversaciones del mismo usuario
+con ese cliente; la conversación actual determina el contexto autorizado.
+
+`POST /api/conversations/:conversationId/follow-ups` crea un seguimiento para
+el cliente activo. Solo los agentes pueden crearlo; la API exige que el cliente
+esperado siga activo y que la fecha (`YYYY-MM-DD`) no esté en el pasado según
+`America/Bogota`.
+
+```json
+{
+  "description": "Llamar para confirmar documentos",
+  "dueDate": "2026-10-23",
+  "expectedClientPath": "leads-store/books/example.json",
+  "expectedClientRecordId": "client-record-id"
+}
+```
+
+`PATCH /api/conversations/:conversationId/follow-ups/:followUpId/complete`
+marca como completado un seguimiento pendiente creado por el agente autenticado
+para el cliente activo, incluso si se creó desde otra conversación. Requiere
+`expectedClientPath` y `expectedClientRecordId` en el cuerpo para rechazar
+acciones iniciadas antes de un cambio de cliente. Creación y cierre escriben
+eventos mínimos en `reto.chat_actions`.
+
+La interfaz espera a que la lista inicial se cargue correctamente antes de
+permitir guardar o completar seguimientos. Si falla, ofrece reintentar la carga
+y conserva el formulario; no presenta el fallo como una lista vacía.
+
 ## `GET /api/clients?q=ana&limit=20`
 
 Busca clientes en los libros `leads-store/books`. `q` es obligatorio, admite de

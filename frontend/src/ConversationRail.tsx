@@ -5,12 +5,16 @@ import { dateLabel } from "./presentation";
 type ConversationRailProps = {
   agent: Agent;
   conversations: Conversation[];
+  conversationSearch: string;
+  searchLoading: boolean;
+  searchError: string;
   activeConversationId: string;
   error: string;
   renamingConversationId: string;
   titleDraft: string;
   renameBusy: boolean;
   onCreate: () => void;
+  onSearchChange: (query: string) => void;
   onActivate: (conversationId: string) => void;
   onBeginRename: (conversation: Conversation) => void;
   onCancelRename: () => void;
@@ -21,12 +25,16 @@ type ConversationRailProps = {
 export function ConversationRail({
   agent,
   conversations,
+  conversationSearch,
+  searchLoading,
+  searchError,
   activeConversationId,
   error,
   renamingConversationId,
   titleDraft,
   renameBusy,
   onCreate,
+  onSearchChange,
   onActivate,
   onBeginRename,
   onCancelRename,
@@ -39,9 +47,15 @@ export function ConversationRail({
         <div><span className="eyebrow teal">RETO · ASISTENTE</span><h1>Conversaciones</h1></div>
         <button className="new-chat" onClick={onCreate} aria-label="Nueva conversación" title="Nueva conversación">+</button>
       </div>
+      <label className="conversation-search">
+        <span aria-hidden="true">⌕</span>
+        <input value={conversationSearch} onChange={(event) => onSearchChange(event.target.value)} placeholder="Buscar cliente, título o mensaje" aria-label="Buscar conversaciones por cliente, título o contenido" />
+      </label>
+      {searchLoading && <p className="conversation-search-status" role="status">Buscando…</p>}
+      {searchError && <div className="inline-error" role="alert">{searchError}</div>}
       {error && <div className="inline-error" role="alert">{error}</div>}
-      {conversations.length === 0 && !error ? (
-        <div className="rail-empty">Aún no tienes conversaciones. Crea una para empezar.</div>
+      {conversations.length === 0 && !error && !searchError && !searchLoading ? (
+        <div className="rail-empty">{conversationSearch.trim() ? "No encontramos conversaciones que coincidan." : "Aún no tienes conversaciones. Crea una para empezar."}</div>
       ) : (
         <nav className="conversation-list">
           {conversations.map((conversation) => (

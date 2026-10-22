@@ -14,6 +14,7 @@ import { registerAssistantRoutes } from "./assistant-routes.js";
 import { registerChatMessageRoutes } from "./chat-message-routes.js";
 import { registerClientContextRoutes } from "./client-context-routes.js";
 import { registerConversationRoutes } from "./conversation-routes.js";
+import { registerFollowUpRoutes } from "./follow-up-routes.js";
 import { resolvePrincipal } from "./authorization.js";
 import type { RouteDependencies } from "./route-dependencies.js";
 
@@ -70,6 +71,7 @@ app.get("/health", async (_req, reply) => {
 
 const routeDependencies: RouteDependencies = { pool, digest, tokenOf };
 registerConversationRoutes(app, routeDependencies);
+registerFollowUpRoutes(app, routeDependencies);
 registerClientContextRoutes(app, routeDependencies);
 registerAppointmentRoutes(app, routeDependencies);
 registerAssistantRoutes(app, { ...routeDependencies, assistantConfig, assistantService });

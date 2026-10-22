@@ -19,6 +19,9 @@ import { MessageComposer } from "./MessageComposer";
 import { createConversationWorkspaceEffects, useConversationWorkspace } from "./hooks/useConversationWorkspace";
 import { ClientBriefingModule } from "./ClientBriefingModule";
 import { loadClientBriefing, type ClientBriefing } from "./client-briefing-service";
+import { useFollowUps } from "./hooks/useFollowUps";
+import { FollowUpsPanel } from "./FollowUpsPanel";
+import { AppointmentReminderPopup } from "./AppointmentReminderPopup";
 
 function App() {
   const [menu, setMenu] = useState(false),
@@ -29,19 +32,22 @@ function App() {
   const [clientBriefing, setClientBriefing] = useState<ClientBriefing | null>(null);
   const [clientBriefingLoading, setClientBriefingLoading] = useState(false);
   const [clientBriefingError, setClientBriefingError] = useState("");
+  const [followUpFormOpen, setFollowUpFormOpen] = useState(false);
   const conversationEffects = useRef(createConversationWorkspaceEffects());
   const menuRef = useRef<HTMLDivElement>(null),
     buttonRef = useRef<HTMLButtonElement>(null);
   function clearWorkspace() {
     setChatOpen(false); setWorkspaceModule("chat");
     setConsultationSelection(null);
-    setClientBriefing(null); setClientBriefingLoading(false); setClientBriefingError("");
+    setClientBriefing(null); setClientBriefingLoading(false); setClientBriefingError(""); setFollowUpFormOpen(false);
     conversationWorkspace.reset();
   }
   const { agent, loading, error, busy, api, login: authenticate, logout: endSession } = useSession(clearWorkspace);
   const conversationWorkspace = useConversationWorkspace({ api, agentId: agent?.id, effectsRef: conversationEffects });
   const {
-    conversations, setConversations, activeConversationId, renamingConversationId,
+    conversations, visibleConversations, setConversations, activeConversationId, renamingConversationId,
+    conversationSearch, setConversationSearch, conversationSearchLoading, conversationSearchError,
+    refreshConversationSearch,
     conversationTitleDraft, renamingConversationBusy, setConversationTitleDraft,
     messages, setMessages, messagesHasMore, setMessagesHasMore, messagesCursor,
     setMessagesCursor, historyLoading, conversationLoading, conversationError,
@@ -129,6 +135,7 @@ function App() {
     handleChat: handleAppointmentChat, invalidateReview: invalidateAppointmentReview,
     prepareAppointment, executeAppointment,
   } = appointmentWorkflow;
+  const followUpWorkflow = useFollowUps({ api, conversationId: activeConversationId, client: activeClient, role: agent?.role });
   useLayoutEffect(() => {
     conversationEffects.current = {
       resetClientContext,
@@ -141,14 +148,20 @@ function App() {
   });
   function selectClient(client: Client) {
     setConsultationSelection(null);
-    setClientBriefing(null); setClientBriefingLoading(false); setClientBriefingError("");
+    setClientBriefing(null); setClientBriefingLoading(false); setClientBriefingError(""); setFollowUpFormOpen(false);
     setWorkspaceModule("chat");
-    return selectClientContext(client, {
+    setFollowUpFormOpen(false);
+    const selection = selectClientContext(client, {
       resetAppointments: resetAppointmentWorkflow,
       reloadHistory: reloadConversationHistory,
       loadAppointments,
     });
+    void selection.finally(() => refreshConversationSearch());
+    return selection;
   }
+  useEffect(() => {
+    if (conversationSearch.trim()) refreshConversationSearch();
+  }, [messages.length, activeConversationId, conversationSearch, activeClient?.document_path, activeClient?.client_record_id, refreshConversationSearch]);
   function changeWorkspaceModule(module: WorkspaceModule) {
     if (module === "consultas") setConsultationSelection(null);
     if (module !== "ficha") setClientBriefingError("");
@@ -181,12 +194,12 @@ function App() {
     else void loadQuotes(activeConversationId);
   }
   function activateConversation(conversationId: string) {
-    setClientBriefing(null); setClientBriefingLoading(false); setClientBriefingError("");
+    setClientBriefing(null); setClientBriefingLoading(false); setClientBriefingError(""); setFollowUpFormOpen(false);
     setWorkspaceModule("chat"); setConsultationSelection(null);
     activateConversationWorkspace(conversationId);
   }
   function createConversation() {
-    setClientBriefing(null); setClientBriefingLoading(false); setClientBriefingError("");
+    setClientBriefing(null); setClientBriefingLoading(false); setClientBriefingError(""); setFollowUpFormOpen(false);
     setWorkspaceModule("chat"); setConsultationSelection(null);
     void createConversationWorkspace();
   }
@@ -274,12 +287,23 @@ function App() {
           <section className="home-feature-grid" aria-label="Funciones de Chat PBG"><article><span>01</span><strong>Conversaciones</strong><p>Retoma el historial de cada cliente con su propio contexto.</p></article><article><span>02</span><strong>Consultas deterministas</strong><p>Revisa perfiles y cotizaciones que constan en los registros.</p></article><article><span>03</span><strong>Agenda</strong><p>Programa citas y revisa cada cambio antes de confirmarlo.</p></article></section>
         </main>
         <button className="chat-launcher" type="button" onClick={() => setChatOpen(true)}><span className="launcher-icon">P</span><span>Chat PBG</span></button>
-        <WorkspaceModal open={chatOpen} activeModule={workspaceModule} onModuleChange={changeWorkspaceModule} onClose={() => setChatOpen(false)} title={conversations.find((item) => item.id === activeConversationId)?.title || "Tu asistente de trabajo"} canManageAppointments={agent.role === "agent"}>
+        <WorkspaceModal open={chatOpen} activeModule={workspaceModule} onModuleChange={changeWorkspaceModule} onClose={() => setChatOpen(false)} title={conversations.find((item) => item.id === activeConversationId)?.title || "Tu asistente de trabajo"} canManageAppointments={agent.role === "agent"}
+          notification={agent.role === "agent" && activeClient && !detailLoading && <AppointmentReminderPopup
+            appointments={appointments}
+            client={activeClient}
+            clientName={profile?.client.name || activeClient.name}
+            onCreateFollowUp={() => setFollowUpFormOpen(true)}
+          />}
+        >
         <main className={`chat-shell${activeConversationId ? "" : " no-active-conversation"}`}>
           <div className="conversation-sidebar">
           <ConversationRail
             agent={agent}
-            conversations={conversations}
+            conversations={visibleConversations}
+            conversationSearch={conversationSearch}
+            searchLoading={conversationSearchLoading}
+            searchError={conversationSearchError}
+            onSearchChange={setConversationSearch}
             activeConversationId={activeConversationId}
             error={conversationError}
             renamingConversationId={renamingConversationId}
@@ -299,12 +323,30 @@ function App() {
             {!activeConversationId ? <div className="chat-welcome"><span className="welcome-icon">R</span><span className="eyebrow teal">TU ESPACIO DE TRABAJO</span><h2>Hola, {agent.name.split(" ")[0]}.</h2><p>Crea una conversación para consultar expedientes y cotizaciones autorizadas.</p></div> : <>
               <header className="chat-heading"><div><span className="eyebrow teal">CONVERSACIÓN ACTIVA</span><h2>{conversations.find((item) => item.id === activeConversationId)?.title || "Conversación"}</h2></div><span className={`state-pill ${conversationLoading ? "loading-state" : ""}`}>{conversationLoading ? "Cargando" : "Guardada"}</span></header>
               {conversationError && <div className="inline-error wide" role="alert">{conversationError}</div>}
-              <ConversationTimeline messages={messages} loading={conversationLoading} hasMore={messagesHasMore} historyLoading={historyLoading} notice={notice} onLoadOlder={() => void loadOlderMessages()} />
+              <ConversationTimeline messages={messages} loading={conversationLoading} hasMore={messagesHasMore} historyLoading={historyLoading} notice={notice} onLoadOlder={() => void loadOlderMessages()} visible={chatOpen} contextKey={`${activeConversationId}:${activeClient?.document_path ?? ""}#${activeClient?.client_record_id ?? ""}`} />
               <MessageComposer draft={messageDraft} assistantEnabled={assistantEnabled} hasActiveClient={Boolean(activeClient)} busy={messageBusy} conversationLoading={conversationLoading} activeConversation={Boolean(activeConversationId)} onDraftChange={setMessageDraft} onSend={() => void askAssistant()} />
             </>}
             </>}
           </section>
-          {activeConversationId && <ClientContextPanel activeClient={activeClient} activeClientName={profile?.client.name ?? null} clientQuery={clientQuery} clientResults={clientResults} searchLoading={clientSearchLoading} searchError={clientError} activeConversation={Boolean(activeConversationId)} briefingLoading={clientBriefingLoading} onQueryChange={setClientQuery} onSelectClient={(client) => void selectClient(client)} onShowBriefing={() => void showClientBriefing()} />}
+          {activeConversationId && <ClientContextPanel activeClient={activeClient} activeClientName={profile?.client.name ?? null} clientQuery={clientQuery} clientResults={clientResults} searchLoading={clientSearchLoading} searchError={clientError} activeConversation={Boolean(activeConversationId)} briefingLoading={clientBriefingLoading} onQueryChange={setClientQuery} onSelectClient={(client) => void selectClient(client)} onShowBriefing={() => void showClientBriefing()}>
+            {activeClient && <FollowUpsPanel
+              followUps={followUpWorkflow.followUps}
+              loading={followUpWorkflow.loading}
+              busy={followUpWorkflow.busy}
+              error={followUpWorkflow.error}
+              canManage={followUpWorkflow.canManage}
+              ready={followUpWorkflow.ready}
+              contextBusy={detailLoading}
+              defaultDueDate={followUpWorkflow.defaultDueDate}
+              minimumDueDate={followUpWorkflow.minimumDueDate}
+              openForm={followUpFormOpen}
+              onOpenForm={() => setFollowUpFormOpen(true)}
+              onCloseForm={() => setFollowUpFormOpen(false)}
+              onCreate={followUpWorkflow.create}
+              onComplete={followUpWorkflow.complete}
+              onRetryLoad={followUpWorkflow.retryLoad}
+            />}
+          </ClientContextPanel>}
         </main>
         </WorkspaceModal>
       </div>

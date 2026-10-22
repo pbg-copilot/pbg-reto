@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { Client } from "./domain";
 
 type Props = {
@@ -12,6 +13,7 @@ type Props = {
   onQueryChange: (query: string) => void;
   onSelectClient: (client: Client) => void;
   onShowBriefing: () => void;
+  children?: ReactNode;
 };
 
 export function ClientContextPanel({
@@ -26,6 +28,7 @@ export function ClientContextPanel({
   onQueryChange,
   onSelectClient,
   onShowBriefing,
+  children,
 }: Props) {
   const displayName = activeClientName || activeClient?.name || "";
   return (
@@ -78,6 +81,7 @@ export function ClientContextPanel({
         {clientQuery.trim().length >= 2 && !searchLoading && !searchError && clientResults.length === 0 &&
           <p className="search-hint">No encontramos clientes dentro de tu alcance.</p>}
       </section>
+      {children}
     </aside>
   );
 }

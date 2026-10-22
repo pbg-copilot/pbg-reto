@@ -56,6 +56,13 @@ export type Appointment = {
   start_utc_offset_minutes: number;
   status: "confirmed" | "cancelled";
 };
+export type FollowUp = {
+  id: string;
+  description: string;
+  due_date: string;
+  status: "pending" | "completed";
+  created_at: string;
+};
 export type AppointmentAction = "create" | "reschedule" | "cancel";
 export type AppointmentConfirmation = {
   id: string;
