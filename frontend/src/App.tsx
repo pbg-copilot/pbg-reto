@@ -3,7 +3,7 @@ import "./styles.css";
 import { Agent, Client, Conversation, Message } from "./domain";
 import { ApiError, apiRequest } from "./api-client";
 import { appointmentDateLabel } from "./appointment-domain";
-import { assistantDisplayText, dateLabel, formattedText, textValue } from "./presentation";
+import { textValue } from "./presentation";
 import { Arrow, Chevron, LogoutIcon } from "./ui";
 import { LoginPage } from "./LoginPage";
 import { ConversationRail } from "./ConversationRail";
@@ -13,6 +13,9 @@ import { useClientContext } from "./hooks/useClientContext";
 import { WorkspaceModal, type WorkspaceModule } from "./WorkspaceModal";
 import { AppointmentModule } from "./AppointmentModule";
 import { ConsultationModule, type ConsultationSelection } from "./ConsultationModule";
+import { ClientContextPanel } from "./ClientContextPanel";
+import { ConversationTimeline } from "./ConversationTimeline";
+import { MessageComposer } from "./MessageComposer";
 
 function App() {
   const [agent, setAgent] = useState<Agent | null>(null),
@@ -439,30 +442,12 @@ function App() {
             {!activeConversationId ? <div className="chat-welcome"><span className="welcome-icon">R</span><span className="eyebrow teal">TU ESPACIO DE TRABAJO</span><h2>Hola, {agent.name.split(" ")[0]}.</h2><p>Crea una conversación para consultar expedientes y cotizaciones autorizadas.</p></div> : <>
               <header className="chat-heading"><div><span className="eyebrow teal">CONVERSACIÓN ACTIVA</span><h2>{conversations.find((item) => item.id === activeConversationId)?.title || "Conversación"}</h2></div><span className={`state-pill ${conversationLoading ? "loading-state" : ""}`}>{conversationLoading ? "Cargando" : "Guardada"}</span></header>
               {conversationError && <div className="inline-error wide" role="alert">{conversationError}</div>}
-              <div className="chat-feed" aria-live="polite">
-                {conversationLoading && <div className="feed-state"><span className="loader" /> Cargando historial y contexto…</div>}
-                {!conversationLoading && messagesHasMore && <button className="load-older" onClick={() => void loadOlderMessages()} disabled={historyLoading}>{historyLoading ? "Cargando…" : "Cargar mensajes anteriores"}</button>}
-                {!conversationLoading && messages.length === 0 && <div className="feed-state empty-chat"><strong>Esta conversación está lista.</strong><span>Busca un cliente para fijarlo como contexto. El historial y los resultados se mantienen separados por conversación.</span></div>}
-                {messages.map((message) => { const content = message.sender_role === "assistant" ? assistantDisplayText(message.content) : message.content; return <article className={`message ${message.sender_role === "user" ? "user-message" : "assistant-message"}`} key={message.id}><div className="message-avatar">{message.sender_role === "user" ? "Tú" : "R"}</div><div className="message-content"><div className="message-meta">{message.sender_role === "user" ? "Tú" : "RETO"}<time>{dateLabel(message.created_at)}</time></div><p>{formattedText(content)}</p></div></article>; })}
-                {notice && <div className="saved-notice" role="status">{notice}</div>}
-              </div>
-              <form className="composer" onSubmit={(event) => { event.preventDefault(); void askAssistant(); }}><label htmlFor="message-draft" className="sr-only">Escribe una pregunta o solicitud de cita</label><textarea id="message-draft" value={messageDraft} onChange={(event) => setMessageDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void askAssistant(); } }} placeholder="Pregunta algo o escribe “Agendar cita”…" maxLength={4000} rows={2} disabled={conversationLoading || !activeConversationId} /><div className="composer-bottom"><span>{assistantEnabled ? "Puedes consultar al asistente o escribir “Agendar cita”." : "IA deshabilitada; puedes escribir “Agendar cita”."} Enter para enviar · Shift+Enter para nueva línea.</span><button className="composer-submit" type="submit" disabled={!messageDraft.trim() || !activeClient || messageBusy || conversationLoading}>{messageBusy ? "Procesando…" : "Enviar"}<Arrow /></button></div></form>
+              <ConversationTimeline messages={messages} loading={conversationLoading} hasMore={messagesHasMore} historyLoading={historyLoading} notice={notice} onLoadOlder={() => void loadOlderMessages()} />
+              <MessageComposer draft={messageDraft} assistantEnabled={assistantEnabled} hasActiveClient={Boolean(activeClient)} busy={messageBusy} conversationLoading={conversationLoading} activeConversation={Boolean(activeConversationId)} onDraftChange={setMessageDraft} onSend={() => void askAssistant()} />
             </>}
             </>}
           </section>
-          {activeConversationId && <aside className="context-panel" aria-label="Cliente activo y búsqueda">
-            <section className="panel-section client-context-section">
-              <h2>Cliente activo</h2>
-              {activeClient ? <div className="active-client"><span className="client-avatar">{(profile?.client.name || activeClient.name).split(" ").slice(0, 2).map((part) => part[0]).join("")}</span><div><strong>{profile?.client.name || activeClient.name}</strong><small>Cliente activo</small></div></div> : <p className="muted-copy">Selecciona un cliente para comenzar.</p>}
-              <label className="search-label" htmlFor="client-search">Buscar cliente</label>
-              <div className="search-box"><span aria-hidden="true">⌕</span><input id="client-search" value={clientQuery} onChange={(event) => setClientQuery(event.target.value)} placeholder="Nombre o correo" disabled={!activeConversationId} /></div>
-              {clientSearchLoading && <p className="search-hint">Buscando dentro de tu alcance…</p>}
-              {clientError && <div className="inline-error" role="alert">{clientError}</div>}
-              {clientQuery.trim().length > 0 && clientQuery.trim().length < 2 && <p className="search-hint">Escribe al menos 2 caracteres.</p>}
-              {clientResults.length > 0 && <div className="client-results" role="listbox" aria-label="Resultados de clientes">{clientResults.map((client) => <button key={`${client.document_path}#${client.client_record_id}`} role="option" aria-selected={activeClient?.client_record_id === client.client_record_id && activeClient?.document_path === client.document_path} onClick={() => void selectClient(client)}><strong>{client.name || "Sin nombre"}</strong><small>{client.email || "Correo no disponible"}</small><span className="result-stage">{client.stage || "Etapa no disponible"}</span></button>)}</div>}
-              {clientQuery.trim().length >= 2 && !clientSearchLoading && !clientError && clientResults.length === 0 && <p className="search-hint">No encontramos clientes dentro de tu alcance.</p>}
-            </section>
-          </aside>}
+          {activeConversationId && <ClientContextPanel activeClient={activeClient} activeClientName={profile?.client.name ?? null} clientQuery={clientQuery} clientResults={clientResults} searchLoading={clientSearchLoading} searchError={clientError} activeConversation={Boolean(activeConversationId)} onQueryChange={setClientQuery} onSelectClient={(client) => void selectClient(client)} />}
         </main>
         </WorkspaceModal>
       </div>
