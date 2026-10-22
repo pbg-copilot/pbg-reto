@@ -48,6 +48,10 @@
 .consultation-sidebar button:hover { background: #f4f8f8; }
 .consultation-sidebar button.active { background: #e7f5f2; color: #087d73; font-weight: 700; }
 .workspace-modal-body .context-panel .panel-foot { position: static; }
+.active-client-details { display: grid; flex: 1; gap: 3px; min-width: 0; }
+.client-briefing-button { flex: 0 0 auto; padding: 7px 10px; border: 1px solid #c8e3df; border-radius: 9px; background: #eff9f7; color: #087d73; font-size: 13px; font-weight: 700; cursor: pointer; }
+.client-briefing-button:hover:not(:disabled) { border-color: #83c7bc; background: #e3f5f1; }
+.client-briefing-button:disabled { opacity: .65; cursor: progress; }
 .module-content { width: min(820px, 100%); min-height: 100%; margin: 0 auto; padding: clamp(24px, 4vw, 48px); overflow-y: auto; background: #fff; }
 .module-heading { margin-bottom: 28px; }
 .module-heading h2 { margin: 9px 0; color: #1a3439; font-size: 26px; letter-spacing: -.025em; }
@@ -62,6 +66,25 @@
 .module-empty { margin-top: 22px; padding: 22px; border: 1px dashed #cddcde; border-radius: 14px; color: #6e7f83; line-height: 1.6; }
 .appointment-module .appointment-list { display: grid; gap: 8px; margin-bottom: 16px; }
 .appointment-form-card { padding: 20px; border: 1px solid #e3ebeb; border-radius: 16px; background: #fbfdfd; }
+.client-briefing { display: grid; align-content: start; gap: 15px; }
+.client-briefing .module-heading { margin-bottom: 4px; }
+.briefing-back-button { display: grid; place-items: center; width: 42px; height: 42px; margin: 0 0 30px; padding: 0; border: 1px solid #dce7e7; border-radius: 11px; background: #fff; color: #426064; font-size: 24px; line-height: 1; cursor: pointer; }
+.briefing-back-button:hover { border-color: #9fcfc7; background: #f3faf8; color: #087d73; }
+.briefing-state { padding: 16px; border-radius: 12px; background: #f2f8f7; color: #567174; }
+.briefing-card { padding: 18px; border: 1px solid #e1eaea; border-radius: 14px; background: #fff; }
+.briefing-card h3 { margin: 0 0 13px; color: #24454a; font-size: 16px; }
+.briefing-card p { margin: 0; color: #617477; font-size: 14px; line-height: 1.6; }
+.briefing-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 20px; margin: 0; }
+.briefing-facts div { min-width: 0; }
+.briefing-facts dt, .briefing-list small { color: #819194; font-size: 12px; }
+.briefing-facts dd { margin: 4px 0 0; overflow-wrap: anywhere; color: #29484d; font-size: 14px; }
+.briefing-list { display: grid; gap: 12px; margin: 0; padding-left: 19px; color: #425c60; font-size: 14px; line-height: 1.55; }
+.briefing-list li > span { display: block; }
+.briefing-list small { display: block; margin-top: 4px; }
+.briefing-meta { margin-top: 13px !important; color: #849295 !important; font-size: 12px !important; }
+.briefing-follow-up { background: #f8fbfa; }
+.briefing-follow-up ul { margin: 0 0 12px; padding-left: 20px; color: #425c60; font-size: 14px; line-height: 1.6; }
+.briefing-follow-up p + p { margin-top: 12px; }
 @keyframes modal-fade-in { from { opacity: 0; } to { opacity: 1; } }
 @media (max-width: 1050px) {
   .workspace-modal-body > .chat-shell { grid-template-columns: 245px minmax(280px, 1fr) 260px; }
@@ -85,6 +108,7 @@
   .workspace-modal-body .conversation-rail .rail-foot { display: none; }
   .home-feature-grid { grid-template-columns: 1fr; }
   .query-action-grid { grid-template-columns: 1fr; }
+  .briefing-facts { grid-template-columns: 1fr; }
 }
 
 /* Improve readability throughout the Chat PBG modal. */

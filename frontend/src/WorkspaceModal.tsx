@@ -1,6 +1,6 @@
 import { useEffect, useRef, type ReactNode } from "react";
 
-export type WorkspaceModule = "chat" | "consultas" | "agenda";
+export type WorkspaceModule = "chat" | "consultas" | "agenda" | "ficha";
 
 type WorkspaceModalProps = {
   activeModule: WorkspaceModule;
@@ -56,5 +56,6 @@ export function WorkspaceModal({ activeModule, onModuleChange, onClose, title, c
 }
 
 function moduleLabel(module: WorkspaceModule) {
+  if (module === "ficha") return "Su ficha";
   return modules.find((item) => item.id === module)?.label ?? "Chat";
 }

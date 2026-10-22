@@ -8,8 +8,10 @@ type Props = {
   searchLoading: boolean;
   searchError: string;
   activeConversation: boolean;
+  briefingLoading: boolean;
   onQueryChange: (query: string) => void;
   onSelectClient: (client: Client) => void;
+  onShowBriefing: () => void;
 };
 
 export function ClientContextPanel({
@@ -20,8 +22,10 @@ export function ClientContextPanel({
   searchLoading,
   searchError,
   activeConversation,
+  briefingLoading,
   onQueryChange,
   onSelectClient,
+  onShowBriefing,
 }: Props) {
   const displayName = activeClientName || activeClient?.name || "";
   return (
@@ -33,7 +37,10 @@ export function ClientContextPanel({
             <span className="client-avatar">
               {displayName.split(" ").slice(0, 2).map((part) => part[0]).join("")}
             </span>
-            <div><strong>{displayName}</strong><small>Cliente activo</small></div>
+            <div className="active-client-details"><strong>{displayName}</strong><small>Cliente activo</small></div>
+            <button className="client-briefing-button" type="button" onClick={onShowBriefing} disabled={briefingLoading}>
+              {briefingLoading ? "Preparando…" : "Su ficha"}
+            </button>
           </div>
         ) : <p className="muted-copy">Selecciona un cliente para comenzar.</p>}
         <label className="search-label" htmlFor="client-search">Buscar cliente</label>

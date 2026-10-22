@@ -17,6 +17,8 @@ import { ClientContextPanel } from "./ClientContextPanel";
 import { ConversationTimeline } from "./ConversationTimeline";
 import { MessageComposer } from "./MessageComposer";
 import { createConversationWorkspaceEffects, useConversationWorkspace } from "./hooks/useConversationWorkspace";
+import { ClientBriefingModule } from "./ClientBriefingModule";
+import { loadClientBriefing, type ClientBriefing } from "./client-briefing-service";
 
 function App() {
   const [menu, setMenu] = useState(false),
@@ -24,12 +26,16 @@ function App() {
     [workspaceModule, setWorkspaceModule] = useState<WorkspaceModule>("chat");
   const [consultationSelection, setConsultationSelection] = useState<ConsultationSelection>(null);
   const [assistantEnabled, setAssistantEnabled] = useState(false);
+  const [clientBriefing, setClientBriefing] = useState<ClientBriefing | null>(null);
+  const [clientBriefingLoading, setClientBriefingLoading] = useState(false);
+  const [clientBriefingError, setClientBriefingError] = useState("");
   const conversationEffects = useRef(createConversationWorkspaceEffects());
   const menuRef = useRef<HTMLDivElement>(null),
     buttonRef = useRef<HTMLButtonElement>(null);
   function clearWorkspace() {
     setChatOpen(false); setWorkspaceModule("chat");
     setConsultationSelection(null);
+    setClientBriefing(null); setClientBriefingLoading(false); setClientBriefingError("");
     conversationWorkspace.reset();
   }
   const { agent, loading, error, busy, api, login: authenticate, logout: endSession } = useSession(clearWorkspace);
@@ -40,9 +46,11 @@ function App() {
     messages, setMessages, messagesHasMore, setMessagesHasMore, messagesCursor,
     setMessagesCursor, historyLoading, conversationLoading, conversationError,
     setConversationError, messageDraft, setMessageDraft, messageBusy, setMessageBusy,
-    notice, setNotice, contextRequest, activeConversationRef, createConversation,
+    notice, setNotice, contextRequest, activeConversationRef,
     saveConversationTitle, beginRenameConversation, cancelRenameConversation,
-    reloadConversationHistory, loadOlderMessages, activateConversation,
+    reloadConversationHistory, loadOlderMessages,
+    activateConversation: activateConversationWorkspace,
+    createConversation: createConversationWorkspace,
   } = conversationWorkspace;
   useEffect(() => {
     if (!chatOpen) return;
@@ -133,6 +141,8 @@ function App() {
   });
   function selectClient(client: Client) {
     setConsultationSelection(null);
+    setClientBriefing(null); setClientBriefingLoading(false); setClientBriefingError("");
+    setWorkspaceModule("chat");
     return selectClientContext(client, {
       resetAppointments: resetAppointmentWorkflow,
       reloadHistory: reloadConversationHistory,
@@ -141,13 +151,44 @@ function App() {
   }
   function changeWorkspaceModule(module: WorkspaceModule) {
     if (module === "consultas") setConsultationSelection(null);
+    if (module !== "ficha") setClientBriefingError("");
     setWorkspaceModule(module);
+  }
+  async function showClientBriefing() {
+    if (!activeConversationId || !activeClient || clientBriefingLoading) return;
+    const conversationId = activeConversationId;
+    const requestId = contextRequest.current;
+    setWorkspaceModule("ficha");
+    setConsultationSelection(null);
+    setClientBriefing(null);
+    setClientBriefingError("");
+    setClientBriefingLoading(true);
+    try {
+      const briefing = await loadClientBriefing(api, conversationId);
+      if (requestId !== contextRequest.current || conversationId !== activeConversationRef.current) return;
+      setClientBriefing(briefing);
+    } catch (cause) {
+      if (requestId === contextRequest.current && conversationId === activeConversationRef.current)
+        setClientBriefingError(cause instanceof Error ? cause.message : "No se pudo preparar la ficha del cliente.");
+    } finally {
+      if (requestId === contextRequest.current) setClientBriefingLoading(false);
+    }
   }
   function selectConsultation(selection: Exclude<ConsultationSelection, null>) {
     setConsultationSelection(selection);
     if (!activeConversationId) return;
     if (selection === "profile") void loadProfile(activeConversationId);
     else void loadQuotes(activeConversationId);
+  }
+  function activateConversation(conversationId: string) {
+    setClientBriefing(null); setClientBriefingLoading(false); setClientBriefingError("");
+    setWorkspaceModule("chat"); setConsultationSelection(null);
+    activateConversationWorkspace(conversationId);
+  }
+  function createConversation() {
+    setClientBriefing(null); setClientBriefingLoading(false); setClientBriefingError("");
+    setWorkspaceModule("chat"); setConsultationSelection(null);
+    void createConversationWorkspace();
   }
   async function askAssistant() {
     const content = messageDraft.trim();
@@ -244,7 +285,7 @@ function App() {
             renamingConversationId={renamingConversationId}
             titleDraft={conversationTitleDraft}
             renameBusy={renamingConversationBusy}
-            onCreate={() => void createConversation()}
+            onCreate={createConversation}
             onActivate={activateConversation}
             onBeginRename={beginRenameConversation}
             onCancelRename={cancelRenameConversation}
@@ -254,7 +295,7 @@ function App() {
           {workspaceModule === "consultas" && consultationSelection && <nav className="consultation-sidebar" aria-label="Tipos de consulta"><span className="eyebrow teal">CONSULTAS</span><button type="button" className={consultationSelection === "profile" ? "active" : ""} onClick={() => selectConsultation("profile")}>Expediente</button><button type="button" className={consultationSelection === "quotes" ? "active" : ""} onClick={() => selectConsultation("quotes")}>Cotizaciones</button></nav>}
           </div>
           <section className="chat-main" aria-label="Chat PBG">
-            {workspaceModule === "agenda" ? <AppointmentModule appointments={appointments} loading={appointmentsLoading} loadError={appointmentsError} error={appointmentError} conflict={appointmentConflict} busy={appointmentBusy} action={appointmentAction} selectedId={selectedAppointmentId} date={appointmentDate} time={appointmentTime} duration={appointmentDuration} pending={pendingAppointment} result={appointmentResult} activeClientName={profile?.client.name || activeClient?.name || ""} activeConversationId={activeConversationId} onLoad={(id) => void loadAppointments(id)} onPrepare={() => void prepareAppointment()} onExecute={() => void executeAppointment()} onInvalidate={invalidateAppointmentReview} onErrorChange={setAppointmentError} onConflictChange={setAppointmentConflict} onBusyChange={setAppointmentBusy} onActionChange={setAppointmentAction} onSelectedIdChange={setSelectedAppointmentId} onDateChange={setAppointmentDate} onTimeChange={setAppointmentTime} onDurationChange={setAppointmentDuration} /> : workspaceModule === "consultas" ? <ConsultationModule selection={consultationSelection} activeClient={activeClient} profile={profile} quotes={quotes} loading={detailLoading} error={detailError} onSelect={selectConsultation} onRetry={() => { if (!activeConversationId) return; if (consultationSelection === "quotes") void loadQuotes(activeConversationId); else void loadProfile(activeConversationId); }} /> : <>
+            {workspaceModule === "ficha" ? <ClientBriefingModule briefing={clientBriefing} loading={clientBriefingLoading} error={clientBriefingError} onRetry={() => void showClientBriefing()} onBackToChat={() => setWorkspaceModule("chat")} /> : workspaceModule === "agenda" ? <AppointmentModule appointments={appointments} loading={appointmentsLoading} loadError={appointmentsError} error={appointmentError} conflict={appointmentConflict} busy={appointmentBusy} action={appointmentAction} selectedId={selectedAppointmentId} date={appointmentDate} time={appointmentTime} duration={appointmentDuration} pending={pendingAppointment} result={appointmentResult} activeClientName={profile?.client.name || activeClient?.name || ""} activeConversationId={activeConversationId} onLoad={(id) => void loadAppointments(id)} onPrepare={() => void prepareAppointment()} onExecute={() => void executeAppointment()} onInvalidate={invalidateAppointmentReview} onErrorChange={setAppointmentError} onConflictChange={setAppointmentConflict} onBusyChange={setAppointmentBusy} onActionChange={setAppointmentAction} onSelectedIdChange={setSelectedAppointmentId} onDateChange={setAppointmentDate} onTimeChange={setAppointmentTime} onDurationChange={setAppointmentDuration} /> : workspaceModule === "consultas" ? <ConsultationModule selection={consultationSelection} activeClient={activeClient} profile={profile} quotes={quotes} loading={detailLoading} error={detailError} onSelect={selectConsultation} onRetry={() => { if (!activeConversationId) return; if (consultationSelection === "quotes") void loadQuotes(activeConversationId); else void loadProfile(activeConversationId); }} /> : <>
             {!activeConversationId ? <div className="chat-welcome"><span className="welcome-icon">R</span><span className="eyebrow teal">TU ESPACIO DE TRABAJO</span><h2>Hola, {agent.name.split(" ")[0]}.</h2><p>Crea una conversación para consultar expedientes y cotizaciones autorizadas.</p></div> : <>
               <header className="chat-heading"><div><span className="eyebrow teal">CONVERSACIÓN ACTIVA</span><h2>{conversations.find((item) => item.id === activeConversationId)?.title || "Conversación"}</h2></div><span className={`state-pill ${conversationLoading ? "loading-state" : ""}`}>{conversationLoading ? "Cargando" : "Guardada"}</span></header>
               {conversationError && <div className="inline-error wide" role="alert">{conversationError}</div>}
@@ -263,7 +304,7 @@ function App() {
             </>}
             </>}
           </section>
-          {activeConversationId && <ClientContextPanel activeClient={activeClient} activeClientName={profile?.client.name ?? null} clientQuery={clientQuery} clientResults={clientResults} searchLoading={clientSearchLoading} searchError={clientError} activeConversation={Boolean(activeConversationId)} onQueryChange={setClientQuery} onSelectClient={(client) => void selectClient(client)} />}
+          {activeConversationId && <ClientContextPanel activeClient={activeClient} activeClientName={profile?.client.name ?? null} clientQuery={clientQuery} clientResults={clientResults} searchLoading={clientSearchLoading} searchError={clientError} activeConversation={Boolean(activeConversationId)} briefingLoading={clientBriefingLoading} onQueryChange={setClientQuery} onSelectClient={(client) => void selectClient(client)} onShowBriefing={() => void showClientBriefing()} />}
         </main>
         </WorkspaceModal>
       </div>
