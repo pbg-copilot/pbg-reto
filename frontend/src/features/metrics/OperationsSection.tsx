@@ -11,6 +11,7 @@ import { formatDateTime, formatRelative } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useOperations } from "./api";
 import { LiveStatus } from "./LiveStatus";
+import { PriorityBadge } from "@/features/tickets/components/badges";
 
 // "Ahora mismo": lo que el equipo debería atender ya. En vivo, independiente del rango.
 export function OperationsSection() {
@@ -121,8 +122,9 @@ function AttentionCard({
                   <span className="truncate font-medium">
                     <span className="font-mono text-xs text-muted-foreground">{item.display_number}</span> {item.title}
                   </span>
-                  <span className="text-xs text-muted-foreground">
-                    {item.priority} · {sinceLabel}{" "}
+                  <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted-foreground">
+                    <PriorityBadge code={item.priority_code} name={item.priority} className="h-5 px-1.5 text-[11px]" />
+                    {sinceLabel}{" "}
                     <time dateTime={item.since} title={formatDateTime(item.since)}>
                       {formatRelative(item.since)}
                     </time>{" "}

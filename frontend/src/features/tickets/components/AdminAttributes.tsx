@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PriorityOption } from "./badges";
 import { isVersionConflict, useUpdateTicket } from "../api";
 import { useIncidents } from "@/features/catalog/api";
 import { useCatalogNames } from "../useCatalogNames";
@@ -81,7 +82,7 @@ export function AdminAttributes({ ticket }: { ticket: TicketDetail }) {
             <SelectGroup>
               {names.priorities.map((p) => (
                 <SelectItem key={p.code} value={p.code}>
-                  {p.name}
+                  <PriorityOption code={p.code} name={p.name} />
                 </SelectItem>
               ))}
             </SelectGroup>

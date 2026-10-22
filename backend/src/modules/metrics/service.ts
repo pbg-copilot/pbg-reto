@@ -445,8 +445,8 @@ export function createMetricsService(db: Database) {
     async operations(): Promise<Operations> {
       const LIMIT = 5;
       const list = async (where: ReturnType<typeof sql>, since: ReturnType<typeof sql>): Promise<{ count: number; items: AttentionItem[] }> => {
-        const { rows } = await sql<{ id: string; number: number; title: string; priority: string; since: Date; assignee: string | null; total: number }>`
-          SELECT t.id, t.number, t.title, p.name AS priority, ${since} AS since, a.name AS assignee, count(*) OVER ()::int AS total
+        const { rows } = await sql<{ id: string; number: number; title: string; priority: string; priority_code: string; since: Date; assignee: string | null; total: number }>`
+          SELECT t.id, t.number, t.title, p.name AS priority, p.code AS priority_code, ${since} AS since, a.name AS assignee, count(*) OVER ()::int AS total
           FROM helpdesk.tickets t
           JOIN helpdesk.priorities p ON p.code = t.priority_code
           LEFT JOIN reto.agents a ON a.id = t.assignee_id
@@ -461,6 +461,7 @@ export function createMetricsService(db: Database) {
             display_number: displayNumber(row.number),
             title: row.title,
             priority: row.priority,
+            priority_code: row.priority_code,
             since: new Date(row.since).toISOString(),
             assignee: row.assignee,
           })),

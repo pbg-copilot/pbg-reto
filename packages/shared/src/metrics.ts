@@ -94,6 +94,7 @@ const attentionItem = z.object({
   display_number: z.string(),
   title: z.string(),
   priority: z.string(),
+  priority_code: z.string().describe("Código de la prioridad (criticidad) para su color"),
   since: z.string().describe("Desde cuándo espera (ISO 8601)"),
   assignee: z.string().nullable(),
 });
