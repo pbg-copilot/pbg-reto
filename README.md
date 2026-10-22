@@ -78,6 +78,14 @@ Si se cambia el puerto web o el host, actualizar también `APP_ORIGIN`.
   y prepara los datos del formulario sin depender de React. Con Node.js 24,
   `npm run test:appointment-workflow` comprueba tipos, preparación, fechas y
   contratos de solicitudes, sin conectarse al proveedor ni a PostgreSQL.
+- `features/appointments/hooks/useAppointmentChat.ts` conserva el estado del
+  diálogo, recupera solicitudes pendientes y actualiza el historial.
+  `features/appointments/services/appointment-chat-flow.ts` coordina las etapas
+  de captura de datos y confirmación mediante un contexto y callbacks sin React.
+  Conserva la clave idempotente al ejecutar y los controles de contexto después
+  de las solicitudes. El tipo compartido de confirmación pendiente pertenece a
+  `features/appointments/domain/appointment-domain.ts` y mantiene su exportación
+  desde los tipos del workflow para los consumidores existentes.
 - `backend/src/server.ts` configura Fastify y registra las funcionalidades.
   `backend/src/modules/` agrupa `auth`, `conversations`, `clients`,
   `appointments`, `follow-ups` y `assistant`. Sus handlers están en `routes/`

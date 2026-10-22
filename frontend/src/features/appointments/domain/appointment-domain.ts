@@ -1,4 +1,6 @@
-import type { Appointment } from "../../../shared/types/domain";
+import type { Appointment, AppointmentConfirmation } from "../../../shared/types/domain";
+
+export type PendingAppointment = { confirmation: AppointmentConfirmation; idempotencyKey: string } | null;
 
 export function appointmentDateLabel(appointment: Appointment): string {
   return new Intl.DateTimeFormat("es-CO", {

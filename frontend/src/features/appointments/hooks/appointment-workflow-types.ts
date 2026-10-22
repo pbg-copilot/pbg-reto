@@ -1,8 +1,8 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import type { ApiRequest } from "../../../shared/api/api-client";
-import type { Agent, AppointmentConfirmation, Client, Conversation, Message } from "../../../shared/types/domain";
+import type { Agent, Client, Conversation, Message } from "../../../shared/types/domain";
 
-export type PendingAppointment = { confirmation: AppointmentConfirmation; idempotencyKey: string } | null;
+export type { PendingAppointment } from "../domain/appointment-domain";
 
 export type AppointmentWorkflowOptions = {
   api: ApiRequest;

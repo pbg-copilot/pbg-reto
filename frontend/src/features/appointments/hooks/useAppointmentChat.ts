@@ -1,10 +1,11 @@
 import { useState } from "react";
-import type { AppointmentChatKind, AppointmentChatStage, AppointmentConfirmation, Client } from "../../../shared/types/domain";
-import { isAppointmentListRequest, isCreateAppointmentRequest, parseAppointmentDetails } from "../domain/appointment-domain";
-import { executeAppointment as executeAppointmentRequest, getAppointmentChatState, prepareAppointment as prepareAppointmentRequest, sendAppointmentChatTurn } from "../services/appointment-api";
+import type { AppointmentChatKind, AppointmentChatStage, Client } from "../../../shared/types/domain";
+import { isAppointmentListRequest, isCreateAppointmentRequest } from "../domain/appointment-domain";
+import { getAppointmentChatState, sendAppointmentChatTurn } from "../services/appointment-api";
 import type { AppointmentContextGuard, AppointmentWorkflowOptions, LoadAppointments } from "./appointment-workflow-types";
 import type { AppointmentOperation } from "./useAppointmentOperation";
 import { ApiError } from "../../../shared/api/api-client";
+import { collectAppointmentDetails, confirmAppointmentFromChat, type AppointmentChatFlowContext, type AppointmentChatFlowEffects } from "../services/appointment-chat-flow";
 
 export function useAppointmentChat(options: AppointmentWorkflowOptions, operation: AppointmentOperation, loadAppointments: LoadAppointments, isCurrent: AppointmentContextGuard) {
   const [appointmentChatStage, setAppointmentChatStage] = useState<AppointmentChatStage>("idle");
@@ -56,95 +57,25 @@ export function useAppointmentChat(options: AppointmentWorkflowOptions, operatio
     try {
       if (starting) {
         await sendChatTurn(conversationId, requestId, client, content, "request_details");
-        if (requestId === options.contextRequest.current) setAppointmentChatStage("details");
+        if (isCurrent(conversationId, requestId)) setAppointmentChatStage("details");
         return true;
       }
       if (listing) {
         await sendChatTurn(conversationId, requestId, client, content, "appointments_list");
         return true;
       }
-      if (appointmentChatStage === "details") {
-        if (options.agent?.role !== "agent") {
-          options.setConversationError("La creación de citas por chat está disponible para cuentas de agente.");
-          setAppointmentChatStage("idle");
-          return true;
-        }
-        if (/^(cancelar|cancel|olvidalo|olvídalo)\b/i.test(content.trim())) {
-          await sendChatTurn(conversationId, requestId, client, content, "cancelled");
-          if (requestId === options.contextRequest.current) setAppointmentChatStage("idle");
-          return true;
-        }
-        const details = parseAppointmentDetails(content);
-        if (!details) {
-          await sendChatTurn(conversationId, requestId, client, content, "invalid_details");
-          return true;
-        }
-        setAppointmentBusy(true);
-        let prepared: { confirmation: AppointmentConfirmation };
-        try {
-          prepared = await prepareAppointmentRequest(options.api, conversationId, {
-            action: "create",
-            agentAccountId: options.agent.id,
-            localStart: details.localStart,
-            durationMinutes: details.durationMinutes,
-            timeZone: details.timeZone,
-          });
-        } catch (error) {
-          if (error instanceof ApiError && (error.status === 400 || error.status === 409) && error.code !== "context_changed") {
-            await sendChatTurn(conversationId, requestId, client, content, "invalid_details");
-            return true;
-          }
-          throw error;
-        }
-        if (prepared.confirmation.client_document_path !== client.document_path || prepared.confirmation.client_record_id !== client.client_record_id)
-          throw new ApiError("Cambió el cliente activo. Vuelve a iniciar la solicitud de cita.", 409, "context_changed");
-        if (!isCurrent(conversationId, requestId)) return true;
-        setPendingAppointment({ confirmation: prepared.confirmation, idempotencyKey: prepared.confirmation.id });
-        setAppointmentChatStage("confirmation");
-        await sendChatTurn(conversationId, requestId, client, content, "review", { confirmationId: prepared.confirmation.id });
-        return true;
-      }
-      if (appointmentChatStage === "confirmation") {
-        const pending = pendingAppointment;
-        if (/^(cancelar|cancel|no|descartar)\b/i.test(content.trim())) {
-          await sendChatTurn(conversationId, requestId, client, content, "cancelled");
-          if (requestId === options.contextRequest.current) { setAppointmentChatStage("idle"); setPendingAppointment(null); }
-          return true;
-        }
-        if (!/^(confirmar|confirmo|si|sí|acepto|guardar)\b/i.test(content.trim())) {
-          if (pending) await sendChatTurn(conversationId, requestId, client, content, "repeat_confirmation", { confirmationId: pending.confirmation.id });
-          else options.setConversationError("No hay una confirmación de cita vigente. Inicia una nueva solicitud.");
-          return true;
-        }
-        if (!pending) {
-          options.setConversationError("No hay una confirmación de cita vigente. Inicia una nueva solicitud.");
-          setAppointmentChatStage("idle");
-          return true;
-        }
-        setAppointmentBusy(true);
-        try {
-          const created = await executeAppointmentRequest(
-            options.api,
-            conversationId,
-            pending.confirmation.id,
-            pending.idempotencyKey,
-          );
-          if (!isCurrent(conversationId, requestId)) return true;
-          setAppointmentResult(created); setPendingAppointment(null); setAppointmentChatStage("idle");
-          await loadAppointments(conversationId, requestId);
-          try {
-            await sendChatTurn(conversationId, requestId, client, content, "created", { appointmentId: created.appointment.id });
-          } catch {
-            options.setConversationError("La cita quedó guardada y ya aparece en la agenda, pero no se pudo añadir el mensaje de confirmación al historial.");
-          }
-        } catch (error) {
-          if (error instanceof ApiError && error.status === 409 && error.code === "slot_taken") {
-            setPendingAppointment(null); setAppointmentChatStage("details");
-            await sendChatTurn(conversationId, requestId, client, content, "conflict");
-          } else throw error;
-        }
-        return true;
-      }
+      const context: AppointmentChatFlowContext = {
+        api: options.api, agent: options.agent, conversationId, client, content,
+        isCurrent: () => isCurrent(conversationId, requestId),
+        sendTurn: (kind, extra) => sendChatTurn(conversationId, requestId, client, content, kind, extra),
+        loadAppointments: () => loadAppointments(conversationId, requestId),
+      };
+      const effects: AppointmentChatFlowEffects = {
+        setAppointmentChatStage, setPendingAppointment, setAppointmentBusy, setAppointmentResult,
+        setConversationError: options.setConversationError,
+      };
+      if (appointmentChatStage === "details") await collectAppointmentDetails(context, effects);
+      else if (appointmentChatStage === "confirmation") await confirmAppointmentFromChat(context, pendingAppointment, effects);
     } catch (error) {
       if (isCurrent(conversationId, requestId) && !(error instanceof ApiError && error.status === 401)) {
         options.setConversationError(error instanceof Error ? error.message : "No se pudo completar la solicitud de cita.");
