@@ -1,15 +1,11 @@
 import type { PoolClient } from "pg";
-import type { Principal } from "../../../shared/auth/authorization.js";
+import type { Principal } from "../../../shared/auth/authorization-types.js";
+import type { FollowUpRecord, FollowUpWrite } from "../domain/follow-up-model.js";
+import type { FollowUpRepository } from "../services/follow-up-ports.js";
 
-export type FollowUpRecord = {
-  id: string;
-  description: string;
-  due_date: string;
-  status: "pending" | "completed";
-  created_at: Date;
-};
+export type { FollowUpRecord } from "../domain/follow-up-model.js";
 
-export class PostgresFollowUpRepository {
+export class PostgresFollowUpRepository implements FollowUpRepository {
   async listPending(client: PoolClient, actorAccountId: string, clientPath: string, clientRecordId: string) {
     const { rows } = await client.query<FollowUpRecord>(
       `SELECT id, description, due_date::text AS due_date, status, created_at
@@ -24,7 +20,7 @@ export class PostgresFollowUpRepository {
 
   async create(
     client: PoolClient,
-    followUp: { conversationId: string; clientPath: string; clientRecordId: string; actorId: string; description: string; dueDate: string },
+    followUp: FollowUpWrite,
   ): Promise<FollowUpRecord | null> {
     const { rows } = await client.query<FollowUpRecord>(
       `INSERT INTO reto.chat_follow_ups(

@@ -81,6 +81,13 @@ Si se cambia el puerto web o el host, actualizar también `APP_ORIGIN`.
   por separado las transacciones de sesión, propiedad y acceso al expediente;
   `presentation/conversation-management-response.ts` traduce sus resultados a
   los códigos y respuestas existentes.
+- Los seguimientos se componen en `modules/follow-ups/follow-up-composition.ts`.
+  `routes/follow-up-routes.ts` conserva los esquemas HTTP y delega al servicio
+  `services/follow-up-service.ts`, que coordina consulta, creación y cierre
+  mediante contratos de acceso, transacciones y repositorio. El modelo está en
+  `domain/follow-up-model.ts`; el repositorio conserva el SQL y la validación de
+  fechas según America/Bogota. Las modificaciones y su auditoría usan la misma
+  transacción, y `presentation/follow-up-response.ts` conserva códigos y mensajes.
 - Las cotizaciones del cliente se componen en `modules/clients/client-quote-composition.ts`.
   `routes/client-quote-routes.ts` mantiene el esquema HTTP y la transacción
   autorizada. `services/client-quote-service.ts` reúne los registros y los datos
