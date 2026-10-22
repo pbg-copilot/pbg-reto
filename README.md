@@ -114,6 +114,13 @@ Si se cambia el puerto web o el host, actualizar también `APP_ORIGIN`.
   `domain/follow-up-model.ts`; el repositorio conserva el SQL y la validación de
   fechas según America/Bogota. Las modificaciones y su auditoría usan la misma
   transacción, y `presentation/follow-up-response.ts` conserva códigos y mensajes.
+- La selección del cliente se compone en `modules/clients/client-selection-composition.ts`.
+  `routes/client-selection-routes.ts` conserva el esquema HTTP; el servicio
+  `services/client-selection-service.ts` comprueba el estado de la conversación,
+  resuelve el cliente autorizado y detecta si cambió. El repositorio actualiza
+  el cliente activo y registra `client.selected` o `client.changed` dentro de la
+  misma transacción de propiedad de la conversación. El adaptador
+  `presentation/client-selection-response.ts` mantiene las respuestas existentes.
 - Las cotizaciones del cliente se componen en `modules/clients/client-quote-composition.ts`.
   `routes/client-quote-routes.ts` mantiene el esquema HTTP y la transacción
   autorizada. `services/client-quote-service.ts` reúne los registros y los datos
