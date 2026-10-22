@@ -81,6 +81,14 @@ Si se cambia el puerto web o el host, actualizar también `APP_ORIGIN`.
   por separado las transacciones de sesión, propiedad y acceso al expediente;
   `presentation/conversation-management-response.ts` traduce sus resultados a
   los códigos y respuestas existentes.
+- Las cotizaciones del cliente se componen en `modules/clients/client-quote-composition.ts`.
+  `routes/client-quote-routes.ts` mantiene el esquema HTTP y la transacción
+  autorizada. `services/client-quote-service.ts` reúne los registros y los datos
+  faltantes mediante el contrato `ClientQuoteRepository`; su implementación en
+  `repositories/client-quote-repository.ts` conserva la coincidencia exacta de
+  cliente y propietario y descarta asociaciones ambiguas. El presentador
+  `presentation/client-quote-presenter.ts` mantiene la comparación de valores
+  registrados y la información sobre reglas y vigencia no disponibles.
 - El expediente del cliente se compone en `modules/clients/client-profile-composition.ts`.
   `routes/client-profile-routes.ts` valida parámetros y mantiene la transacción
   autorizada; `services/client-profile-service.ts` prepara notas, actividad,
