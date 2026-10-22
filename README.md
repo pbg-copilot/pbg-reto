@@ -44,6 +44,13 @@ Si se cambia el puerto web o el host, actualizar también `APP_ORIGIN`.
   `frontend/src/shared/` contiene el cliente HTTP y su contrato `ApiRequest`,
   tipos compartidos, presentación, controles de interfaz y estilos. El punto
   de entrada sigue siendo `src/main.tsx`.
+- `features/conversations/hooks/useConversationWorkspace.ts` coordina la
+  conversación activa, su historial y la restauración del contexto del cliente.
+  Delega la búsqueda con espera de 250 ms y descarte de respuestas antiguas a
+  `useConversationSearch.ts`, y la edición del título a `useConversationTitle.ts`.
+  Las solicitudes de listado, creación, renombrado e historial se centralizan en
+  `features/conversations/services/conversation-api.ts`, que recibe `ApiRequest`
+  sin depender de React.
 - `features/appointments/hooks/useAppointmentWorkflow.ts` compone los hooks
   `useAppointmentList`, `useAppointmentForm` y `useAppointmentChat`. Los flujos
   manual y por chat comparten confirmación, clave idempotente y estado de

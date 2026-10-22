@@ -1,13 +1,11 @@
-import { useCallback, useEffect, useRef, useState, type Dispatch, type FormEvent, type MutableRefObject, type SetStateAction } from "react";
+import { useEffect, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { ApiError } from "../../../shared/api/api-client";
 import type { ApiRequest } from "../../../shared/api/api-client";
 import type { Client, Conversation, Message } from "../../../shared/types/domain";
 
-type ConversationHistory = {
-  conversation: Conversation;
-  messages: Message[];
-  pagination: { hasMore: boolean; nextBeforeSequence: string | null };
-};
+import { createConversationRequest, listConversations, loadConversationHistory } from "../services/conversation-api";
+import { useConversationSearch } from "./useConversationSearch";
+import { useConversationTitle } from "./useConversationTitle";
 
 export type ConversationWorkspaceEffects = {
   resetClientContext: () => void;
@@ -39,15 +37,7 @@ export function createConversationWorkspaceEffects(): ConversationWorkspaceEffec
 
 export function useConversationWorkspace({ api, agentId, effectsRef }: Options) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [conversationSearch, setConversationSearch] = useState("");
-  const [conversationSearchResults, setConversationSearchResults] = useState<Conversation[] | null>(null);
-  const [conversationSearchLoading, setConversationSearchLoading] = useState(false);
-  const [conversationSearchError, setConversationSearchError] = useState("");
-  const [conversationSearchRevision, setConversationSearchRevision] = useState(0);
   const [activeConversationId, setActiveConversationId] = useState("");
-  const [renamingConversationId, setRenamingConversationId] = useState("");
-  const [conversationTitleDraft, setConversationTitleDraft] = useState("");
-  const [renamingConversationBusy, setRenamingConversationBusy] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [messagesHasMore, setMessagesHasMore] = useState(false);
   const [messagesCursor, setMessagesCursor] = useState<string | null>(null);
@@ -59,23 +49,18 @@ export function useConversationWorkspace({ api, agentId, effectsRef }: Options) 
   const [notice, setNotice] = useState("");
   const contextRequest = useRef(0);
   const activeConversationRef = useRef("");
-  const searchRequest = useRef(0);
-  const refreshConversationSearch = useCallback(() => {
-    setConversationSearchRevision((revision) => revision + 1);
-  }, []);
+  const { reset: resetSearch, conversationSearchResults, ...search } = useConversationSearch(api, agentId);
+  const { reset: resetTitle, ...title } = useConversationTitle({
+    api, setConversations, setConversationError, refreshConversationSearch: search.refreshConversationSearch,
+  });
 
   function reset() {
     contextRequest.current += 1;
     activeConversationRef.current = "";
     setConversations([]);
-    setConversationSearch("");
-    setConversationSearchResults(null);
-    setConversationSearchLoading(false);
-    setConversationSearchError("");
+    resetSearch();
     setActiveConversationId("");
-    setRenamingConversationId("");
-    setConversationTitleDraft("");
-    setRenamingConversationBusy(false);
+    resetTitle();
     setMessages([]);
     setMessagesHasMore(false);
     setMessagesCursor(null);
@@ -90,57 +75,20 @@ export function useConversationWorkspace({ api, agentId, effectsRef }: Options) 
   }
 
   async function createConversation() {
-    setConversationSearch("");
+    search.setConversationSearch("");
     try {
-      const result = await api<{ conversation: Conversation }>("/api/conversations", {
-        method: "POST",
-        body: JSON.stringify({ title: "Nueva conversación" }),
-      });
-      setConversations((current) => [result.conversation, ...current]);
-      setConversationSearchRevision((revision) => revision + 1);
-      activateConversation(result.conversation.id);
+      const conversation = await createConversationRequest(api);
+      setConversations((current) => [conversation, ...current]);
+      search.refreshConversationSearch();
+      activateConversation(conversation.id);
     } catch (cause) {
       if (!(cause instanceof ApiError && cause.status === 401))
         setConversationError(cause instanceof Error ? cause.message : "No se pudo crear la conversación.");
     }
   }
 
-  async function saveConversationTitle(event: FormEvent, conversationId: string) {
-    event.preventDefault();
-    const title = conversationTitleDraft.trim();
-    if (!title || !conversationId || renamingConversationBusy) return;
-    setRenamingConversationBusy(true);
-    setConversationError("");
-    try {
-      const result = await api<{ conversation: Conversation }>(`/api/conversations/${conversationId}`, {
-        method: "PATCH",
-        body: JSON.stringify({ title }),
-      });
-      setConversations((current) => [result.conversation, ...current.filter((item) => item.id !== conversationId)]);
-      setRenamingConversationId("");
-      setConversationTitleDraft("");
-      setConversationSearchRevision((revision) => revision + 1);
-    } catch (cause) {
-      if (!(cause instanceof ApiError && cause.status === 401))
-        setConversationError(cause instanceof Error ? cause.message : "No se pudo cambiar el nombre.");
-    } finally {
-      setRenamingConversationBusy(false);
-    }
-  }
-
-  function beginRenameConversation(conversation: Conversation) {
-    setRenamingConversationId(conversation.id);
-    setConversationTitleDraft(conversation.title || "");
-    setConversationError("");
-  }
-
-  function cancelRenameConversation() {
-    setRenamingConversationId("");
-    setConversationTitleDraft("");
-  }
-
   async function reloadConversationHistory(conversationId: string, requestId: number) {
-    const history = await api<ConversationHistory>(`/api/conversations/${conversationId}?limit=100`);
+    const history = await loadConversationHistory(api, conversationId);
     if (requestId !== contextRequest.current || conversationId !== activeConversationRef.current) return;
     setMessages(history.messages);
     setMessagesHasMore(history.pagination.hasMore);
@@ -153,9 +101,7 @@ export function useConversationWorkspace({ api, agentId, effectsRef }: Options) 
     const requestId = contextRequest.current;
     setHistoryLoading(true);
     try {
-      const result = await api<{ messages: Message[]; pagination: ConversationHistory["pagination"] }>(
-        `/api/conversations/${conversationId}?limit=100&beforeSequence=${encodeURIComponent(messagesCursor)}`,
-      );
+      const result = await loadConversationHistory(api, conversationId, messagesCursor);
       if (requestId !== contextRequest.current || conversationId !== activeConversationId) return;
       setMessages((current) => [...result.messages, ...current]);
       setMessagesHasMore(result.pagination.hasMore);
@@ -170,8 +116,7 @@ export function useConversationWorkspace({ api, agentId, effectsRef }: Options) 
   }
 
   function activateConversation(conversationId: string) {
-    setRenamingConversationId("");
-    setConversationTitleDraft("");
+    title.cancelRenameConversation();
     contextRequest.current += 1;
     effectsRef.current.resetAppointmentWorkflow();
     activeConversationRef.current = conversationId;
@@ -190,13 +135,13 @@ export function useConversationWorkspace({ api, agentId, effectsRef }: Options) 
     if (!agentId) return;
     let cancelled = false;
     setConversationError("");
-    api<{ conversations: Conversation[] }>("/api/conversations").then((result) => {
+    listConversations(api).then((conversations) => {
       if (cancelled) return;
-      setConversations(result.conversations);
+      setConversations(conversations);
       const current = activeConversationRef.current;
-      const next = current && result.conversations.some((item) => item.id === current)
+      const next = current && conversations.some((item) => item.id === current)
         ? current
-        : result.conversations[0]?.id ?? "";
+        : conversations[0]?.id ?? "";
       activeConversationRef.current = next;
       setActiveConversationId(next);
     }).catch((cause) => {
@@ -205,35 +150,6 @@ export function useConversationWorkspace({ api, agentId, effectsRef }: Options) 
     });
     return () => { cancelled = true; };
   }, [agentId, api]);
-
-  useEffect(() => {
-    const query = conversationSearch.trim();
-    const requestId = ++searchRequest.current;
-    setConversationSearchError("");
-    if (!query) {
-      setConversationSearchResults(null);
-      setConversationSearchLoading(false);
-      return;
-    }
-    setConversationSearchResults([]);
-    setConversationSearchLoading(true);
-    const timer = window.setTimeout(() => {
-      void api<{ conversations: Conversation[] }>(
-        `/api/conversations?search=${encodeURIComponent(query)}`,
-      ).then((result) => {
-        if (requestId === searchRequest.current) setConversationSearchResults(result.conversations);
-      }).catch((cause) => {
-        if (requestId === searchRequest.current && !(cause instanceof ApiError && cause.status === 401))
-          setConversationSearchError(cause instanceof Error ? cause.message : "No se pudo buscar en las conversaciones.");
-      }).finally(() => {
-        if (requestId === searchRequest.current) setConversationSearchLoading(false);
-      });
-    }, 250);
-    return () => {
-      window.clearTimeout(timer);
-      if (requestId === searchRequest.current) searchRequest.current += 1;
-    };
-  }, [agentId, api, conversationSearch, conversationSearchRevision]);
 
   useEffect(() => {
     if (!activeConversationId) {
@@ -254,7 +170,7 @@ export function useConversationWorkspace({ api, agentId, effectsRef }: Options) 
     effectsRef.current.resetAppointmentWorkflow();
     setMessageDraft("");
     setNotice("");
-    api<ConversationHistory>(`/api/conversations/${activeConversationId}?limit=100`).then(async (history) => {
+    loadConversationHistory(api, activeConversationId).then(async (history) => {
       if (cancelled || requestId !== contextRequest.current) return;
       setMessages(history.messages);
       setMessagesHasMore(history.pagination.hasMore);
@@ -287,16 +203,14 @@ export function useConversationWorkspace({ api, agentId, effectsRef }: Options) 
 
   return {
     conversations, setConversations,
-    visibleConversations: conversationSearch.trim() ? conversationSearchResults ?? [] : conversations,
-    conversationSearch, setConversationSearch, conversationSearchLoading, conversationSearchError,
-    refreshConversationSearch,
+    visibleConversations: search.conversationSearch.trim() ? conversationSearchResults ?? [] : conversations,
+    ...search,
     activeConversationId, setActiveConversationId,
-    renamingConversationId, conversationTitleDraft, renamingConversationBusy,
-    setConversationTitleDraft, messages, setMessages, messagesHasMore, setMessagesHasMore,
+    ...title,
+    messages, setMessages, messagesHasMore, setMessagesHasMore,
     messagesCursor, setMessagesCursor, historyLoading, conversationLoading, conversationError,
     setConversationError, messageDraft, setMessageDraft, messageBusy, setMessageBusy,
     setConversationLoading, notice, setNotice, contextRequest, activeConversationRef,
-    reset, createConversation, saveConversationTitle, beginRenameConversation,
-    cancelRenameConversation, reloadConversationHistory, loadOlderMessages, activateConversation,
+    reset, createConversation, reloadConversationHistory, loadOlderMessages, activateConversation,
   };
 }
