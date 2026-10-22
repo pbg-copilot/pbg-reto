@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import type { Client, ClientProfile, Conversation, Message, QuoteResponse } from "../domain";
 import { ApiError } from "../api-client";
+import type { ApiRequest } from "../appointment-api";
 
-type Api = <T>(path: string, init?: RequestInit) => Promise<T>;
 type Options = {
-  api: Api;
+  api: ApiRequest;
   agentId: string | undefined;
   activeConversationId: string;
   contextRequest: MutableRefObject<number>;
@@ -83,7 +83,7 @@ export function useClientContext(options: Options) {
         .finally(() => { if (requestId === searchRequest.current) setClientSearchLoading(false); });
     }, 250);
     return () => window.clearTimeout(timer);
-  }, [clientQuery, options.agentId]);
+  }, [clientQuery, options.agentId, options.api]);
 
   async function selectClient(
     client: Client,

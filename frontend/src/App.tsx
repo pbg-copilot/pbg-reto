@@ -1,13 +1,13 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import "./styles.css";
-import { Agent, Client, Conversation, Message } from "./domain";
-import { ApiError, apiRequest } from "./api-client";
+import { Client, Message } from "./domain";
+import { ApiError } from "./api-client";
 import { appointmentDateLabel } from "./appointment-domain";
 import { textValue } from "./presentation";
 import { Arrow, Chevron, LogoutIcon } from "./ui";
 import { LoginPage } from "./LoginPage";
 import { ConversationRail } from "./ConversationRail";
-import { AuthenticationError, getCurrentAgent, signIn, signOut } from "./auth-service";
+import { useSession } from "./hooks/useSession";
 import { useAppointmentWorkflow } from "./hooks/useAppointmentWorkflow";
 import { useClientContext } from "./hooks/useClientContext";
 import { WorkspaceModal, type WorkspaceModule } from "./WorkspaceModal";
@@ -16,68 +16,34 @@ import { ConsultationModule, type ConsultationSelection } from "./ConsultationMo
 import { ClientContextPanel } from "./ClientContextPanel";
 import { ConversationTimeline } from "./ConversationTimeline";
 import { MessageComposer } from "./MessageComposer";
+import { createConversationWorkspaceEffects, useConversationWorkspace } from "./hooks/useConversationWorkspace";
 
 function App() {
-  const [agent, setAgent] = useState<Agent | null>(null),
-    [loading, setLoading] = useState(true),
-    [error, setError] = useState(""),
-    [busy, setBusy] = useState(false),
-    [menu, setMenu] = useState(false),
+  const [menu, setMenu] = useState(false),
     [chatOpen, setChatOpen] = useState(false),
     [workspaceModule, setWorkspaceModule] = useState<WorkspaceModule>("chat");
   const [consultationSelection, setConsultationSelection] = useState<ConsultationSelection>(null);
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [activeConversationId, setActiveConversationId] = useState("");
-  const [renamingConversationId, setRenamingConversationId] = useState("");
-  const [conversationTitleDraft, setConversationTitleDraft] = useState("");
-  const [renamingConversationBusy, setRenamingConversationBusy] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [messagesHasMore, setMessagesHasMore] = useState(false);
-  const [messagesCursor, setMessagesCursor] = useState<string | null>(null);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [conversationLoading, setConversationLoading] = useState(false);
-  const [conversationError, setConversationError] = useState("");
-  const [messageDraft, setMessageDraft] = useState("");
-  const [messageBusy, setMessageBusy] = useState(false);
   const [assistantEnabled, setAssistantEnabled] = useState(false);
-  const [notice, setNotice] = useState("");
-  const contextRequest = useRef(0);
-  const activeConversationRef = useRef("");
+  const conversationEffects = useRef(createConversationWorkspaceEffects());
   const menuRef = useRef<HTMLDivElement>(null),
     buttonRef = useRef<HTMLButtonElement>(null);
   function clearWorkspace() {
-    contextRequest.current += 1;
     setChatOpen(false); setWorkspaceModule("chat");
     setConsultationSelection(null);
-    activeConversationRef.current = "";
-    setConversations([]); setActiveConversationId(""); setRenamingConversationId(""); setConversationTitleDraft(""); setMessages([]);
-    setMessagesHasMore(false); setMessagesCursor(null);
-    setMessageDraft("");
-    resetAppointmentWorkflow();
-    resetClientContext();
-    setConversationError(""); setNotice("");
-    setConversationLoading(false); setHistoryLoading(false); setMessageBusy(false);
+    conversationWorkspace.reset();
   }
-  async function restore() {
-    try {
-      const restored = await getCurrentAgent();
-      if (restored) {
-        if (agent && agent.id !== restored.id) clearWorkspace();
-        setAgent(restored);
-        setError("");
-      } else {
-        setAgent(null);
-        clearWorkspace();
-      }
-    } catch {
-      setError("No pudimos conectar. Intenta de nuevo.");
-    } finally {
-      setLoading(false);
-    }
-  }
-  useEffect(() => {
-    void restore();
-  }, []);
+  const { agent, loading, error, busy, api, login: authenticate, logout: endSession } = useSession(clearWorkspace);
+  const conversationWorkspace = useConversationWorkspace({ api, agentId: agent?.id, effectsRef: conversationEffects });
+  const {
+    conversations, setConversations, activeConversationId, renamingConversationId,
+    conversationTitleDraft, renamingConversationBusy, setConversationTitleDraft,
+    messages, setMessages, messagesHasMore, setMessagesHasMore, messagesCursor,
+    setMessagesCursor, historyLoading, conversationLoading, conversationError,
+    setConversationError, messageDraft, setMessageDraft, messageBusy, setMessageBusy,
+    notice, setNotice, contextRequest, activeConversationRef, createConversation,
+    saveConversationTitle, beginRenameConversation, cancelRenameConversation,
+    reloadConversationHistory, loadOlderMessages, activateConversation,
+  } = conversationWorkspace;
   useEffect(() => {
     if (!chatOpen) return;
     const previousOverflow = document.body.style.overflow;
@@ -105,18 +71,6 @@ function App() {
     };
   }, [chatOpen]);
   useEffect(() => {
-    if (!agent) return;
-    const check = () => {
-      if (document.visibilityState === "visible") void restore();
-    };
-    const interval = window.setInterval(check, 60000);
-    window.addEventListener("focus", check);
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener("focus", check);
-    };
-  }, [agent?.id]);
-  useEffect(() => {
     if (!agent) { setAssistantEnabled(false); return; }
     let current = true;
     void api<{ enabled: boolean }>("/api/assistant/status").then((status) => {
@@ -124,13 +78,6 @@ function App() {
     }).catch(() => { if (current) setAssistantEnabled(false); });
     return () => { current = false; };
   }, [agent?.id]);
-  async function api<T>(path: string, init?: RequestInit): Promise<T> {
-    return apiRequest<T>(path, init, () => {
-      setAgent(null);
-      clearWorkspace();
-      setError("Tu sesión venció. Inicia sesión para continuar.");
-    });
-  }
   const clientContext = useClientContext({
     api,
     agentId: agent?.id,
@@ -174,55 +121,16 @@ function App() {
     handleChat: handleAppointmentChat, invalidateReview: invalidateAppointmentReview,
     prepareAppointment, executeAppointment,
   } = appointmentWorkflow;
-  async function saveConversationTitle(event: React.FormEvent, conversationId: string) {
-    event.preventDefault();
-    const title = conversationTitleDraft.trim();
-    if (!title || !conversationId || renamingConversationBusy) return;
-    setRenamingConversationBusy(true);
-    setConversationError("");
-    try {
-      const result = await api<{ conversation: Conversation }>(`/api/conversations/${conversationId}`, {
-        method: "PATCH",
-        body: JSON.stringify({ title }),
-      });
-      setConversations((current) => [result.conversation, ...current.filter((item) => item.id !== conversationId)]);
-      setRenamingConversationId("");
-      setConversationTitleDraft("");
-    } catch (e) {
-      if (!(e instanceof ApiError && e.status === 401)) setConversationError(e instanceof Error ? e.message : "No se pudo cambiar el nombre.");
-    } finally {
-      setRenamingConversationBusy(false);
-    }
-  }
-  async function createConversation() {
-    try {
-      const result = await api<{ conversation: Conversation }>("/api/conversations", {
-        method: "POST",
-        body: JSON.stringify({ title: "Nueva conversación" }),
-      });
-      setConversations((current) => [result.conversation, ...current]);
-      activateConversation(result.conversation.id);
-    } catch (e) {
-      if (!(e instanceof ApiError && e.status === 401))
-        setConversationError(e instanceof Error ? e.message : "No se pudo crear la conversación.");
-    }
-  }
-  function beginRenameConversation(conversation: Conversation) {
-    setRenamingConversationId(conversation.id);
-    setConversationTitleDraft(conversation.title || "");
-    setConversationError("");
-  }
-  function cancelRenameConversation() {
-    setRenamingConversationId("");
-    setConversationTitleDraft("");
-  }
-  async function reloadConversationHistory(conversationId: string, requestId: number) {
-    const history = await api<{ conversation: Conversation; messages: Message[]; pagination: { hasMore: boolean; nextBeforeSequence: string | null } }>(`/api/conversations/${conversationId}?limit=100`);
-    if (requestId !== contextRequest.current || conversationId !== activeConversationRef.current) return;
-    setMessages(history.messages);
-    setMessagesHasMore(history.pagination.hasMore);
-    setMessagesCursor(history.pagination.nextBeforeSequence);
-  }
+  useLayoutEffect(() => {
+    conversationEffects.current = {
+      resetClientContext,
+      resetAppointmentWorkflow,
+      setActiveClient,
+      loadProfile,
+      loadAppointments,
+      restoreAppointmentChatState,
+    };
+  });
   function selectClient(client: Client) {
     setConsultationSelection(null);
     return selectClientContext(client, {
@@ -262,103 +170,11 @@ function App() {
       if (conversationId === activeConversationRef.current && !(e instanceof ApiError && e.status === 401)) setConversationError(e instanceof Error ? e.message : "No se pudo redactar una respuesta.");
     } finally { setMessageBusy(false); }
   }
-  useEffect(() => {
-    if (!agent) return;
-    let cancelled = false;
-    setConversationError("");
-    api<{ conversations: Conversation[] }>("/api/conversations").then((result) => {
-      if (cancelled) return;
-      setConversations(result.conversations);
-      const current = activeConversationRef.current;
-      const next = current && result.conversations.some((item) => item.id === current) ? current : result.conversations[0]?.id ?? "";
-      activeConversationRef.current = next;
-      setActiveConversationId(next);
-    }).catch((error) => { if (!cancelled && !(error instanceof ApiError && error.status === 401)) setConversationError(error instanceof Error ? error.message : "No se pudieron cargar las conversaciones."); });
-    return () => { cancelled = true; };
-  }, [agent?.id]);
-  useEffect(() => {
-    if (!activeConversationId) {
-      setMessages([]); setMessagesHasMore(false); setMessagesCursor(null); resetClientContext(); return;
-    }
-    const requestId = ++contextRequest.current;
-    let cancelled = false;
-    setConversationLoading(true); setConversationError("");
-    setMessages([]); setMessagesHasMore(false); setMessagesCursor(null); resetClientContext();
-    resetAppointmentWorkflow();
-    setMessageDraft(""); setNotice("");
-    api<{ conversation: Conversation; messages: Message[]; pagination: { hasMore: boolean; nextBeforeSequence: string | null } }>(`/api/conversations/${activeConversationId}?limit=100`).then(async (history) => {
-      if (cancelled || requestId !== contextRequest.current) return;
-      setMessages(history.messages);
-      setMessagesHasMore(history.pagination.hasMore);
-      setMessagesCursor(history.pagination.nextBeforeSequence);
-      const conversation = history.conversation;
-      setConversations((current) => current.map((item) => item.id === conversation.id ? { ...item, ...conversation } : item));
-      if (conversation.active_client_path && conversation.active_client_record_id) {
-        setActiveClient({ document_path: conversation.active_client_path, client_record_id: conversation.active_client_record_id, name: "Cliente seleccionado", email: null, phone: null, stage: null });
-        await Promise.all([
-          loadProfile(conversation.id, requestId),
-          loadAppointments(conversation.id, requestId),
-          restoreAppointmentChatState(conversation.id, requestId),
-        ]);
-      }
-    }).catch((error) => {
-      if (!cancelled && requestId === contextRequest.current && !(error instanceof ApiError && error.status === 401)) setConversationError(error instanceof Error ? error.message : "No se pudo abrir la conversación.");
-    }).finally(() => { if (!cancelled && requestId === contextRequest.current) setConversationLoading(false); });
-    return () => { cancelled = true; };
-  }, [activeConversationId, agent?.id]);
-  async function loadOlderMessages() {
-    if (!activeConversationId || !messagesCursor || historyLoading) return;
-    const conversationId = activeConversationId;
-    const requestId = contextRequest.current;
-    setHistoryLoading(true);
-    try {
-      const result = await api<{ messages: Message[]; pagination: { hasMore: boolean; nextBeforeSequence: string | null } }>(`/api/conversations/${conversationId}?limit=100&beforeSequence=${encodeURIComponent(messagesCursor)}`);
-      if (requestId !== contextRequest.current || conversationId !== activeConversationId) return;
-      setMessages((current) => [...result.messages, ...current]);
-      setMessagesHasMore(result.pagination.hasMore);
-      setMessagesCursor(result.pagination.nextBeforeSequence);
-    } catch (e) {
-      if (requestId === contextRequest.current && conversationId === activeConversationRef.current && !(e instanceof ApiError && e.status === 401)) setConversationError(e instanceof Error ? e.message : "No se pudo cargar el historial anterior.");
-    } finally { if (requestId === contextRequest.current && conversationId === activeConversationRef.current) setHistoryLoading(false); }
-  }
-  function activateConversation(conversationId: string) {
-    setRenamingConversationId(""); setConversationTitleDraft("");
-    contextRequest.current += 1;
-    resetAppointmentWorkflow();
-    activeConversationRef.current = conversationId;
-    setActiveConversationId(conversationId);
-    setMessages([]); setMessagesHasMore(false); setMessagesCursor(null);
-    setHistoryLoading(false);
-    resetClientContext();
-    setConsultationSelection(null);
-    setMessageDraft(""); setNotice(""); setConversationError("");
-  }
   async function login({ username, password }: { username: string; password: string }) {
-    setBusy(true);
-    setError("");
-    try {
-      setAgent(await signIn(username, password));
-      clearWorkspace();
-      setMenu(false);
-    } catch (error) {
-      setError(error instanceof AuthenticationError ? error.message : "No pudimos conectar. Intenta de nuevo.");
-    } finally {
-      setBusy(false);
-    }
+    if (await authenticate({ username, password })) setMenu(false);
   }
   async function logout() {
-    setBusy(true);
-    setError("");
-    try {
-      await signOut();
-      setAgent(null);
-      clearWorkspace();
-      setMenu(false);
-    } catch {
-      setError("No fue posible cerrar sesión. Intenta de nuevo.");
-    } finally {
-      setBusy(false);
-    }
+    if (await endSession()) setMenu(false);
   }
   if (loading)
     return (

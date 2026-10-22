@@ -2,10 +2,18 @@ import { useRef, useState, type Dispatch, type MutableRefObject, type SetStateAc
 import type { Agent, Appointment, AppointmentAction, AppointmentChatKind, AppointmentChatStage, AppointmentConfirmation, AppointmentMutationResult, Client, Conversation, Message } from "../domain";
 import { ApiError } from "../api-client";
 import { isAppointmentListRequest, isCreateAppointmentRequest, parseAppointmentDetails } from "../appointment-domain";
+import {
+  executeAppointment as executeAppointmentRequest,
+  getAppointmentChatState,
+  listAppointments,
+  prepareAppointment as prepareAppointmentRequest,
+  sendAppointmentChatTurn,
+  type ApiRequest,
+  type AppointmentPreparePayload,
+} from "../appointment-api";
 
-type Api = <T>(path: string, init?: RequestInit) => Promise<T>;
 type Options = {
-  api: Api;
+  api: ApiRequest;
   agent: Agent | null;
   activeConversationId: string;
   activeClient: Client | null;
@@ -49,8 +57,8 @@ export function useAppointmentWorkflow(options: Options) {
   async function loadAppointments(conversationId: string, requestId = options.contextRequest.current) {
     setAppointmentsLoading(true); setAppointmentsError("");
     try {
-      const result = await options.api<{ appointments: Appointment[] }>(`/api/conversations/${conversationId}/appointments`);
-      if (isCurrent(conversationId, requestId)) setAppointments(result.appointments);
+      const appointments = await listAppointments(options.api, conversationId);
+      if (isCurrent(conversationId, requestId)) setAppointments(appointments);
     } catch (error) {
       if (isCurrent(conversationId, requestId) && !(error instanceof ApiError && error.status === 401))
         setAppointmentsError(error instanceof Error ? error.message : "No se pudieron cargar las citas.");
@@ -58,9 +66,12 @@ export function useAppointmentWorkflow(options: Options) {
   }
 
   async function sendChatTurn(conversationId: string, requestId: number, client: Client, content: string, kind: AppointmentChatKind, extra: { confirmationId?: string; appointmentId?: string } = {}) {
-    const result = await options.api<{ messages: Message[] }>(`/api/conversations/${conversationId}/appointment-chat`, {
-      method: "POST",
-      body: JSON.stringify({ content, kind, expectedClientPath: client.document_path, expectedClientRecordId: client.client_record_id, ...extra }),
+    const result = await sendAppointmentChatTurn(options.api, conversationId, {
+      content,
+      kind,
+      expectedClientPath: client.document_path,
+      expectedClientRecordId: client.client_record_id,
+      ...extra,
     });
     if (!isCurrent(conversationId, requestId)) return;
     options.setMessages((current) => [...current, ...result.messages]);
@@ -71,7 +82,7 @@ export function useAppointmentWorkflow(options: Options) {
 
   async function restoreChatState(conversationId: string, requestId: number) {
     try {
-      const state = await options.api<{ state: "idle" | "details" | "confirmation"; confirmation?: AppointmentConfirmation }>(`/api/conversations/${conversationId}/appointment-chat/state`);
+      const state = await getAppointmentChatState(options.api, conversationId);
       if (!isCurrent(conversationId, requestId)) return;
       if (state.state === "details") setAppointmentChatStage("details");
       else if (state.state === "confirmation" && state.confirmation) {
@@ -126,9 +137,12 @@ export function useAppointmentWorkflow(options: Options) {
         setAppointmentBusy(true);
         let prepared: { confirmation: AppointmentConfirmation };
         try {
-          prepared = await options.api<{ confirmation: AppointmentConfirmation }>(`/api/conversations/${conversationId}/appointments/confirm`, {
-            method: "POST",
-            body: JSON.stringify({ action: "create", agentAccountId: options.agent.id, localStart: details.localStart, durationMinutes: details.durationMinutes, timeZone: details.timeZone }),
+          prepared = await prepareAppointmentRequest(options.api, conversationId, {
+            action: "create",
+            agentAccountId: options.agent.id,
+            localStart: details.localStart,
+            durationMinutes: details.durationMinutes,
+            timeZone: details.timeZone,
           });
         } catch (error) {
           if (error instanceof ApiError && (error.status === 400 || error.status === 409) && error.code !== "context_changed") {
@@ -164,10 +178,12 @@ export function useAppointmentWorkflow(options: Options) {
         }
         setAppointmentBusy(true);
         try {
-          const created = await options.api<AppointmentMutationResult>(`/api/conversations/${conversationId}/appointments`, {
-            method: "POST",
-            body: JSON.stringify({ confirmationId: pending.confirmation.id, idempotencyKey: pending.idempotencyKey }),
-          });
+          const created = await executeAppointmentRequest(
+            options.api,
+            conversationId,
+            pending.confirmation.id,
+            pending.idempotencyKey,
+          );
           if (!isCurrent(conversationId, requestId)) return true;
           setAppointmentResult(created); setPendingAppointment(null); setAppointmentChatStage("idle");
           await loadAppointments(conversationId, requestId);
@@ -206,7 +222,7 @@ export function useAppointmentWorkflow(options: Options) {
     const appointment = appointments.find((item) => item.id === selectedAppointmentId);
     if (appointmentAction !== "create" && !appointment) { setAppointmentError("Selecciona una cita vigente para continuar."); return; }
     if (appointmentAction !== "cancel" && (!appointmentDate || !appointmentTime)) { setAppointmentError("Indica la fecha y la hora local de la cita."); return; }
-    const payload: Record<string, unknown> = { action: appointmentAction };
+    const payload: AppointmentPreparePayload = { action: appointmentAction };
     if (appointmentAction !== "create") payload.appointmentId = appointment!.id;
     if (appointmentAction === "create") payload.agentAccountId = options.agent.id;
     if (appointmentAction !== "cancel") {
@@ -218,7 +234,7 @@ export function useAppointmentWorkflow(options: Options) {
     const operationId = ++appointmentRequest.current;
     setAppointmentBusy(true); setAppointmentError(""); setAppointmentConflict(false); setAppointmentResult(null); setPendingAppointment(null);
     try {
-      const result = await options.api<{ confirmation: AppointmentConfirmation }>(`/api/conversations/${conversationId}/appointments/confirm`, { method: "POST", body: JSON.stringify(payload) });
+      const result = await prepareAppointmentRequest(options.api, conversationId, payload);
       if (operationId === appointmentRequest.current && isCurrent(conversationId, requestId))
         setPendingAppointment({ confirmation: result.confirmation, idempotencyKey: crypto.randomUUID() });
     } catch (error) {
@@ -235,7 +251,12 @@ export function useAppointmentWorkflow(options: Options) {
     const pending = pendingAppointment;
     setAppointmentBusy(true); setAppointmentError(""); setAppointmentConflict(false); setAppointmentResult(null);
     try {
-      const result = await options.api<AppointmentMutationResult>(`/api/conversations/${conversationId}/appointments`, { method: "POST", body: JSON.stringify({ confirmationId: pending.confirmation.id, idempotencyKey: pending.idempotencyKey }) });
+      const result = await executeAppointmentRequest(
+        options.api,
+        conversationId,
+        pending.confirmation.id,
+        pending.idempotencyKey,
+      );
       if (operationId === appointmentRequest.current && isCurrent(conversationId, requestId)) {
         setAppointmentResult(result); setPendingAppointment(null); setAppointmentAction("create"); setSelectedAppointmentId("");
         await loadAppointments(conversationId, requestId);

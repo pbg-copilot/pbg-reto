@@ -31,14 +31,19 @@ Si se cambia el puerto web o el host, actualizar también `APP_ORIGIN`.
 ## Organización del código
 
 - `frontend/` contiene la aplicación React y su configuración independiente.
-  `src/main.tsx` solo monta la aplicación; `src/App.tsx` coordina el estado y
-  los flujos. `src/domain.ts` contiene tipos, `src/appointment-domain.ts` la
-  lógica pura de citas, `src/api-client.ts` y `src/auth-service.ts` aíslan el
-  acceso HTTP y la sesión. `src/LoginPage.tsx`, `src/ConversationRail.tsx`,
-  `src/presentation.tsx` y `src/ui.tsx` contienen presentación reutilizable.
-  `src/hooks/useAppointmentWorkflow.ts` concentra las operaciones y el diálogo
-  de agenda; `src/hooks/useClientContext.ts` gestiona búsqueda, selección y
-  carga de perfil/cotizaciones. `App.tsx` conecta estos hooks con la vista.
+  `src/main.tsx` solo monta la aplicación; `src/App.tsx` compone sesión,
+  conversación y módulos de interfaz. `src/domain.ts` contiene tipos y
+  `src/appointment-domain.ts` la lógica pura de citas. `src/api-client.ts`,
+  `src/appointment-api.ts` y `src/auth-service.ts` aíslan las solicitudes HTTP
+  y la sesión. `src/hooks/useSession.ts`,
+  `src/hooks/useConversationWorkspace.ts`,
+  `src/hooks/useAppointmentWorkflow.ts` y `src/hooks/useClientContext.ts`
+  coordinan los flujos de sesión, conversación, agenda y cliente.
+  `src/ClientContextPanel.tsx`, `src/ConversationTimeline.tsx`,
+  `src/MessageComposer.tsx`, los módulos de agenda y consulta, y
+  `src/presentation.tsx` contienen componentes de presentación. Los estilos se
+  separan en `src/base.css`, `src/features.css` y `src/chat-workspace.css`,
+  cargados en orden por `src/styles.css`.
 - `backend/` contiene la API Fastify, su esquema y migraciones. `src/server.ts`
   configura el servidor, sus hooks y dependencias, y registra los módulos de
   rutas. `src/auth-routes.ts`, `src/conversation-routes.ts`,
