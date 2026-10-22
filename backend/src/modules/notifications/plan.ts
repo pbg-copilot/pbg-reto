@@ -33,6 +33,8 @@ export type PlanContext = {
   requesterName: string;
   // Solo comentarios públicos: una nota interna nunca llega aquí.
   commentBody: string | null;
+  // Criticidad del ticket; el listener la consulta solo para las asignaciones.
+  priority?: { code: string; name: string } | null;
 };
 
 export type PlannedNotification = {
@@ -40,9 +42,9 @@ export type PlannedNotification = {
   type: NotificationType;
   title: string;
   body: string;
-  payload: { display_number: string; from?: string; to?: string; at: string; excerpt?: string };
+  payload: { display_number: string; from?: string; to?: string; at: string; excerpt?: string; priority?: string; priority_name?: string };
   link: string;
-  // El correo solo se ofrece al solicitante.
+  // Correo: al solicitante, y al equipo solo cuando le asignan un ticket.
   email: boolean;
 };
 
@@ -69,15 +71,25 @@ export function planNotifications(event: PlanEvent, ticket: PlanTicket, context:
   const out: PlannedNotification[] = [];
   const toRequester = (type: NotificationType, title: string, body: string, extra: Partial<PlannedNotification["payload"]> = {}) =>
     out.push({ recipientId: ticket.requester_id, type, title, body, payload: { ...base, ...extra }, link, email: true });
-  const toTeam = (recipients: string[], type: NotificationType, title: string, body: string, extra: Partial<PlannedNotification["payload"]> = {}) => {
+  const toTeam = (recipients: string[], type: NotificationType, title: string, body: string, extra: Partial<PlannedNotification["payload"]> = {}, email = false) => {
     for (const recipientId of recipients)
-      out.push({ recipientId, type, title, body, payload: { ...base, ...extra }, link, email: false });
+      out.push({ recipientId, type, title, body, payload: { ...base, ...extra }, link, email });
   };
 
   if (event.visibility === "internal") {
     // Lo interno solo puede avisar al equipo: hoy, la asignación al nuevo responsable.
-    if (event.type === "assigned" && typeof event.data.to === "string")
-      toTeam([event.data.to], "ticket_assigned", `Te asignaron ${number}`, ticket.title);
+    // La asignación también va por correo al nuevo responsable, con la criticidad del ticket.
+    if (event.type === "assigned" && typeof event.data.to === "string") {
+      const priority = context.priority;
+      toTeam(
+        [event.data.to],
+        "ticket_assigned",
+        priority ? `Te asignaron ${number} · Prioridad ${priority.name}` : `Te asignaron ${number}`,
+        ticket.title,
+        priority ? { priority: priority.code, priority_name: priority.name } : {},
+        true,
+      );
+    }
   } else {
     switch (event.type) {
       case "created":

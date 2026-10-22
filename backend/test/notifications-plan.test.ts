@@ -96,10 +96,13 @@ describe("T005.3 resolveRecipients", () => {
     ]);
   });
 
-  it("assignment tells only the new assignee, unless they assigned themselves", () => {
+  it("assignment tells only the new assignee, by email too and with the priority, unless they assigned themselves", () => {
     const assigned = event({ type: "assigned", visibility: "internal", data: { from: null, to: "admin-2" } });
     expect(planNotifications(assigned, ticket, context)).toMatchObject([
-      { recipientId: "admin-2", type: "ticket_assigned", email: false },
+      { recipientId: "admin-2", type: "ticket_assigned", email: true },
+    ]);
+    expect(planNotifications(assigned, ticket, { ...context, priority: { code: "urgent", name: "Urgente" } })).toMatchObject([
+      { title: expect.stringMatching(/^Te asignaron TCK-\d{6} · Prioridad Urgente$/), payload: { priority: "urgent", priority_name: "Urgente" } },
     ]);
     expect(planNotifications({ ...assigned, actor_id: "admin-2" }, ticket, context)).toEqual([]);
   });
@@ -111,6 +114,14 @@ describe("email rendering", () => {
     expect(html).toContain("TCK-1 &lt;b&gt;");
     expect(html).toContain("x &amp; y");
     expect(text).toContain("http://localhost:8088/tickets/t-1");
+    expect(text).not.toContain("Prioridad");
+  });
+
+  it("shows the priority as text and color when the notification has one", () => {
+    const { html, text } = renderEmail({ title: "Te asignaron TCK-1", body: "x", link: "/tickets/t-1", priority: { code: "urgent", name: "Urgente" } }, "http://localhost:8088");
+    expect(text).toContain("Prioridad: Urgente (4 de 4)");
+    expect(html).toContain("Prioridad: Urgente · 4 de 4");
+    expect(html).toContain("#aa151b");
   });
 
   it("stored errors never contain email addresses", () => {

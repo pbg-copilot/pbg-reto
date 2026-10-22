@@ -54,6 +54,8 @@ export const notificationSchema = z.object({
     to: z.string().optional(),
     at: isoDate.optional(),
     excerpt: z.string().optional(),
+    priority: z.string().optional().describe("Código de la prioridad (en las asignaciones)"),
+    priority_name: z.string().optional(),
   }),
   link: z.string().describe("Ruta de la app; al abrirla, la API vuelve a verificar permisos"),
   read_at: isoDate.nullable(),

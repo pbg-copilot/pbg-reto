@@ -54,6 +54,7 @@ confirmación de creación al solicitante («Recibimos tu ticket»).
 | AC-005.9 | Hay idempotencia en dos niveles: una notificación por `(evento, destinatario)` mediante `dedupe_key` único, y un job por `(entrega)`. El correo lleva un `Message-ID` determinista. La política es *at-least-once* y queda documentada |
 | AC-005.10 | La UI admin de cada ticket muestra el estado de entrega por canal (entregada, pendiente o fallida) de sus notificaciones |
 | AC-005.11 | *(Could)* Tiempo real por SSE. Si no se implementa, se documenta el polling como decisión |
+| AC-005.12 | *(agregado el 2026-10-21)* La asignación también se envía **por correo** al nuevo responsable, con la prioridad en el asunto («Te asignaron TCK-… · Prioridad Urgente») y como píldora de color con su nivel («4 de 4»). En la app, la notificación muestra el badge de prioridad. El resto de los avisos al equipo sigue solo en la app |
 
 ## Fuera de alcance
 

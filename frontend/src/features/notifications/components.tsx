@@ -1,6 +1,7 @@
 import type { Notification } from "@reto/shared";
 import { formatDateTime, formatRelative } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { PriorityBadge } from "@/features/tickets/components/badges";
 
 // Fila común de la campana y de la bandeja: título, extracto y fecha; punto si no está leída.
 export function NotificationRow({ notification, compact = false }: { notification: Notification; compact?: boolean }) {
@@ -19,9 +20,15 @@ export function NotificationRow({ notification, compact = false }: { notificatio
         {notification.body && (
           <span className={cn("text-sm text-muted-foreground", compact && "line-clamp-2")}>{notification.body}</span>
         )}
-        <time dateTime={notification.created_at} title={formatDateTime(notification.created_at)} className="text-xs text-muted-foreground">
-          {formatRelative(notification.created_at)}
-        </time>
+        <span className="flex flex-wrap items-center gap-2">
+          {/* Asignaciones: el color de la criticidad ayuda a decidir qué abrir primero. */}
+          {notification.payload.priority && notification.payload.priority_name && (
+            <PriorityBadge code={notification.payload.priority} name={notification.payload.priority_name} className="h-5 px-1.5 text-[11px]" />
+          )}
+          <time dateTime={notification.created_at} title={formatDateTime(notification.created_at)} className="text-xs text-muted-foreground">
+            {formatRelative(notification.created_at)}
+          </time>
+        </span>
       </div>
     </div>
   );

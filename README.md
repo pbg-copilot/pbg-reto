@@ -143,7 +143,8 @@ también como promedio.
     estado nuevo, fecha y enlace), las respuestas públicas del equipo, las
     solicitudes de información y las reaperturas.
   - Al equipo: cuando el solicitante responde o reabre (al responsable, o a todos
-    los admins si no hay responsable) y cuando a alguien le asignan un ticket.
+    los admins si no hay responsable) y cuando a alguien le asignan un ticket. La
+    asignación llega también **por correo**, con la prioridad en el asunto y en color.
   - Las notas internas no generan avisos al solicitante, y su texto nunca aparece en
     una notificación.
 - **Transaccional (outbox).** La notificación, su entrega y el job del correo se

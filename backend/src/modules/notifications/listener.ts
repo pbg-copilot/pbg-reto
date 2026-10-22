@@ -38,7 +38,12 @@ export function createNotificationListener(options: { email: boolean }): TicketE
       if (comment?.visibility === "public") commentBody = comment.body;
     }
 
-    const planned = planNotifications({ ...event, data }, ticket, { team, requesterName, commentBody });
+    const priority =
+      event.type === "assigned"
+        ? ((await trx.selectFrom("helpdesk.priorities").select(["code", "name"]).where("code", "=", ticket.priority_code).executeTakeFirst()) ?? null)
+        : null;
+
+    const planned = planNotifications({ ...event, data }, ticket, { team, requesterName, commentBody, priority });
     for (const item of planned) {
       const inserted = await trx
         .insertInto("helpdesk.notifications")
